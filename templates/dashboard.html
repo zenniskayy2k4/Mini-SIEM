@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="content-header">
+    <h2>Overview Dashboard</h2>
+    <span class="date-badge" id="current-time">--:--:--</span>
+</div>
+
+<!-- 1. Stats Cards (Số liệu tổng quan) -->
+<div class="stats-row">
+    <div class="card stat-box critical">
+        <div class="icon"><i class="fa-solid fa-radiation"></i></div>
+        <div>
+            <h3>Critical Threats</h3>
+            <p id="val-critical">0</p>
+        </div>
+    </div>
+    <div class="card stat-box high">
+        <div class="icon"><i class="fa-solid fa-fire"></i></div>
+        <div>
+            <h3>High Severity</h3>
+            <p id="val-high">0</p>
+        </div>
+    </div>
+    <div class="card stat-box ai">
+        <div class="icon"><i class="fa-solid fa-brain"></i></div>
+        <div>
+            <h3>AI Anomalies</h3>
+            <p id="val-ai">0</p>
+        </div>
+    </div>
+    <div class="card stat-box total">
+        <div class="icon"><i class="fa-solid fa-server"></i></div>
+        <div>
+            <h3>Total Events</h3>
+            <p id="val-total">0</p>
+        </div>
+    </div>
+</div>
+
+<!-- 2. Charts Section (Biểu đồ) -->
+<div class="charts-row">
+    <!-- Biểu đồ tròn: Tỉ lệ mức độ nghiêm trọng -->
+    <div class="card chart-container">
+        <h3><i class="fa-solid fa-chart-pie"></i> Threat Severity Distribution</h3>
+        <div class="canvas-wrapper">
+            <canvas id="severityChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Biểu đồ cột: Top IP tấn công -->
+    <div class="card chart-container">
+        <h3><i class="fa-solid fa-network-wired"></i> Top Attacking Sources</h3>
+        <div class="canvas-wrapper">
+            <canvas id="sourceChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Recent Alerts (Bảng nhỏ gọn) -->
+<div class="card recent-alerts">
+    <h3><i class="fa-solid fa-bell"></i> Recent Critical Alerts</h3>
+    <table class="mini-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Alert Name</th>
+                <th>Severity</th>
+                <th>Source IP</th>
+            </tr>
+        </thead>
+        <tbody id="mini-table-body">
+            <!-- JS will fill this -->
+        </tbody>
+    </table>
+</div>
+{% endblock %}

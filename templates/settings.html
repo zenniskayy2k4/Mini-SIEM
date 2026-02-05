@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="fa-solid fa-sliders"></i> System Configuration</h2>
+</div>
+
+<div class="settings-container">
+    
+    <!-- Card 1: Detection Engine -->
+    <div class="settings-card">
+        <h3><i class="fa-solid fa-microchip"></i> Detection Engine</h3>
+        
+        <!-- Setting Item 1 -->
+        <div class="setting-item">
+            <div class="setting-info">
+                <label>AI Anomaly Detection</label>
+                <p>Enable Deep Learning Autoencoder for zero-day threats.</p>
+            </div>
+            <label class="switch">
+                <input type="checkbox" checked disabled>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <!-- Setting Item 2 -->
+        <div class="setting-item">
+            <div class="setting-info">
+                <label>Signature Matching</label>
+                <p>Use Regex & Rules for known attack patterns (SSH, Sudo).</p>
+            </div>
+            <label class="switch">
+                <input type="checkbox" checked disabled>
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Card 2: Integration -->
+    <div class="settings-card">
+        <h3><i class="fa-solid fa-plug"></i> Integrations</h3>
+        
+        <div class="input-group">
+            <label class="input-label">Elasticsearch Endpoint (ELK)</label>
+            <input type="text" class="styled-input" value="http://localhost:9200" readonly>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">Slack Webhook URL</label>
+            <input type="text" class="styled-input" value="https://hooks.slack.com/services/T000/B000/XXXX" readonly>
+        </div>
+    </div>
+
+    <!-- Card 3: System -->
+    <div class="settings-card">
+        <h3><i class="fa-solid fa-server"></i> Agent Status</h3>
+        <div class="setting-item">
+            <div class="setting-info">
+                <label>Log Monitoring</label>
+                <p>Watching: <span style="font-family:'JetBrains Mono'; color:var(--accent-blue)">/var/log/auth.log</span></p>
+            </div>
+            <span class="badge-live" style="position:static">ACTIVE</span>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

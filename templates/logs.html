@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="fa-solid fa-list-ul"></i> Security Event Logs</h2>
+    <div class="actions">
+        <button id="btn-filter-toggle" class="btn btn-ghost">
+            <i class="fa-solid fa-filter"></i> Filter
+        </button>
+        <button id="btn-live-toggle" class="badge-live" type="button">LIVE STREAM</button>
+    </div>
+</div>
+
+<!-- Filter dropdown container -->
+<div class="logs-controls">
+    <div id="filter-panel" class="card filter-panel" style="display:none;">
+        <div class="filter-row">
+            <div class="filter-field">
+                <label class="input-label">From</label>
+                <input id="filter-from" class="styled-input" type="datetime-local">
+            </div>
+
+            <div class="filter-field">
+                <label class="input-label">To</label>
+                <input id="filter-to" class="styled-input" type="datetime-local">
+            </div>
+
+            <div class="filter-field">
+                <label class="input-label">Severity</label>
+                <select id="filter-severity" class="styled-input">
+                    <option value="">All</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="INFO">INFO</option>
+                </select>
+            </div>
+
+            <div class="filter-field">
+                <label class="input-label">IP</label>
+                <input id="filter-ip" class="styled-input" type="text" placeholder="e.g. 192.168.1.10">
+            </div>
+
+            <div class="filter-field">
+                <label class="input-label">MITRE</label>
+                <input id="filter-mitre" class="styled-input" type="text" placeholder="e.g. T1110">
+            </div>
+
+            <div class="filter-field filter-field-wide">
+                <label class="input-label">Search</label>
+                <input id="filter-q" class="styled-input" type="text" placeholder="alert name / description / raw log">
+            </div>
+
+            <div class="filter-buttons">
+                <button id="filter-apply" class="btn btn-primary" type="button">Apply</button>
+                <button id="filter-clear" class="btn btn-ghost" type="button">Clear</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="table-wrapper">
+    <div class="table-scroll-area">
+        <table class="logs-table">
+            <thead>
+                <tr>
+                    <th width="140">Timestamp</th>
+                    <th width="180">Alert Name</th>
+                    <th width="100">Severity</th>
+                    <th width="110">MITRE ID</th>
+                    <th>Payload & Details</th>
+                    <th width="220">Mitigation</th>
+                </tr>
+            </thead>
+            <tbody id="logs-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Pager footer (small, under the table) -->
+    <div class="table-footer">
+        <div class="pager-left muted" id="page-info">Page 1 / 1 • Total 0</div>
+
+        <div class="pager-right">
+            <label class="input-label pager-label">Page size</label>
+            <select id="page-size" class="styled-input page-size">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+            </select>
+
+            <button id="page-prev" class="btn btn-ghost" type="button">Prev</button>
+            <button id="page-next" class="btn btn-ghost" type="button">Next</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
