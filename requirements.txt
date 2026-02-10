@@ -7,3 +7,4 @@ rich
 joblib
 requests
 torch
+scapy

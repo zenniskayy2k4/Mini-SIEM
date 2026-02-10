@@ -211,3 +211,4 @@ __marimo__/
 /data
 *.exe
 !static/images/*
+data/runtime_settings.json

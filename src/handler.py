@@ -4,6 +4,8 @@ from config import config
 from src.elk_forwarder import ELKForwarder
 from src.response import IncidentResponder
 from src.correlator import AlertCorrelator
+from src.alert_store import append_alert
+import os
 
 class LogHandler(FileSystemEventHandler):
     """
@@ -18,7 +20,7 @@ class LogHandler(FileSystemEventHandler):
         self.correlator = correlator or AlertCorrelator(config.CORRELATION_WINDOW_MINUTES)
         self.responder = responder or IncidentResponder()
 
-        self.file_handle = open(file_path, 'r')
+        self.file_handle = open(file_path, 'r', encoding="utf-8", errors="ignore")
         self.file_handle.seek(0, 2)  # Start from end
         self.elk = ELKForwarder()
 
@@ -26,17 +28,25 @@ class LogHandler(FileSystemEventHandler):
         """
         Processes new log lines on file modification.
         """
-        if event.src_path.endswith("auth.log"):
-            new_lines = self.file_handle.readlines()
-            for line in new_lines:
-                if not line.strip(): continue
-                
-                alert = self.detector.analyze(line)
-                if alert:
-                    alert = self.correlator.correlate(alert)
-                    alert = self.responder.handle_incident(alert)
-                    self.elk.send_alert(alert)
-                    self._handle_alert(alert)
+        # Only react to the exact watched file (works cross-platform)
+        src = os.path.normcase(os.path.abspath(event.src_path))
+        watched = os.path.normcase(os.path.abspath(self.file_path))
+        if src != watched:
+            return
+
+        new_lines = self.file_handle.readlines()
+        for line in new_lines:
+            if not line.strip():
+                continue
+
+            alert = self.detector.analyze(line)
+            if alert:
+                alert["source_type"] = alert.get("source_type") or "HIDS_LOG"
+
+                alert = self.correlator.correlate(alert)
+                alert = self.responder.handle_incident(alert)
+                self.elk.send_alert(alert)
+                self._handle_alert(alert)
 
     def _handle_alert(self, alert):
         """
@@ -54,5 +64,4 @@ class LogHandler(FileSystemEventHandler):
             print(f" Log: {alert['raw_log']}")
         print(f" Mitigation: {alert.get('mitigation', 'None')}")
 
-        with open(config.OUTPUT_ALERT_FILE, 'a') as f:
-            f.write(json.dumps(alert) + "\n")
+        append_alert(alert)

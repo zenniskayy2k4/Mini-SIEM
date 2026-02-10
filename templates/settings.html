@@ -5,49 +5,82 @@
 </div>
 
 <div class="settings-container">
-    
-    <!-- Card 1: Detection Engine -->
+
+    <!-- Card 1: Sensors -->
     <div class="settings-card">
-        <h3><i class="fa-solid fa-microchip"></i> Detection Engine</h3>
-        
-        <!-- Setting Item 1 -->
+        <h3><i class="fa-solid fa-satellite-dish"></i> Sensors</h3>
+
         <div class="setting-item">
             <div class="setting-info">
-                <label>AI Anomaly Detection</label>
-                <p>Enable Deep Learning Autoencoder for zero-day threats.</p>
+                <label>NIDS (Network Monitor)</label>
+                <p>Sniff packets via Scapy. Requires Admin/Root + Npcap on Windows.</p>
             </div>
             <label class="switch">
-                <input type="checkbox" checked disabled>
+                <input id="set-nids-enabled" type="checkbox">
                 <span class="slider"></span>
             </label>
         </div>
 
-        <!-- Setting Item 2 -->
         <div class="setting-item">
             <div class="setting-info">
-                <label>Signature Matching</label>
-                <p>Use Regex & Rules for known attack patterns (SSH, Sudo).</p>
+                <label>Honeypot (Internal Port Trap)</label>
+                <p>High-fidelity signal: any connection is suspicious.</p>
             </div>
             <label class="switch">
-                <input type="checkbox" checked disabled>
+                <input id="set-honeypot-enabled" type="checkbox">
                 <span class="slider"></span>
             </label>
         </div>
     </div>
 
-    <!-- Card 2: Integration -->
+    <!-- Card 2: Dashboard Graph -->
     <div class="settings-card">
-        <h3><i class="fa-solid fa-plug"></i> Integrations</h3>
-        
-        <div class="input-group">
-            <label class="input-label">Elasticsearch Endpoint (ELK)</label>
-            <input type="text" class="styled-input" value="http://localhost:9200" readonly>
+        <h3><i class="fa-solid fa-diagram-project"></i> Context Graph</h3>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <label>Auto Refresh Graph</label>
+                <p>Reduce CPU by increasing refresh interval.</p>
+            </div>
+            <label class="switch">
+                <input id="set-graph-auto" type="checkbox">
+                <span class="slider"></span>
+            </label>
         </div>
 
         <div class="input-group">
-            <label class="input-label">Slack Webhook URL</label>
-            <input type="text" class="styled-input" value="https://hooks.slack.com/services/T000/B000/XXXX" readonly>
+            <label class="input-label">Graph Refresh (ms)</label>
+            <input id="set-graph-refresh-ms" type="number" class="styled-input" min="1000" step="500" value="10000">
         </div>
+
+        <div class="input-group">
+            <label class="input-label">Graph Max Alerts</label>
+            <input id="set-graph-max-alerts" type="number" class="styled-input" min="50" step="50" value="500">
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <label>Include source_type nodes</label>
+                <p>Add nodes for HIDS_LOG / NETWORK_SENSOR / HONEYPOT.</p>
+            </div>
+            <label class="switch">
+                <input id="set-graph-include-sources" type="checkbox">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <label>Include campaign/correlation nodes</label>
+                <p>Use <span class="font-mono">correlated_events</span> to show campaigns.</p>
+            </div>
+            <label class="switch">
+                <input id="set-graph-include-campaigns" type="checkbox">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="muted" id="settings-save-status" style="margin-top:10px;"></div>
     </div>
 
     <!-- Card 3: System -->
@@ -56,7 +89,8 @@
         <div class="setting-item">
             <div class="setting-info">
                 <label>Log Monitoring</label>
-                <p>Watching: <span style="font-family:'JetBrains Mono'; color:var(--accent-blue)">/var/log/auth.log</span></p>
+                <p>Watching: <span class="font-mono" style="color:var(--accent-blue)">{{ log_path }}</span></p>
+                <p>Alerts: <span class="font-mono" style="color:var(--accent-purple)">{{ alerts_path }}</span></p>
             </div>
             <span class="badge-live" style="position:static">ACTIVE</span>
         </div>

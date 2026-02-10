@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="page-header">
+  <h2><i class="fa-solid fa-diagram-project"></i> Attack Context Graph</h2>
+  <div class="actions">
+    <button id="btn-graph-refresh" class="btn btn-primary" type="button">
+      <i class="fa-solid fa-rotate"></i> Refresh
+    </button>
+    <button id="btn-graph-fit" class="btn btn-ghost" type="button">
+      <i class="fa-solid fa-maximize"></i> Fit
+    </button>
+  </div>
+</div>
+
+<div class="card graph-card">
+  <div class="graph-legend">
+    <span class="legend-item"><span class="dot dot-ip"></span> IP</span>
+    <span class="legend-item"><span class="dot dot-mitre"></span> MITRE</span>
+    <span class="legend-item"><span class="dot dot-alert"></span> Alert</span>
+    <span class="legend-item"><span class="dot dot-source"></span> Source</span>
+    <span class="legend-item"><span class="dot dot-campaign"></span> Campaign</span>
+    <span class="legend-item"><span class="dot dot-event"></span> Event (hidden until click Campaign)</span>
+  </div>
+
+  <div id="contextGraphFull" class="graph-canvas-full"></div>
+  <div id="graph-tooltip" class="graph-tooltip" style="display:none;"></div>
+</div>
+
+<script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+{% endblock %}

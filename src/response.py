@@ -34,10 +34,12 @@ class IncidentResponder:
         Generates response suggestions based on alert type.
         """
         ip = alert.get("ip_address", "Unknown")
-        if "Brute Force" in alert["alert_name"]:
+        name = alert.get("alert_name", "")
+
+        if "Brute Force" in name or "Honeypot" in name or "Port Scanning" in name:
             return f"iptables -A INPUT -s {ip} -j DROP"
-        elif "Sudo" in alert["alert_name"]:
-            return f"usermod -L {ip}" 
+        elif "Sudo" in name:
+            return "Manual Investigation (review sudoers, lock the offending user account)"
         return "Manual Investigation"
 
     def _notify(self, alert):

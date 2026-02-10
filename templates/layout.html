@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SIEM Pro | SOC Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Favicons -->
+    <link rel="icon" href="{{ url_for('static', filename='favicons/favicon.ico') }}" type="image/x-icon" />
+    <link rel="icon" href="{{ url_for('static', filename='favicons/favicon-32x32.png') }}" sizes="32x32" type="image/png"/>
+    <link rel="icon" href="{{ url_for('static', filename='favicons/favicon-16x16.png') }}" sizes="16x16" type="image/png"/>
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicons/apple-touch-icon.png') }}" />
+    <link rel="icon" href="{{ url_for('static', filename='favicons/android-chrome-192x192.png') }}" sizes="192x192" type="image/png"/>
+    <link rel="icon" href="{{ url_for('static', filename='favicons/android-chrome-512x512.png') }}" sizes="512x512" type="image/png" />
+    <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -24,6 +32,9 @@
                 </a>
                 <a href="/logs" class="{{ 'active' if page == 'logs' else '' }}">
                     <i class="fa-solid fa-list-ul"></i> Live Logs
+                </a>
+                <a href="/graph" class="{{ 'active' if page == 'graph' else '' }}">
+                    <i class="fa-solid fa-diagram-project"></i> Graph
                 </a>
                 <a href="/settings" class="{{ 'active' if page == 'settings' else '' }}">
                     <i class="fa-solid fa-gear"></i> Settings
