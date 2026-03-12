@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  train:
+    build: .
+    command: python tools/train_ml.py
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    profiles: ["train"]
+
+  # --- SIEM Agent (log monitor) ---
+  agent:
+    build: .
+    command: python main.py
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./models:/app/models
+    # NIDS requires host network + privileged for raw packet capture
+    network_mode: host
+    privileged: true
+    restart: unless-stopped
+    depends_on:
+      - dashboard
+
+  # --- Web Dashboard ---
+  dashboard:
+    build: .
+    command: python dashboard.py
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+    restart: unless-stopped

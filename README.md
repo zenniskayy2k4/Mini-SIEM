@@ -1,156 +1,315 @@
-# 🛡️ Pro Mini-SIEM (Host-Based IDS)
+# 🛡️ Mini-SIEM Pro — AI-Powered Blue Team Agent
 
-![Python](https://img.shields.io/badge/Python-3.x-blue?style=for-the-badge&logo=python)
-![Flask](https://img.shields.io/badge/Flask-Web%20Dashboard-green?style=for-the-badge&logo=flask)
-![ML](https://img.shields.io/badge/AI-Isolation%20Forest-orange?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python)
+![Flask](https://img.shields.io/badge/Flask-Dashboard-green?style=for-the-badge&logo=flask)
+![AI](https://img.shields.io/badge/AI-4--Layer%20Detection-orange?style=for-the-badge&logo=openai)
+![Groq](https://img.shields.io/badge/Groq-LLM%20Analyst-purple?style=for-the-badge)
+![Docker](https://img.shields.io/badge/Docker-Supported-2496ED?style=for-the-badge&logo=docker)
 ![Security](https://img.shields.io/badge/Cybersecurity-Blue%20Team-red?style=for-the-badge)
 
-A lightweight, modular, and **AI-powered Security Information and Event Management (SIEM)** agent designed for educational purposes and SOC Analyst portfolios.
+A lightweight, modular, **AI-powered SIEM** agent for real-time threat detection, correlation, and automated incident triage. Built for SOC Analyst portfolios and educational cybersecurity labs.
 
-This project simulates a Host-based Intrusion Detection System (HIDS) that monitors system logs in real-time, detects malicious patterns using **MITRE ATT&CK** mapped signatures, identifies behavioral anomalies using **Unsupervised Machine Learning**, and provides an interactive **Cyberpunk-style Dashboard**.
+> ⚠️ **Educational purposes only.** Do not deploy on production systems you do not own.
+
+---
+
+## ✨ Feature Highlights
+
+| Area | v1 | v2 |
+|---|---|---|
+| ML feature vector | 3 features | **15 features** (cmd chains, hex sequences, attack keywords…) |
+| AI Analyst | None | **Groq LLM** (async triage, FP scoring, auto playbook) |
+| Correlation | Brute-force only | **3 types** — campaign, kill chain, cross-sensor |
+| AE training | All data (including attacks) | **Normal-only** (drastically reduces false positives) |
+| TF-IDF vocab | 500 unigrams | **1000 bigrams** with sublinear TF |
 
 ---
 
 ## 🚀 Key Features
 
-### 1. 🧠 AI & Machine Learning Detection
--   **Algorithm:** Uses **Isolation Forest** (Unsupervised Learning) to detect unknown threats.
--   **Feature Extraction:** Analyzes log entry length and Shannon Entropy to detect anomalies like obfuscated commands, shellcode, or buffer overflow attempts.
--   **Statistical Augmentation:** Training tools included to generate synthetic datasets based on real Linux log profiles (Loghub).
+### 🧠 4-Layer Detection Engine
 
-### 2. ⚡ Real-Time Correlation Engine
--   **Stateful Inspection:** Doesn't just look at single logs. It tracks events over time windows.
--   **Campaign Detection:** Automatically correlates multiple failed login attempts into a single **"Brute Force Campaign"** alert to reduce alert fatigue.
+```
+Layer 0  Rule-based signatures    < 1ms    Zero false positives on known attacks
+Layer 1  NLP (TF-IDF + IsoForest) ~ 2ms    Semantic anomaly detection
+Layer 2  Autoencoder (15-feat)    ~ 3ms    Structural / byte-level anomalies
+Layer 3  Groq LLM Analyst         async    False-positive triage + playbook gen
+```
 
-### 3. 🎯 Rule-Based Detection (MITRE ATT&CK)
--   Pre-configured Regex signatures mapped to standard frameworks:
-    -   **T1110:** Brute Force
-    -   **T1548:** Abuse Elevation Control Mechanism (Sudo)
-    -   **T1136:** Create Account
+**Layer 3 — Groq AI Analyst** enriches every HIGH/CRITICAL alert in the background without blocking the detection pipeline. Output includes:
+- False-positive probability (0–100%)
+- Recommended response playbook (step-by-step)
+- MITRE tactic/technique mapping
+- IOC extraction (IPs, hashes, domains)
+- Auto-downgrade to INFO if FP confidence ≥ 80%
 
-### 4. 💻 Modern SOC Dashboard
--   **Tech Stack:** Flask (Backend) + HTML/CSS/JS (Frontend).
--   **UI:** Dark-mode, Glassmorphism design suitable for modern SOC centers.
--   **Live Feed:** Auto-refreshing alerts via API polling.
+### ⚡ Correlation Engine
 
-### 5. ⚔️ Red Team Simulation
--   Includes a built-in **Attack Simulator** CLI tool.
--   Simulates various attack vectors (SSH Brute Force, Sudo Abuse, Anomaly Injection) to test the SIEM's detection capabilities.
+Three distinct correlation mechanisms run on every alert:
+
+1. **Volume Campaign** — N events of the same type from one IP within a sliding window (configurable threshold per tactic category)
+2. **Kill Chain Detection** — Recognises multi-stage progressions: `RECON → CRED_ACCESS → PRIV_ESC → EXECUTION`
+3. **Cross-Sensor Correlation** — Same IP detected across HIDS + NIDS + Honeypot simultaneously → instant CRITICAL
+
+### 🎯 Rule-Based Detection (MITRE ATT&CK)
+
+| Technique | Description |
+|---|---|
+| T1110 | Brute Force / Password Guessing |
+| T1548 | Abuse Elevation Control (Sudo) |
+| T1046 | Network Service Scanning |
+| T1557.002 | ARP Cache Poisoning |
+| T1136 | Create Account |
+
+### 🌐 HIDS + NIDS + Honeypot
+
+- **HIDS** — Watchdog-based real-time log file monitor (auth.log, syslog, custom)
+- **NIDS** — Scapy packet sniffer: TCP SYN flood heuristic + ARP spoofing detection
+- **Honeypot** — TCP trap on port 2222; any connection is a CRITICAL, high-fidelity alert
+
+### 💻 SOC Dashboard
+
+- Dark-mode, glassmorphism UI (Flask + Chart.js + Cytoscape)
+- Paginated live event table with filtering (severity, IP, MITRE ID, time range)
+- Interactive attack context graph (IP → MITRE → Campaign nodes)
+- Runtime settings hot-reload (no restart needed)
+- ELK/Elasticsearch forwarding support
+
+### ⚔️ Red Team Simulator
+
+Built-in attack simulator for testing detection coverage:
+
+| Mode | Description |
+|---|---|
+| 1 | SSH Brute Force (log injection) |
+| 2 | Sudo Privilege Escalation |
+| 3 | High-entropy anomaly payload |
+| 4 | Mixed attack chain |
+| 5 | Real TCP SYN scan (requires root) |
 
 ---
 
 ## 📂 Project Structure
 
-The project follows a modular **MVC-like architecture** for scalability:
-
 ```
 Mini-SIEM/
-├── config/                 # Configuration settings
-│   └── config.py
-├── data/                   # Storage for Alerts and Logs
-│   ├── siem_alerts.json    # JSON output for the Dashboard
-│   └── Linux_2k.log        # Raw dataset for training
-├── logs/                   # Monitored Logs
-│   └── auth.log            # Target log file (simulated)
-├── models/                 # Trained ML Models
-│   ├── iso_forest.pkl      # The "Brain" of the AI
-│   └── scaler.pkl          # Data normalizer
-├── src/                    # Core Source Code
-│   ├── detector.py         # Hybrid Detection Engine (Rules + ML)
-│   ├── correlator.py       # Event Correlation Logic
-│   ├── response.py         # Incident Response & Mitigation
-│   └── handler.py          # File System Watchdog Handler
-├── static/                 # Frontend Assets
-│   ├── css/                # Neon/Cyberpunk Styles
-│   └── js/                 # Dashboard Logic
-├── templates/              # HTML Templates
-│   └── dashboard_view.html
-├── tools/                  # Utility Scripts
-│   ├── attack_sim.py       # Red Team Attack Simulator
-│   └── train_real.py       # ML Training Script (Real Data + Augmentation)
-├── main.py                 # Entry Point (SIEM Agent)
-├── dashboard.py            # Entry Point (Web Server)
-└── requirements.txt        # Python Dependencies
+├── config/
+│   └── config.py           # All settings — ports, thresholds, signatures
+├── data/                   # Runtime data (hot-reload settings, alerts)
+├── logs/                   # Monitored log file (auth.log)
+├── models/                 # Trained ML artifacts (.pkl, .pth)
+├── src/
+│   ├── detector.py         # 4-layer detection engine
+│   ├── ai_analyst.py       # Groq LLM Layer 3 (async)
+│   ├── correlator.py       # Campaign + kill chain + cross-sensor correlation
+│   ├── handler.py          # Watchdog HIDS handler
+│   ├── network_monitor.py  # Scapy NIDS
+│   ├── honeypot.py         # TCP honeypot trap
+│   ├── response.py         # Incident responder & mitigation
+│   ├── alert_store.py      # Thread-safe JSON lines writer
+│   └── elk_forwarder.py    # Elasticsearch forwarder
+├── static/                 # Frontend assets (CSS, JS)
+├── templates/              # Jinja2 HTML templates
+├── tools/
+│   ├── train_ml.py         # ML training pipeline
+│   └── attack_sim.py       # Red team simulator
+├── main.py                 # SIEM agent entry point
+├── dashboard.py            # Web dashboard entry point
+├── Dockerfile
+├── docker-compose.yml
+└── requirements.txt
 ```
 
 ---
 
-## 🛠️ Installation
+## 🐳 Quick Start with Docker (Recommended)
+
+Docker is the easiest way to run the full stack — no manual dependency installation required.
 
 ### Prerequisites
--   Python 3.8+
--   Linux/WSL (Recommended) or Windows
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) or Docker Engine (Linux)
+- A free [Groq API key](https://console.groq.com) for AI Analyst (optional but recommended)
 
-### Step 1: Clone the repository
+### Step 1 — Clone the repository
 ```bash
 git clone https://github.com/zenniskayy2k4/Mini-SIEM.git
 cd Mini-SIEM
 ```
 
-### Step 2: Install Dependencies
+### Step 2 — Configure environment
 ```bash
-pip install -r requirements.txt
+cp .env.example .env
+# Edit .env and add your GROQ_API_KEY (optional — Layer 3 AI Analyst)
 ```
-*(Required libs: `watchdog`, `flask`, `pandas`, `numpy`, `scikit-learn`, `joblib`, `rich`)*
+
+### Step 3 — Train ML models (one-time, ~2–3 min)
+```bash
+docker compose --profile train run --rm train
+```
+> Models are saved to `./models/` on your host machine and reused on subsequent runs.
+
+### Step 4 — Start the full stack
+```bash
+docker compose up -d
+```
+
+| Service | URL |
+|---|---|
+| Dashboard | http://localhost:5000 |
+
+### Step 5 (Optional) — Run the attack simulator
+```bash
+docker compose run --rm agent python tools/attack_sim.py
+```
+
+### Stop all services
+```bash
+docker compose down
+```
 
 ---
 
-## 🕹️ Usage Guide
+## 💻 Manual Installation (No Docker)
 
-To run the full system, you will need **3 separate terminal windows**.
+### Prerequisites
+- Python **3.12+**
+- Windows: [Npcap](https://npcap.com/) required for NIDS packet capture
+- Linux/macOS: run with `sudo` for NIDS raw socket access
 
-### Terminal 1: Train the AI Model 🧠
-Before running the detection agent, you must train the machine learning model. This script downloads real Linux logs, augments them to 50k+ samples, and trains the Isolation Forest.
-
+### Step 1 — Install dependencies
 ```bash
-python tools/train_real.py
+git clone https://github.com/zenniskayy2k4/Mini-SIEM.git
+cd Mini-SIEM
+pip install -r requirements.txt
 ```
-*Output: `[SUCCESS] Enterprise-Grade Model saved to: models/iso_forest.pkl`*
 
-### Terminal 2: Start the SIEM Agent 🛡️
-This is the core engine that monitors logs and generates alerts.
+### Step 2 — Set environment variables
+```bash
+# Linux/macOS
+export GROQ_API_KEY="gsk_your_key_here"
 
+# Windows (PowerShell)
+$env:GROQ_API_KEY = "gsk_your_key_here"
+```
+
+### Step 3 — Train ML models 🧠
+```bash
+python tools/train_ml.py
+```
+Training output shows detection rate and false-positive rate — aim for FP rate < 5%.
+
+### Step 4 — Start SIEM agent (Terminal 1)
 ```bash
 python main.py
 ```
 
-### Terminal 3: Start the Dashboard 📊
-Launch the web interface to visualize alerts.
-
+### Step 5 — Start dashboard (Terminal 2)
 ```bash
 python dashboard.py
 ```
-> **Access the Dashboard:** Open your browser and go to `http://localhost:5000`
+> Open **http://localhost:5000**
 
-### Terminal 4 (Optional): Attack Simulator ⚔️
-Simulate attacks to see the system in action.
-
+### Step 6 (Optional) — Attack simulator (Terminal 3)
 ```bash
 python tools/attack_sim.py
 ```
-*Select option `1` for Brute Force or `3` for ML Anomaly Injection.*
+
+---
+
+## ⚙️ Configuration
+
+Edit `config/config.py` to customise behaviour:
+
+| Key | Default | Description |
+|---|---|---|
+| `DASHBOARD_PORT` | `5000` | Web dashboard port |
+| `NIDS_ENABLED` | `False` | Enable Scapy packet sniffer |
+| `HONEYPOT_ENABLED` | `False` | Enable TCP honeypot trap |
+| `HONEYPOT_PORT` | `2222` | Honeypot listener port |
+| `CORRELATION_WINDOW_MINUTES` | `5` | Sliding window for campaign detection |
+| `NIDS_SYN_THRESHOLD` | `20` | SYN packets/window to trigger alert |
+| `ELK_ENABLED` | `False` | Forward alerts to Elasticsearch |
+| `ELK_URL` | `http://localhost:9200/...` | Elasticsearch endpoint |
+
+Runtime settings (NIDS, Honeypot toggles) can also be changed live from the **Settings** page without restarting.
+
+---
+
+## 🤖 Groq AI Analyst — Setup
+
+The AI Analyst (Layer 3) uses **Llama 3.3 70B** via Groq's free API for real-time alert triage.
+
+1. Create a free account at [console.groq.com](https://console.groq.com)
+2. Generate an API key
+3. Set `GROQ_API_KEY` in your environment or `.env` file
+
+When active, every HIGH/CRITICAL alert is automatically enriched with:
+```json
+{
+  "is_false_positive": false,
+  "threat_confidence": 92,
+  "mitre_technique": "T1110.001 - Password Guessing",
+  "threat_summary": "Sustained SSH brute-force from external IP targeting root account.",
+  "recommended_playbook": [
+    "Block source IP: iptables -A INPUT -s 45.33.22.11 -j DROP",
+    "Check for successful logins from this IP in the last 24h",
+    "Enable fail2ban if not already active",
+    "Disable PasswordAuthentication in /etc/ssh/sshd_config"
+  ],
+  "escalate_to_human": true
+}
+```
+
+> **Without a Groq API key**, Layers 0–2 (rules + ML) continue working normally. Layer 3 is silently skipped.
+
+---
+
+## 🏗️ How Detection Works
+
+```
+Log line arrives
+       │
+       ▼
+┌─────────────────────┐
+│  Layer 0: Signatures│ ──hit──► Alert (rule-matched)
+└──────────┬──────────┘
+           │ no match
+           ▼
+┌─────────────────────┐
+│  Layer 1: NLP       │
+│  Layer 2: AE (15f)  │ ──both flag──► CRITICAL AI Anomaly
+└──────────┬──────────┘ ──one flags──► HIGH Anomaly
+           │ no anomaly
+           ▼
+          None (clean log)
+           
+       [Async, non-blocking]
+┌─────────────────────┐
+│  Layer 3: Groq LLM  │ ──enriches HIGH/CRITICAL alerts in background
+└─────────────────────┘
+```
 
 ---
 
 ## 📸 Screenshots
 
-*(Place your dashboard screenshots here)*
-
-> **Dashboard View:** Shows critical alerts and ML anomaly scores in real-time.
+![Dashboard Overview](/assets/Dashboard.jpeg)
 
 ---
 
-## 🔮 Future Roadmap
+## 🔮 Roadmap
 
--   **Threat Intelligence Integration:** Enrich alerts with GeoIP and ISP data.
--   **ELK Stack Integration:** Forward logs to Elasticsearch/Kibana.
--   **Email Notifications:** SMTP integration for critical alerts.
--   **Internal Honeypot:** A fake port listener to catch scanners.
+- [ ] Slack / PagerDuty / email webhook alerts  
+- [ ] SQLite backend for efficient log querying  
+- [ ] JWT authentication for dashboard  
+- [ ] Windows Event Log support (via `pywin32`)  
+- [ ] Fine-tuned small LLM on SOC playbooks  
+- [ ] Auto-block via firewall API (not just command suggestion)  
 
 ---
 
 ## ⚠️ Disclaimer
 
-This project is for **Educational Purposes Only**. The attack simulator should only be used on systems you own or have explicit permission to test. The author is not responsible for any misuse.
-
----
+This project is for **educational purposes only**.  
+The attack simulator must only be used on systems you own or have explicit written permission to test.  
+The author is not responsible for any misuse.

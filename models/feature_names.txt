@@ -1,0 +1,15 @@
+log_length
+entropy
+digit_ratio
+upper_ratio
+special_char_ratio
+slash_count
+cmd_chain_count
+quote_count
+bracket_count
+word_count
+max_word_length
+url_count
+has_attack_keyword
+hex_sequence_count
+repeat_char_ratio

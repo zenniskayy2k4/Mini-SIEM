@@ -73,7 +73,7 @@ function initSettings() {
       if (elHp) elHp.checked = !!s.HONEYPOT_ENABLED;
 
       if (elGraphAuto) elGraphAuto.checked = !!s.GRAPH_AUTO_REFRESH;
-      if (elGraphRefresh) elGraphRefresh.value = String(s.GRAPH_REFRESH_MS ?? 10000);
+      if (elGraphRefresh) elGraphRefresh.value = String(s.GRAPH_REFRESH_MS ?? 15000);
       if (elGraphMaxAlerts) elGraphMaxAlerts.value = String(s.GRAPH_MAX_ALERTS ?? 500);
       if (elGraphIncludeSources) elGraphIncludeSources.checked = !!s.GRAPH_INCLUDE_SOURCES;
       if (elGraphIncludeCampaigns) elGraphIncludeCampaigns.checked = !!s.GRAPH_INCLUDE_CAMPAIGNS;
@@ -464,18 +464,22 @@ function initDashboard() {
 
   loadGraphSettings();
 
-  cy.on('tap', 'node', function(evt){
-    var node = evt.target;
-    cy.elements().removeClass('faded');
-    var neighborhood = node.neighborhood().add(node);
-    cy.elements().not(neighborhood).addClass('faded');
-  });
+  const g = ensureGraph();
+  if (g) {
+    g.on("tap", "node", function (evt) {
+      const node = evt.target;
+      g.elements().removeClass("faded");
+      const neighborhood = node.neighborhood().add(node);
+      g.elements().not(neighborhood).addClass("faded");
+    });
 
-  cy.on('tap', function(evt){
-    if( evt.target === cy ){
-      cy.elements().removeClass('faded');
-    }
-  });
+    g.on("tap", function (evt) {
+      if (evt.target === g) {
+        g.elements().removeClass("faded");
+      }
+    });
+  }
+
   updateGraphOnce();
 }
 
@@ -695,235 +699,8 @@ function updateClock() {
   }
 }
 
-function initGraphPage() {
-  const el = document.getElementById("contextGraphFull");
-  if (!el) return;
-  if (typeof cytoscape === "undefined") return;
 
-  const tooltip = document.getElementById("graph-tooltip");
-  const btnRefresh = document.getElementById("btn-graph-refresh");
-  const btnFit = document.getElementById("btn-graph-fit");
 
-  let cy = cytoscape({
-    container: el,
-    elements: [],
-    minZoom: 0.25,
-    maxZoom: 2.5,
-    style: [
-      // Nodes
-      {
-        selector: "node",
-        style: {
-          label: "data(label)",
-          "font-size": 11,
-          "font-weight": "bold",
-          color: "#e2e8f0",
-          "text-valign": "bottom",
-          "text-halign": "center",
-          "text-margin-y": 6,            
-          "text-background-color": "#020617", 
-          "text-background-opacity": 0.8,
-          "text-background-padding": 3,
-          "text-background-shape": "roundrectangle",
-          "border-width": 2,
-          "border-color": "#ffffff",
-          "border-opacity": 0.2,
-          "background-color": "#64748b",
-          width: "mapData(count, 1, 20, 25, 60)",
-          height: "mapData(count, 1, 20, 25, 60)",
-        },
-      },
-      { selector: 'node[type="ip"]', style: { "background-color": "#ef4444", shape: "ellipse" } },
-      { selector: 'node[type="mitre"]', style: { "background-color": "#f97316", shape: "round-rectangle" } },
-      { selector: 'node[type="alert"]', style: { "background-color": "#3b82f6", shape: "round-rectangle" } },
-      { selector: 'node[type="source"]', style: { "background-color": "#22c55e", shape: "hexagon" } },
-      { selector: 'node[type="campaign"]', style: { "background-color": "#a855f7", shape: "diamond" } },
-
-      {
-        selector: '.faded',
-        style: {
-          'opacity': 0.1,
-          'text-opacity': 0
-        }
-      },
-
-      // Event nodes hidden by default (to avoid clutter)
-      { selector: 'node[type="event"]', style: { display: "none", "background-color": "#94a3b8", shape: "round-rectangle" } },
-      { selector: 'node[type="event"].revealed', style: { display: "element" } },
-
-      // Edges (default: clean, no labels)
-      {
-        selector: "edge",
-        style: {
-          width: 1.5,
-          "line-color": "rgba(148, 163, 184, 0.55)",
-          "target-arrow-color": "rgba(148, 163, 184, 0.65)",
-          "target-arrow-shape": "vee",
-          "curve-style": "bezier",
-          "control-point-step-size": 48,
-          "line-cap": "round",
-          "opacity": 0.5,
-          label: "",
-        },
-      },
-
-      // Show edge label only when selected
-      {
-        selector: "edge:selected",
-        style: {
-          label: "data(label)",
-          "font-size": 9,
-          color: "#cbd5e1",
-          "text-background-color": "#0b1220",
-          "text-background-opacity": 0.9,
-          "text-background-padding": 2,
-        },
-      },
-
-      // Edge coloring by type
-      { selector: 'edge[etype="src_ip"]', style: { "line-color": "rgba(34,197,94,0.35)", "target-arrow-color": "rgba(34,197,94,0.35)" } },
-      { selector: 'edge[etype="ip_mitre"]', style: { "line-color": "rgba(249,115,22,0.35)", "target-arrow-color": "rgba(249,115,22,0.35)" } },
-      { selector: 'edge[etype="ip_alert"]', style: { "line-color": "rgba(59,130,246,0.35)", "target-arrow-color": "rgba(59,130,246,0.35)" } },
-      { selector: 'edge[etype^="camp_"]', style: { "line-style": "dashed", "line-color": "rgba(168,85,247,0.35)", "target-arrow-color": "rgba(168,85,247,0.35)" } },
-
-      // Hide campaign->event edges until revealed
-      { selector: 'edge[etype="camp_event"]', style: { display: "none" } },
-      { selector: 'edge[etype="camp_event"].revealed', style: { display: "element" } },
-
-      { selector: "node:selected", style: { "border-width": 2, "border-color": "#eab308" } },
-    ],
-    layout: {
-      name: "cose",
-      animate: true,
-      animationDuration: 1000,
-      nodeRepulsion: function(node){ return 200000; }, 
-      idealEdgeLength: function(edge){ return 150; },
-      edgeElasticity: function(edge){ return 32; },
-      gravity: 0.1,
-      numIter: 1000,
-      padding: 50,
-      clustering: true,
-    },
-  });
-
-  function hideTooltip() {
-    if (!tooltip) return;
-    tooltip.style.display = "none";
-  }
-
-  function showTooltip(text, x, y) {
-    if (!tooltip) return;
-    tooltip.textContent = text || "";
-    tooltip.style.left = `${x + 12}px`;
-    tooltip.style.top = `${y + 12}px`;
-    tooltip.style.display = "block";
-  }
-
-  function clearReveal() {
-    cy.nodes('node[type="event"]').removeClass("revealed");
-    cy.edges('edge[etype="camp_event"]').removeClass("revealed");
-    cy.edges('edge[etype="svc_event"]').removeClass("revealed");
-  }
-
-  function revealCampaignEvents(campNode) {
-    clearReveal();
-
-    const evEdges = campNode.connectedEdges('edge[etype="camp_event"]');
-    evEdges.addClass("revealed");
-
-    const evNodes = evEdges.connectedNodes('node[type="event"]');
-    evNodes.addClass("revealed");
-
-    // Also reveal service->event edges for those events (grouping effect)
-    evNodes.connectedEdges('edge[etype="svc_event"]').addClass("revealed");
-  }
-
-  cy.on("unselect", "node", () => {
-    clearReveal();
-    hideTooltip();
-  });
-
-  cy.on("select", 'node[type="campaign"]', (e) => {
-    revealCampaignEvents(e.target);
-  });
-
-  cy.on("mouseover", "node", (e) => {
-    const n = e.target;
-    const raw = n.data("raw");
-    const label = n.data("label") || n.id();
-
-    const svc = n.data("service");
-    const et = n.data("event_type");
-
-    const head = svc || et ? `[${svc || "?"}/${et || "?"}] ` : "";
-    const txt = raw ? head + raw : head + label;
-
-    const rp = n.renderedPosition();
-    showTooltip(txt, rp.x, rp.y);
-  });
-  cy.on("mouseout", "node", hideTooltip);
-
-  let timer = null;
-  let graphAuto = true;
-  let graphRefreshMs = 10000;
-  let lastSig = "";
-
-  function schedule() {
-    if (timer) clearInterval(timer);
-    if (!graphAuto) return;
-    timer = setInterval(fetchAndRender, graphRefreshMs);
-  }
-
-  function fetchSettings() {
-    return fetch("/api/settings", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((s) => {
-        graphAuto = !!s.GRAPH_AUTO_REFRESH;
-        graphRefreshMs = Math.max(1000, parseInt(s.GRAPH_REFRESH_MS ?? 10000, 10));
-        schedule();
-      })
-      .catch(() => schedule());
-  }
-
-  function autoRevealTopCampaign() {
-    const camps = cy.nodes('node[type="campaign"]');
-    if (!camps || camps.length === 0) return;
-
-    const top = camps.sort((a, b) => (b.data("count") || 0) - (a.data("count") || 0)).first();
-    if (!top || top.empty()) return;
-
-    top.select();                 // triggers revealCampaignEvents
-    revealCampaignEvents(top);    // ensure reveal even if select event doesn't fire
-    cy.fit(top.closedNeighborhood(), 60);
-  }
-
-  function fetchAndRender() {
-    return fetch("/api/graph", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((payload) => {
-        const sig = JSON.stringify(payload || {});
-        if (sig === lastSig) return;
-        lastSig = sig;
-
-        const elements = [...(payload.nodes || []), ...(payload.edges || [])];
-        cy.elements().remove();
-        cy.add(elements);
-
-        clearReveal();
-        cy.layout(cy.options().layout).run();
-        autoRevealTopCampaign();
-        if (cy.nodes('node[type="campaign"]').length === 0) {
-          cy.fit(undefined, 30);
-        }
-      })
-      .catch(() => {});
-  }
-
-  btnRefresh?.addEventListener("click", () => fetchAndRender());
-  btnFit?.addEventListener("click", () => cy.fit(undefined, 30));
-
-  fetchSettings().then(fetchAndRender);
-}
 
 const rootStyle = getComputedStyle(document.documentElement);
 const C = {
@@ -944,4 +721,276 @@ function hexToRgba(hex, a) {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${a})`;
+}
+
+window.hasFitGraph = false;
+function initGraphPage() {
+  const el = document.getElementById("contextGraphFull");
+  if (!el) return;
+  if (typeof ForceGraph === "undefined") { setTimeout(initGraphPage, 200); return; }
+
+  const tooltip    = document.getElementById("graph-tooltip");
+  const btnRefresh = document.getElementById("btn-graph-refresh");
+  const btnFit     = document.getElementById("btn-graph-fit");
+
+  // ── Colour palette ─────────────────────────────────────────────────────────
+  const NODE_CORE = { ip:"#ef4444", mitre:"#f97316", alert:"#3b82f6", source:"#22c55e", campaign:"#a855f7", event:"#475569" };
+  const NODE_GLOW = { ip:"#f87171", mitre:"#fb923c", alert:"#60a5fa", source:"#4ade80", campaign:"#c084fc", event:"#64748b" };
+  const LINK_CLR  = { src_ip:"rgba(34,197,94,0.6)", ip_mitre:"rgba(249,115,22,0.6)", ip_alert:"rgba(59,130,246,0.6)", svc_event:"rgba(148,163,184,0.35)", camp_event:"rgba(168,85,247,0.45)" };
+  const PART_CLR  = { src_ip:"rgba(74,222,128,1)", ip_mitre:"rgba(251,146,60,1)", ip_alert:"rgba(96,165,250,1)" };
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  // _src/_tgt: internal field names to prevent force-graph mutation corruption
+  let rawNodes     = [];
+  let rawEdgeStore = [];   // { _id, _src, _tgt, etype, count }
+  let revealedCamp = null;
+  let lastSig      = "";
+  let graphAuto    = true;
+  let graphRefreshMs = 10000;
+  let timer        = null;
+  let didFit       = false;
+
+  function toRgb(hex) {
+    const h = hex.replace("#","");
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  }
+
+  // ── Node painter ───────────────────────────────────────────────────────────
+  function paintNode(node, ctx, gs) {
+    const t   = node.type || "event";
+    const col = NODE_CORE[t] || "#64748b";
+    const glw = NODE_GLOW[t] || "#94a3b8";
+    const [cr,cg,cb] = toRgb(col);
+    const [gr,gg,gb] = toRgb(glw);
+    const sel = !!node.__selected;
+    const r   = Math.max(5, Math.min(20, 5 + Math.sqrt(node.count||1) * 2.2));
+
+    // Outer glow
+    const gR  = r*(sel?5:3.5);
+    const grd = ctx.createRadialGradient(node.x,node.y,0,node.x,node.y,gR);
+    grd.addColorStop(0,  `rgba(${gr},${gg},${gb},${sel?.5:.28})`);
+    grd.addColorStop(.5, `rgba(${gr},${gg},${gb},${sel?.12:.05})`);
+    grd.addColorStop(1,  `rgba(${gr},${gg},${gb},0)`);
+    ctx.beginPath(); ctx.arc(node.x,node.y,gR,0,Math.PI*2);
+    ctx.fillStyle=grd; ctx.fill();
+
+    // Shape
+    ctx.save(); ctx.beginPath();
+    if (t==="campaign") {
+      const s=r*1.5; ctx.translate(node.x,node.y); ctx.rotate(Math.PI/4);
+      ctx.roundRect(-s/2,-s/2,s,s,s*.15);
+    } else if (t==="mitre"||t==="alert") {
+      const w=r*2.6,h=r*1.45; ctx.roundRect(node.x-w/2,node.y-h/2,w,h,h/2);
+    } else if (t==="source") {
+      for(let i=0;i<6;i++){const a=(Math.PI/3)*i-Math.PI/6;i===0?ctx.moveTo(node.x+r*1.15*Math.cos(a),node.y+r*1.15*Math.sin(a)):ctx.lineTo(node.x+r*1.15*Math.cos(a),node.y+r*1.15*Math.sin(a));}
+      ctx.closePath();
+    } else {
+      ctx.arc(node.x,node.y,r,0,Math.PI*2);
+    }
+    const fill=ctx.createRadialGradient(node.x-r*.25,node.y-r*.25,r*.05,node.x,node.y,r*1.15);
+    fill.addColorStop(0,"rgba(255,255,255,.30)");
+    fill.addColorStop(.45,`rgba(${cr},${cg},${cb},1)`);
+    fill.addColorStop(1,`rgba(${cr},${cg},${cb},.65)`);
+    ctx.fillStyle=fill; ctx.fill();
+    ctx.strokeStyle=`rgba(255,255,255,${sel?.55:.15})`; ctx.lineWidth=(sel?2:.8)/gs; ctx.stroke();
+    ctx.restore();
+
+    // Selection ring
+    if (sel) { ctx.beginPath(); ctx.arc(node.x,node.y,r+4/gs,0,Math.PI*2); ctx.strokeStyle="#fbbf24"; ctx.lineWidth=1.8/gs; ctx.stroke(); }
+
+    // Label
+    if (gs>.5||sel||t==="ip"||t==="campaign") {
+      const raw=node.label||node.id||"";
+      const txt=raw.length>28?raw.slice(0,27)+"…":raw;
+      const fs=Math.max(9,11/gs);
+      ctx.font=`500 ${fs}px "Inter",sans-serif`; ctx.textAlign="center"; ctx.textBaseline="top";
+      const tw=ctx.measureText(txt).width, ty=node.y+r+5/gs, pad=3.5/gs;
+      ctx.fillStyle="rgba(2,6,23,.80)"; ctx.beginPath();
+      ctx.roundRect(node.x-tw/2-pad,ty-pad*.4,tw+pad*2,fs+pad*1.2,3/gs); ctx.fill();
+      ctx.fillStyle=sel?"#fef9c3":"rgba(226,232,240,.90)"; ctx.fillText(txt,node.x,ty);
+    }
+  }
+
+  function paintPointer(node,color,ctx) {
+    const r=Math.max(5,Math.min(20,5+Math.sqrt(node.count||1)*2.2))*2;
+    ctx.beginPath(); ctx.arc(node.x,node.y,r,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+  }
+
+  // ── ForceGraph ─────────────────────────────────────────────────────────────
+  const Graph = ForceGraph()(el)
+    .backgroundColor("transparent")
+    .nodeId("id")
+    .nodeLabel(()=>"")
+    .linkSource("source")
+    .linkTarget("target")
+    .linkWidth(l => Math.max(0.8, (l.count||1)*0.35))
+    .linkColor(l => LINK_CLR[l.etype] || "rgba(148,163,184,0.40)")
+    .linkLineDash(l => l.etype==="camp_event" ? [4,4] : null)
+    .linkDirectionalParticles(l => ["src_ip","ip_mitre","ip_alert"].includes(l.etype) ? 4 : 0)
+    .linkDirectionalParticleSpeed(0.005)
+    .linkDirectionalParticleWidth(2.5)
+    .linkDirectionalParticleColor(l => PART_CLR[l.etype]||"rgba(192,132,252,1)")
+    .nodeCanvasObject(paintNode)
+    .nodeCanvasObjectMode(()=>"replace")
+    .nodePointerAreaPaint(paintPointer)
+    .onEngineStop(() => { if(!didFit){ Graph.zoomToFit(700,70); didFit=true; } })
+    .onNodeClick(node => {
+      rawNodes.forEach(n => { n.__selected=(n.id===node.id); });
+      if (node.type==="campaign") {
+        revealedCamp = revealedCamp===node.id ? null : node.id;
+        rebuildGraph();
+      } else { Graph.refresh(); }
+    })
+    .onBackgroundClick(() => {
+      rawNodes.forEach(n => { n.__selected=false; });
+      if (revealedCamp!==null) { revealedCamp=null; rebuildGraph(); }
+      else Graph.refresh();
+    })
+    .onNodeHover(node => {
+      el.style.cursor=node?"pointer":"default";
+      if (!tooltip) return;
+      if (!node) { tooltip.style.display="none"; return; }
+      tooltip.textContent=node.raw||node.label||node.id||"";
+      tooltip.style.display="block";
+    });
+
+  // ── Tune forces: stronger repulsion + collision to prevent clumping ────────
+  // IMPORTANT: use .d3Force(name) to MODIFY existing forces, never replace with null
+  Graph.d3Force("charge").strength(-600).distanceMax(600);  // stronger push-apart
+  Graph.d3Force("link").distance(l => {
+    // Longer distance for hub→event connections to spread them out
+    if (l.etype==="svc_event"||l.etype==="camp_event") return 180;
+    return 120;
+  }).strength(0.3);
+  Graph.d3Force("center").strength(0.015);  // weaker gravity → more spread
+
+
+  // ── Tooltip ────────────────────────────────────────────────────────────────
+  el.addEventListener("mousemove", e => {
+    if (!tooltip||tooltip.style.display==="none") return;
+    const rc=el.getBoundingClientRect();
+    tooltip.style.left=`${e.clientX-rc.left+15}px`;
+    tooltip.style.top=`${e.clientY-rc.top+15}px`;
+  });
+  el.addEventListener("mouseleave",()=>{ if(tooltip)tooltip.style.display="none"; });
+
+  // ── Responsive ─────────────────────────────────────────────────────────────
+  const ro=new ResizeObserver(()=>Graph.width(el.offsetWidth).height(el.offsetHeight));
+  ro.observe(el); Graph.width(el.offsetWidth).height(el.offsetHeight);
+
+  // ── Parse API → rawNodes + rawEdgeStore (string IDs, safe field names) ─────
+  function parsePayload(payload) {
+    rawNodes = (payload.nodes||[]).map(n => ({
+      ...n.data,
+      id:         String(n.data.id),
+      count:      n.data.count||1,
+      __selected: false,
+    }));
+    rawEdgeStore = (payload.edges||[]).map(e => ({
+      _id:   String(e.data.id),
+      _src:  String(e.data.source),  // _src/_tgt: force-graph can't mutate these
+      _tgt:  String(e.data.target),
+      etype: e.data.etype||"",
+      count: e.data.count||1,
+    }));
+    console.log(`[Graph] ${rawNodes.length} nodes, ${rawEdgeStore.length} edges`);
+  }
+
+  // ── Auto-reveal: pick campaign with most connections ───────────────────────
+  function autoRevealTopCampaign() {
+    if (revealedCamp!==null) return;
+    const camps=rawNodes.filter(n=>n.type==="campaign");
+    if (!camps.length) return;
+    const best=camps.reduce((a,c) => {
+      const s=rawEdgeStore.filter(e=>e._src===c.id||e._tgt===c.id).length;
+      return s>(a.score||0) ? {id:c.id,score:s} : a;
+    }, {score:-1});
+    revealedCamp=best.id;
+  }
+
+  // ── Build visible graph ────────────────────────────────────────────────────
+  // svc_event edges always shown (structural backbone).
+  // camp_event edges only for the revealed campaign.
+  // Event nodes visible if they have a svc_event link, OR a camp_event to the revealed campaign.
+  function rebuildGraph() {
+    const vis=new Set();
+
+    // 1. All non-event nodes always visible
+    rawNodes.forEach(n => { if(n.type!=="event") vis.add(n.id); });
+
+    // 2. Event nodes: add if has svc_event connection (always)
+    rawNodes.forEach(n => {
+      if (n.type!=="event") return;
+      if (rawEdgeStore.some(e=>e.etype==="svc_event"&&(e._src===n.id||e._tgt===n.id)))
+        vis.add(n.id);
+    });
+
+    // 3. Event nodes: also add if linked to revealed campaign via camp_event
+    if (revealedCamp!==null) {
+      rawNodes.forEach(n => {
+        if (n.type!=="event"||vis.has(n.id)) return;
+        if (rawEdgeStore.some(e=>
+          e.etype==="camp_event" &&
+          (e._src===revealedCamp||e._tgt===revealedCamp) &&
+          (e._src===n.id||e._tgt===n.id)
+        )) vis.add(n.id);
+      });
+    }
+
+    const nodes=rawNodes.filter(n=>vis.has(n.id)).map(n=>({...n}));
+
+    const links=rawEdgeStore
+      .filter(e => {
+        if (!vis.has(e._src)||!vis.has(e._tgt)) return false;
+        if (e.etype==="camp_event")
+          return revealedCamp!==null&&(e._src===revealedCamp||e._tgt===revealedCamp);
+        return true;  // svc_event + all others
+      })
+      .map(e => ({
+        id:     e._id,
+        source: e._src,  // fresh string each rebuild → force-graph mutates copy, not rawEdgeStore
+        target: e._tgt,
+        etype:  e.etype,
+        count:  e.count,
+      }));
+
+    console.log(`[Graph] render: ${nodes.length} nodes, ${links.length} links`);
+    Graph.graphData({ nodes, links });
+  }
+
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+  function stableSig(payload) {
+    return [...(payload.nodes||[]).map(n=>String(n.data?.id)),
+            ...(payload.edges||[]).map(e=>String(e.data?.id))].sort().join("|");
+  }
+
+  function fetchAndRender() {
+    return fetch("/api/graph",{cache:"no-store"}).then(r=>r.json()).then(payload=>{
+      const sig=stableSig(payload);
+      if(sig===lastSig) return;
+      lastSig=sig; didFit=false;
+      parsePayload(payload);
+      autoRevealTopCampaign();
+      rebuildGraph();
+    }).catch(e=>console.error("Graph fetch error:",e));
+  }
+
+  // ── Auto-refresh ───────────────────────────────────────────────────────────
+  function schedule() {
+    if(timer) clearInterval(timer);
+    if(graphAuto) timer=setInterval(fetchAndRender,graphRefreshMs);
+  }
+  function fetchSettings() {
+    return fetch("/api/settings",{cache:"no-store"}).then(r=>r.json()).then(s=>{
+      graphAuto=!!s.GRAPH_AUTO_REFRESH;
+      graphRefreshMs=Math.max(3000,parseInt(s.GRAPH_REFRESH_MS??10000,10));
+      schedule();
+    }).catch(()=>schedule());
+  }
+
+  // ── Buttons ────────────────────────────────────────────────────────────────
+  btnRefresh?.addEventListener("click",()=>{ lastSig=""; revealedCamp=null; didFit=false; fetchAndRender(); });
+  btnFit?.addEventListener("click",()=>Graph.zoomToFit(500,60));
+
+  fetchSettings().then(fetchAndRender);
 }
