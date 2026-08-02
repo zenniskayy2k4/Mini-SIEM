@@ -16,13 +16,15 @@ Feature highlights:
 
 import re
 import math
+import threading
 import numpy as np
 import joblib
 import os
 import logging
 import torch
 import torch.nn as nn
-from datetime import datetime, timezone
+from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -64,6 +66,11 @@ _ATTACK_KEYWORDS = re.compile(
 
 _HEX_SEQ = re.compile(r"(\\x[0-9a-fA-F]{2}|0x[0-9a-fA-F]+)")
 _URL_LIKE = re.compile(r"https?://|ftp://", re.IGNORECASE)
+_SSH_FAILED_RE = re.compile(
+    r"Failed password for (?:invalid user )?(?P<user>\S+) "
+    r"from (?P<ip>\d{1,3}(?:\.\d{1,3}){3})",
+    re.IGNORECASE,
+)
 
 
 def extract_features(line: str) -> list[float]:
@@ -177,6 +184,8 @@ class ThreatDetector:
         self.ae_model    = None
         self.scaler      = None
         self.ae_threshold = 1.0
+        self._ssh_failures = defaultdict(deque)
+        self._ssh_lock = threading.Lock()
 
         self._load_all_models()
 
@@ -327,6 +336,45 @@ class ThreatDetector:
                 }
         return None
 
+    def _check_ssh_bruteforce(self, log_line: str) -> tuple[bool, dict | None]:
+        match = _SSH_FAILED_RE.search(log_line)
+        if not match:
+            return False, None
+
+        now = datetime.now(timezone.utc)
+        window = int(getattr(config, "SSH_BRUTE_FORCE_WINDOW_SECONDS", 60))
+        threshold = int(getattr(config, "SSH_BRUTE_FORCE_THRESHOLD", 5))
+        ip = match.group("ip")
+
+        with self._ssh_lock:
+            failures = self._ssh_failures[ip]
+            failures.append((now, match.group("user"), log_line.strip()))
+            cutoff = now - timedelta(seconds=window)
+            while failures and failures[0][0] < cutoff:
+                failures.popleft()
+
+            if len(failures) < threshold:
+                return True, None
+
+            events = list(failures)
+            failures.clear()
+
+        return True, {
+            "timestamp": now.isoformat().replace("+00:00", "Z"),
+            "alert_name": "SSH Brute Force Attempt",
+            "severity": "HIGH",
+            "mitre_attck_id": "T1110.001",
+            "description": f"{len(events)} failed SSH logins from {ip} within {window}s.",
+            "raw_log": log_line.strip(),
+            "status": "DETECTED",
+            "ip_address": ip,
+            "event_count": len(events),
+            "window_seconds": window,
+            "first_seen": events[0][0].isoformat().replace("+00:00", "Z"),
+            "last_seen": events[-1][0].isoformat().replace("+00:00", "Z"),
+            "target_users": sorted({user for _, user, _ in events}),
+        }
+
     # ------------------------------------------------------------------
     # Main entry point
     # ------------------------------------------------------------------
@@ -350,6 +398,10 @@ class ThreatDetector:
         The optional AI Analyst (Layer 3) is dispatched by the alert handler
         after the alert is persisted.
         """
+        ssh_handled, alert = self._check_ssh_bruteforce(log_line)
+        if ssh_handled:
+            return alert
+
         # Layer 0 — Rules
         alert = self._rule_based_detect(log_line)
 

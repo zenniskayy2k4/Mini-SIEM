@@ -13,8 +13,10 @@ RESPONSE_LOG_FILE = os.path.join(BASE_DIR, 'data', 'incident_responses.log')
 
 # --- ENGINE SETTINGS ---
 CORRELATION_WINDOW_MINUTES = 5
-ANOMALY_THRESHOLD = 3.0       
-ML_ANOMALY_THRESHOLD = -0.6   
+ANOMALY_THRESHOLD = 3.0
+ML_ANOMALY_THRESHOLD = -0.6
+SSH_BRUTE_FORCE_THRESHOLD = 5
+SSH_BRUTE_FORCE_WINDOW_SECONDS = 60
 
 # --- DASHBOARD SETTINGS ---
 DASHBOARD_HOST = "0.0.0.0"
@@ -29,14 +31,6 @@ ELK_URL = "http://localhost:9200/siem-logs/_doc"
 
 # --- SIGNATURES ---
 SIGNATURES = [
-    {
-        "name": "SSH Brute Force Attempt",
-        "pattern": r"Failed password for .* from (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
-        "severity": "HIGH",
-        "mitre_id": "T1110.001",
-        "description": "Multiple failed login attempts detected via SSH.",
-        "extract_ip": True
-    },
     {
         "name": "Sudo Privilege Escalation",
         "pattern": r"COMMAND=.*/usr/bin/su|COMMAND=.*/usr/bin/sudo",
