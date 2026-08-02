@@ -10,6 +10,7 @@ from src.response import IncidentResponder
 from src.handler import LogHandler
 from src.network_monitor import NetworkMonitor
 from src.honeypot import MiniHoneypot
+from src.ai_analyst import AIAnalyst
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
 
@@ -56,7 +57,13 @@ def main():
     print("---------------------------------------------------------")
 
     # Initialize modules
-    detector = ThreatDetector(config.SIGNATURES)
+    ai_analyst = AIAnalyst()
+
+    detector = ThreatDetector(
+        config.SIGNATURES,
+        ai_analyst=ai_analyst,
+    )
+    
     correlator = AlertCorrelator(config.CORRELATION_WINDOW_MINUTES)
     responder = IncidentResponder()
 

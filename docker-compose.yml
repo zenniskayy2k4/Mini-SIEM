@@ -1,4 +1,4 @@
-version: "3.9"
+# version: "3.9"
 
 services:
   train:
@@ -13,6 +13,8 @@ services:
   agent:
     build: .
     command: python main.py
+    env_file:
+      - .env
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data

@@ -5,7 +5,7 @@ Detection layers:
   Layer 0 (< 1 ms)  : Rule-based signature matching
   Layer 1 (~ 2 ms)  : NLP Isolation Forest on TF-IDF semantic features
   Layer 2 (~ 3 ms)  : Deep Autoencoder on 15 statistical/structural features
-  Layer 3 (async)   : Groq LLM analyst — enriches HIGH/CRITICAL alerts in background
+  Layer 3 (async)   : Ollama Cloud LLM analyst - enriches HIGH/CRITICAL alerts in background
 
 Feature highlights:
   - Feature vector expanded from 3 → 15 dimensions (reduces false positives significantly)
