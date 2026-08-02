@@ -1,6 +1,7 @@
 import time, os
 import threading
 import json
+import logging
 
 from watchdog.observers.polling import PollingObserver as Observer
 from config import config
@@ -13,6 +14,8 @@ from src.honeypot import MiniHoneypot
 from src.ai_analyst import AIAnalyst
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 def _load_runtime_settings() -> dict:
     try:
