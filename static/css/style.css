@@ -373,6 +373,65 @@ tr:hover {
   color: var(--text-muted);
 }
 
+.ai-analysis {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent-blue);
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--text-main);
+}
+
+.ai-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin-bottom: 8px;
+}
+
+.ai-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ai-metrics span,
+.ai-tag {
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.45);
+  font-size: 11px;
+}
+
+.ai-field,
+.ai-iocs,
+.ai-provider,
+.ai-pending {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ai-playbook {
+  margin: 8px 0 0 18px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ai-iocs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-provider,
+.ai-pending {
+  color: var(--text-muted);
+}
+
 /* Anchor navigation helper (optional) */
 .page-section {
   scroll-margin-top: 90px;

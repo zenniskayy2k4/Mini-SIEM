@@ -658,29 +658,75 @@ function createRow(alert) {
   const mitigationCmd = alert.mitigation_command || alert.mitigation || "";
   let mitigationHTML = '<span style="color:#64748b; font-size:11px;">No Action</span>';
   if (mitigationCmd) {
-    mitigationHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ${mitigationCmd}</div>`;
+    mitigationHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ${escapeHTML(mitigationCmd)}</div>`;
   }
 
   const src = alert.source_type || "HIDS_LOG";
-  let detailsHTML = `<div class="log-details">${alert.description || ""}</div>`;
-  detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Source: ${src}</div>`;
+  let detailsHTML = `<div class="log-details">${escapeHTML(alert.description || "")}</div>`;
+  detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Source: ${escapeHTML(src)}</div>`;
 
   if (alert.ml_anomaly_score) {
     detailsHTML += `<div style="margin-top:4px; color:#c084fc; font-weight:700; font-size:11px">
-                            <i class="fa-solid fa-brain"></i> AI Score: ${alert.ml_anomaly_score}
+                            <i class="fa-solid fa-brain"></i> AI Score: ${escapeHTML(alert.ml_anomaly_score)}
                         </div>`;
   }
-  detailsHTML += `<div class="log-raw" title="${String(alert.raw_log || "").replaceAll('"', "&quot;")}">${alert.raw_log || ""}</div>`;
+  detailsHTML += renderAIAnalysis(alert);
+  detailsHTML += `<div class="log-raw" title="${escapeAttr(alert.raw_log || "")}">${escapeHTML(alert.raw_log || "")}</div>`;
 
   tr.innerHTML = `
         <td class="font-mono">${time}</td>
-        <td class="log-name">${alert.alert_name || ""}</td>
-        <td><span class="severity-badge severity-${alert.severity}">${alert.severity || ""}</span></td>
-        <td class="font-mono">${alert.mitre_attck_id || "-"}</td>
+        <td class="log-name">${escapeHTML(alert.alert_name || "")}</td>
+        <td><span class="severity-badge severity-${escapeHTML(alert.severity || "")}">${escapeHTML(alert.severity || "")}</span></td>
+        <td class="font-mono">${escapeHTML(alert.mitre_attck_id || "-")}</td>
         <td>${detailsHTML}</td>
         <td>${mitigationHTML}</td>
     `;
   return tr;
+}
+
+function renderAIAnalysis(alert) {
+  const ai = alert.ai_analysis;
+  if (!ai) {
+    return ["HIGH", "CRITICAL"].includes(alert.severity)
+      ? '<div class="ai-pending"><i class="fa-solid fa-clock"></i> AI analysis pending...</div>'
+      : "";
+  }
+
+  const playbook = Array.isArray(ai.recommended_playbook)
+    ? ai.recommended_playbook.map((step) => `<li>${escapeHTML(step)}</li>`).join("")
+    : "";
+  const iocs = Array.isArray(ai.ioc_tags)
+    ? ai.ioc_tags.map((tag) => `<span class="ai-tag">${escapeHTML(tag)}</span>`).join("")
+    : "";
+
+  return `
+    <div class="ai-analysis">
+      <div class="ai-title"><i class="fa-solid fa-brain"></i> AI Analyst</div>
+      <div class="ai-metrics">
+        <span>Threat <strong>${escapeHTML(ai.threat_confidence ?? 0)}%</strong></span>
+        <span>FP <strong>${escapeHTML(ai.fp_confidence ?? 0)}%</strong></span>
+        <span>Human review <strong>${ai.escalate_to_human ? "Required" : "Not required"}</strong></span>
+      </div>
+      <div class="ai-field"><strong>Tactic:</strong> ${escapeHTML(ai.mitre_tactic || "N/A")}</div>
+      <div class="ai-field"><strong>Technique:</strong> ${escapeHTML(ai.mitre_technique || "N/A")}</div>
+      <div class="ai-field"><strong>Summary:</strong> ${escapeHTML(ai.threat_summary || "No summary")}</div>
+      ${playbook ? `<ol class="ai-playbook">${playbook}</ol>` : ""}
+      ${iocs ? `<div class="ai-iocs"><strong>IOCs:</strong> ${iocs}</div>` : ""}
+      <div class="ai-provider">${escapeHTML(ai.provider || "unknown")} / ${escapeHTML(ai.model || "unknown")}</div>
+    </div>`;
+}
+
+function escapeHTML(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(value) {
+  return escapeHTML(value).replaceAll("\n", " ");
 }
 
 // Helper function
