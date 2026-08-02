@@ -5,7 +5,7 @@ Detection layers:
   Layer 0 (< 1 ms)  : Rule-based signature matching
   Layer 1 (~ 2 ms)  : NLP Isolation Forest on TF-IDF semantic features
   Layer 2 (~ 3 ms)  : Deep Autoencoder on 15 statistical/structural features
-  Layer 3 (async)   : Ollama Cloud LLM analyst - enriches HIGH/CRITICAL alerts in background
+  Layer 3 (async)   : optional LLM analyst attached by the alert handler
 
 Feature highlights:
   - Feature vector expanded from 3 → 15 dimensions (reduces false positives significantly)
@@ -347,8 +347,8 @@ class ThreatDetector:
         │ No       │ None     │ None (clean)                              │
         └──────────┴──────────┴───────────────────────────────────────────┘
 
-        The optional AI Analyst (Layer 3) is dispatched asynchronously for
-        HIGH/CRITICAL alerts so it never blocks the hot path.
+        The optional AI Analyst (Layer 3) is dispatched by the alert handler
+        after the alert is persisted.
         """
         # Layer 0 — Rules
         alert = self._rule_based_detect(log_line)
@@ -390,9 +390,5 @@ class ThreatDetector:
                     "Structural Anomaly (AE)", "HIGH",
                     log_line, nlp_score, ae_loss, confidence,
                 )
-
-        # Layer 3 — async LLM enrichment (non-blocking)
-        if alert and self.ai_analyst and alert.get("severity") in ("HIGH", "CRITICAL"):
-            self.ai_analyst.enrich_async(alert)
 
         return alert

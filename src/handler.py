@@ -4,7 +4,7 @@ from config import config
 from src.elk_forwarder import ELKForwarder
 from src.response import IncidentResponder
 from src.correlator import AlertCorrelator
-from src.alert_store import append_alert
+from src.alert_store import append_alert, upsert_alert
 import os
 
 class LogHandler(FileSystemEventHandler):
@@ -65,3 +65,7 @@ class LogHandler(FileSystemEventHandler):
         print(f" Mitigation: {alert.get('mitigation', 'None')}")
 
         append_alert(alert)
+
+        analyst = getattr(self.detector, "ai_analyst", None)
+        if analyst and alert.get("severity") in ("HIGH", "CRITICAL"):
+            analyst.enrich_async(alert, on_complete=upsert_alert)

@@ -211,7 +211,7 @@ class AIAnalyst:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def enrich_async(self, alert: dict) -> None:
+    def enrich_async(self, alert: dict, on_complete=None) -> None:
         """
         Submit alert for analysis in a background thread.
         The result is written back into `alert` dict in-place
@@ -219,7 +219,9 @@ class AIAnalyst:
         """
         if not self._enabled:
             return
-        self._executor.submit(self._safe_enrich, alert)
+        future = self._executor.submit(self._safe_enrich, alert)
+        if on_complete:
+            future.add_done_callback(self._callback(on_complete))
 
     def enrich_sync(self, alert: dict) -> dict:
         """
@@ -236,6 +238,15 @@ class AIAnalyst:
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
+    def _callback(self, on_complete):
+        def run(done):
+            try:
+                on_complete(done.result())
+            except Exception as exc:
+                logger.warning(f"[AIAnalyst] Completion callback failed: {exc}")
+
+        return run
+
     def _cache_key(self, alert: dict) -> str:
         """Deduplicate similar alerts without merging different sources."""
         return "|".join(
