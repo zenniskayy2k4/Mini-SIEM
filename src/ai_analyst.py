@@ -275,7 +275,7 @@ class AIAnalyst:
         if cached:
             cached_analysis = dict(cached)
             cached_analysis["cached"] = True
-            alert["ai_analysis"] = cached_analysis
+            self._apply_ai_recommendation(alert, cached_analysis)
             return alert
 
         # Rate-limit check
@@ -348,17 +348,7 @@ class AIAnalyst:
 
         # Cache + write back
         self._cache.set(key, analysis)
-        alert["ai_analysis"] = analysis
-
-        # Upgrade severity if LLM says escalate
-        if analysis.get("escalate_to_human") and alert.get("severity") != "CRITICAL":
-            alert["severity"]     = "CRITICAL"
-            alert["description"] += " [LLM: Escalated to CRITICAL]"
-
-        # Downgrade to INFO if high FP confidence (≥ 80%)
-        if analysis.get("is_false_positive") and analysis.get("fp_confidence", 0) >= 80:
-            alert["severity"] = "INFO"
-            alert["status"]   = "FALSE_POSITIVE_SUSPECTED"
+        self._apply_ai_recommendation(alert, analysis)
 
         logger.info(
             f"[AIAnalyst] {alert.get('alert_name')} → "
@@ -367,6 +357,19 @@ class AIAnalyst:
             f"threat_conf={analysis.get('threat_confidence')}%"
         )
         return alert
+
+    @staticmethod
+    def _apply_ai_recommendation(alert: dict, analysis: dict) -> None:
+        alert["ai_analysis"] = analysis
+        alert["ai_recommended_severity"] = alert.get("severity", "UNKNOWN")
+
+        if analysis.get("escalate_to_human"):
+            alert["ai_recommended_severity"] = "CRITICAL"
+            alert["ai_disposition"] = "REQUIRES_HUMAN_REVIEW"
+
+        if analysis.get("is_false_positive") and analysis.get("fp_confidence", 0) >= 80:
+            alert["ai_recommended_severity"] = "INFO"
+            alert["ai_disposition"] = "FALSE_POSITIVE_SUSPECTED"
 
     @staticmethod
     def _parse_response(text: str) -> dict:

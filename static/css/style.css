@@ -388,7 +388,8 @@ tr:hover {
   margin-bottom: 8px;
 }
 
-.ai-metrics {
+.ai-metrics,
+.ai-severity-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -396,6 +397,7 @@ tr:hover {
 }
 
 .ai-metrics span,
+.ai-severity-row span,
 .ai-tag {
   padding: 3px 7px;
   border: 1px solid rgba(255, 255, 255, 0.12);

@@ -698,10 +698,21 @@ function renderAIAnalysis(alert) {
   const iocs = Array.isArray(ai.ioc_tags)
     ? ai.ioc_tags.map((tag) => `<span class="ai-tag">${escapeHTML(tag)}</span>`).join("")
     : "";
+  const aiRecommendation = alert.ai_recommended_severity || alert.severity || "UNKNOWN";
+  const aiDecision = alert.ai_disposition === "FALSE_POSITIVE_SUSPECTED"
+    ? "False positive suspected"
+    : ai.escalate_to_human
+      ? "Human review required"
+      : "No AI escalation";
 
   return `
     <div class="ai-analysis">
       <div class="ai-title"><i class="fa-solid fa-brain"></i> AI Analyst</div>
+      <div class="ai-severity-row">
+        <span>System severity <strong>${escapeHTML(alert.severity || "UNKNOWN")}</strong></span>
+        <span>AI recommendation <strong>${escapeHTML(aiRecommendation)}</strong></span>
+        <span>Decision <strong>${escapeHTML(aiDecision)}</strong></span>
+      </div>
       <div class="ai-metrics">
         <span>Threat <strong>${escapeHTML(ai.threat_confidence ?? 0)}%</strong></span>
         <span>FP <strong>${escapeHTML(ai.fp_confidence ?? 0)}%</strong></span>
