@@ -4,7 +4,7 @@ from config import config
 from src.elk_forwarder import ELKForwarder
 from src.response import IncidentResponder
 from src.correlator import AlertCorrelator
-from src.alert_store import append_alert, upsert_alert
+from src.alert_store import upsert_alert
 import os
 
 class LogHandler(FileSystemEventHandler):
@@ -64,8 +64,13 @@ class LogHandler(FileSystemEventHandler):
             print(f" Log: {alert['raw_log']}")
         print(f" Mitigation: {alert.get('mitigation', 'None')}")
 
-        append_alert(alert)
+        upsert_alert(alert)
 
         analyst = getattr(self.detector, "ai_analyst", None)
-        if analyst and alert.get("severity") in ("HIGH", "CRITICAL"):
+        if (
+            analyst
+            and alert.get("severity") in ("HIGH", "CRITICAL")
+            and not alert.get("suppressed_count")
+            and not alert.get("deduplicated_events")
+        ):
             analyst.enrich_async(alert, on_complete=upsert_alert)

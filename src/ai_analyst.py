@@ -40,6 +40,10 @@ You receive a structured SIEM alert and must return a JSON analysis.
 
 Return ONLY valid JSON. No markdown, no explanation outside the JSON.
 
+Use only evidence explicitly present in the alert. Separate observed facts from
+analyst inference, say when evidence is insufficient, and never claim successful
+authentication, compromise, or attack progression unless the alert proves it.
+
 Required JSON schema:
 {
   "is_false_positive": bool,
@@ -48,6 +52,8 @@ Required JSON schema:
   "mitre_tactic": string,        // e.g. "Initial Access", "Credential Access"
   "mitre_technique": string,     // e.g. "T1110.001 - Password Guessing"
   "threat_summary": string,      // 1-2 sentences, plain English
+  "observed_facts": [string],    // facts directly present in the alert
+  "analyst_inferences": [string],// cautious conclusions, empty if unsupported
   "recommended_playbook": [      // ordered list of response steps
     "Step 1: ...",
     "Step 2: ...",
@@ -67,6 +73,11 @@ Source Type   : {source_type}
 Description   : {description}
 Raw Log       : {raw_log}
 Timestamp     : {timestamp}
+Event Count   : {event_count}
+Window Seconds: {window_seconds}
+First Seen    : {first_seen}
+Last Seen     : {last_seen}
+Target Users  : {target_users}
 """
 
 
@@ -256,6 +267,8 @@ class AIAnalyst:
                 str(alert.get("source_type", "")),
                 str(alert.get("ip_address", "")),
                 str(alert.get("mitre_attck_id", "")),
+                str(alert.get("event_count", "")),
+                str(alert.get("last_seen", "")),
             ]
         )
 
@@ -294,6 +307,11 @@ class AIAnalyst:
             description   = alert.get("description",   ""),
             raw_log       = (alert.get("raw_log", "") or "")[:300],  # trim long logs
             timestamp     = alert.get("timestamp",     ""),
+            event_count   = alert.get("event_count"),
+            window_seconds= alert.get("window_seconds"),
+            first_seen    = alert.get("first_seen"),
+            last_seen     = alert.get("last_seen"),
+            target_users  = json.dumps(alert.get("target_users"), ensure_ascii=False),
         )
 
         # Call Ollama Cloud API
@@ -341,6 +359,8 @@ class AIAnalyst:
 
         # Parse JSON response
         analysis = self._parse_response(raw_text)
+        analysis.setdefault("observed_facts", [])
+        analysis.setdefault("analyst_inferences", [])
         analysis["provider"] = self._provider
         analysis["model"] = self._model
         analysis["analysed_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -368,7 +388,7 @@ class AIAnalyst:
             alert["ai_disposition"] = "REQUIRES_HUMAN_REVIEW"
 
         if analysis.get("is_false_positive") and analysis.get("fp_confidence", 0) >= 80:
-            alert["ai_recommended_severity"] = "INFO"
+            alert["ai_recommended_severity"] = "LOW"
             alert["ai_disposition"] = "FALSE_POSITIVE_SUSPECTED"
 
     @staticmethod

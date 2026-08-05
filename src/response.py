@@ -23,9 +23,10 @@ class IncidentResponder:
             alert["mitigation"] = mitigation
             alert["mitigation_command"] = mitigation  # ensure UI + logs consistent
 
-            # Notify and log
-            self._notify(alert)
-            self._log_response(alert)
+            # Only notify/log the first alert; later campaign events update it.
+            if not alert.get("suppressed_count") and not alert.get("deduplicated_events"):
+                self._notify(alert)
+                self._log_response(alert)
 
         return alert
 

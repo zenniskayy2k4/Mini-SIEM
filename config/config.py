@@ -42,7 +42,7 @@ SIGNATURES = [
     {
         "name": "New User Creation",
         "pattern": r"new user: name=(\w+)",
-        "severity": "INFO",
+        "severity": "LOW",
         "mitre_id": "T1136.001",
         "description": "A new local user account was created.",
         "extract_ip": False

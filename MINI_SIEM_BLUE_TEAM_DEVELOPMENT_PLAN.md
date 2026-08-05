@@ -1,0 +1,1507 @@
+# Mini-SIEM Blue Team Development Plan
+
+> **Repository:** `zenniskayy2k4/Mini-SIEM`
+> **Plan type:** Milestone / batch execution plan
+> **Last updated:** 2026-08-05
+> **Primary environment:** Windows + Docker Desktop
+> **Primary AI provider:** Ollama Cloud (`gemma4:cloud`)
+> **Storage hiện tại:** `data/siem_alerts.json`
+
+---
+
+## 1. Mục tiêu dự án
+
+Phát triển Mini-SIEM thành một nền tảng Blue Team nhẹ, có thể chạy trên máy cá nhân bằng Docker, tập trung vào:
+
+- Thu thập và chuẩn hóa security events.
+- Rule-based detection kết hợp ML anomaly detection.
+- Correlation theo IP, user, host và attack sequence.
+- AI-assisted triage bằng Ollama Cloud.
+- Incident lifecycle và analyst workflow.
+- Response workflow an toàn theo chế độ simulation/manual.
+- Dashboard phục vụ điều tra và theo dõi.
+- Storage có khả năng truy vấn, cập nhật và mở rộng.
+- Detection engineering có thể cấu hình và kiểm thử bằng attack simulator.
+
+### Ngoài phạm vi hiện tại
+
+Các thành phần sau **không nằm trong roadmap chính** vì giới hạn tài nguyên máy:
+
+- Wazuh stack.
+- Shuffle SOAR.
+- Elasticsearch/OpenSearch.
+- Kafka.
+- Hệ thống EDR hoặc endpoint isolation thật.
+- Auto-response production không có analyst approval.
+
+---
+
+## 2. Nguyên tắc phát triển
+
+1. Phát triển trực tiếp từ repo gốc; không viết lại project từ đầu.
+2. Mỗi batch chỉ giải quyết một nhóm vấn đề rõ ràng.
+3. Không trộn storage migration, dashboard redesign và detection logic trong cùng một commit.
+4. Giữ tương thích với Docker Compose hiện tại.
+5. Mọi automated response mặc định phải là `simulation` hoặc yêu cầu xác nhận.
+6. AI chỉ đưa ra phân tích và khuyến nghị; không tự thay đổi quyết định chính thức của detection engine.
+7. Không commit:
+   - `.env`
+   - API key
+   - runtime logs
+   - generated alerts
+   - model artifacts không chủ đích
+8. Ưu tiên manual smoke verification. Automated test là optional backlog, không phải blocker.
+9. Sau mỗi batch:
+   - Rebuild service liên quan.
+   - Chạy smoke check.
+   - Kiểm tra `git diff`.
+   - Commit độc lập.
+   - Push.
+
+---
+
+## 3. Ký hiệu tracking
+
+| Ký hiệu | Ý nghĩa |
+|---|---|
+| ✅ | Hoàn thành |
+| 🟡 | Batch nên làm tiếp theo |
+| ⬜ | Chưa bắt đầu |
+| 🟠 | Đang thực hiện |
+| ⛔ | Bị chặn |
+| 🔁 | Cần kiểm tra lại hoặc refactor |
+
+---
+
+## 4. Trạng thái tổng quan
+
+| Milestone | Nội dung | Trạng thái |
+|---|---|---|
+| M0 | Baseline Docker và pipeline gốc | ✅ |
+| M1 | Ollama Cloud AI Analyst | ✅ |
+| M2 | Detection correctness và alert contract | ✅ |
+| M3 | Incident lifecycle và analyst workflow | ⬜ |
+| M4 | SQLite storage migration | ⬜ |
+| M5 | Detection engineering và rule management | ⬜ |
+| M6 | Lightweight response automation | ⬜ |
+| M7 | Windows telemetry và Sysmon | ⬜ |
+| M8 | Dashboard security, observability và reliability | ⬜ |
+| M9 | Release, documentation và portfolio demo | ⬜ |
+
+---
+
+# Milestone M0 — Baseline Docker và pipeline gốc
+
+## Mục tiêu
+
+Xác nhận repo gốc chạy end-to-end trước khi phát triển.
+
+## Batch M0.1 — Docker baseline
+
+**Trạng thái:** ✅ Hoàn thành
+
+### Đã xác nhận
+
+- [x] `docker compose config` hợp lệ.
+- [x] Docker Compose nhận đủ:
+  - `agent`
+  - `dashboard`
+  - `train`
+- [x] Model training hoàn thành.
+- [x] Agent đọc được `/app/logs/auth.log`.
+- [x] Dashboard chạy tại `http://localhost:5000`.
+- [x] Alert được persist vào `data/siem_alerts.json`.
+- [x] Incident responder ghi `data/incident_responses.log`.
+
+### Model artifacts đã tạo
+
+- `autoencoder.pth`
+- `iso_forest.pkl`
+- `nlp_iso_forest.pkl`
+- `tfidf_vectorizer.pkl`
+- `scaler.pkl`
+- `feature_names.txt`
+- `threshold.txt`
+
+### Baseline smoke commands
+
+```powershell
+docker compose ps
+docker compose logs --tail=100 agent
+docker compose logs --tail=100 dashboard
+Get-Content .\data\siem_alerts.json -Raw
+```
+
+---
+
+# Milestone M1 — Ollama Cloud AI Analyst
+
+## Mục tiêu
+
+Thay Groq bằng Ollama Cloud và tích hợp AI triage vào pipeline HIGH/CRITICAL alert.
+
+## Batch M1.1 — Ollama Cloud provider
+
+**Trạng thái:** ✅ Hoàn thành
+
+### Đã thực hiện
+
+- [x] Thêm cấu hình:
+  - `AI_PROVIDER=ollama_cloud`
+  - `OLLAMA_API_KEY`
+  - `OLLAMA_BASE_URL=https://ollama.com/api`
+  - `OLLAMA_MODEL=gemma4:cloud`
+- [x] Docker `agent` nhận `.env`.
+- [x] Container gọi `/api/chat` thành công.
+- [x] `AIAnalyst` sử dụng Ollama Cloud thay cho Groq.
+- [x] `main.py` inject `AIAnalyst` vào `ThreatDetector`.
+- [x] AI trả structured JSON.
+- [x] Async enrichment persist vào `siem_alerts.json`.
+
+### Kết quả AI contract hiện tại
+
+```json
+{
+  "is_false_positive": false,
+  "fp_confidence": 10,
+  "threat_confidence": 85,
+  "mitre_tactic": "Credential Access",
+  "mitre_technique": "T1110.001 - Password Guessing",
+  "threat_summary": "...",
+  "recommended_playbook": ["..."],
+  "ioc_tags": ["192.168.1.50"],
+  "escalate_to_human": true,
+  "provider": "ollama_cloud",
+  "model": "gemma4:cloud",
+  "analysed_at": "...",
+  "cached": false
+}
+```
+
+## Batch M1.2 — AI panel trên dashboard
+
+**Trạng thái:** ✅ Hoàn thành
+**Commit:** `d0658db feat: show AI analysis on dashboard`
+
+### Đã thực hiện
+
+- [x] Render panel `AI Analyst`.
+- [x] Hiển thị threat confidence.
+- [x] Hiển thị false-positive confidence.
+- [x] Hiển thị MITRE mapping.
+- [x] Hiển thị summary.
+- [x] Hiển thị recommended playbook.
+- [x] Hiển thị IOC tags.
+- [x] Hiển thị provider/model.
+- [x] Có trạng thái `AI analysis pending`.
+
+## Batch M1.3 — Tách AI recommendation khỏi severity
+
+**Trạng thái:** ✅ Hoàn thành
+**Commit:** `4dd5387 refactor: separate AI severity recommendation`
+
+### Đã thực hiện
+
+- [x] AI không sửa `alert["severity"]`.
+- [x] AI không sửa `alert["status"]`.
+- [x] Thêm:
+  - `ai_recommended_severity`
+  - `ai_disposition`
+- [x] Dashboard hiển thị:
+  - System severity
+  - AI recommendation
+  - Decision
+- [x] Pipeline xác nhận:
+  - `severity: HIGH`
+  - `ai_recommended_severity: CRITICAL`
+  - `ai_disposition: REQUIRES_HUMAN_REVIEW`
+
+---
+
+# Milestone M2 — Detection correctness và alert contract
+
+## Mục tiêu
+
+Đảm bảo detection engine không tạo alert sai ngữ nghĩa và mọi alert có schema ổn định để dashboard, storage, AI và incident workflow cùng sử dụng.
+
+---
+
+## Batch M2.1 — SSH brute-force threshold
+
+**Trạng thái:** ✅ Hoàn thành và xác nhận lại
+
+### Yêu cầu chức năng
+
+- [x] Một failed login không bị kết luận là brute force.
+- [x] Theo dõi failed login theo source IP.
+- [x] Áp dụng threshold.
+- [x] Áp dụng time window.
+- [x] Đủ điều kiện mới sinh `SSH Brute Force Attempt`.
+- [x] Alert tổng hợp được gửi sang Ollama Cloud.
+
+### Alert nên có
+
+```json
+{
+  "event_count": 5,
+  "window_seconds": 60,
+  "first_seen": "...",
+  "last_seen": "...",
+  "target_users": ["admin"]
+}
+```
+
+### Cần xác nhận lại trước khi đóng milestone
+
+- [x] Lần 1–4 không tạo brute-force alert.
+- [x] Lần 5 tạo đúng một alert.
+- [x] Lần 6 trong cùng campaign không tạo alert trùng không kiểm soát.
+- [x] IP khác có bucket riêng.
+- [x] Event hết window bị loại khỏi bộ đếm.
+- [x] Restart agent không gây exception do state rỗng.
+
+---
+
+## Batch M2.2 — Chuẩn hóa Alert Contract
+
+**Trạng thái:** ✅ Hoàn thành
+
+### Mục tiêu
+
+Tạo một schema alert thống nhất để tránh mỗi detector sinh field khác nhau.
+
+### File dự kiến sửa
+
+- `src/detector.py`
+- `src/correlator.py`
+- `src/network_monitor.py`
+- `src/honeypot.py`
+- `src/handler.py`
+- Có thể thêm: `src/alert_schema.py`
+
+### Schema tối thiểu đề xuất
+
+```json
+{
+  "alert_id": "ALT-...",
+  "timestamp": "...",
+  "alert_name": "...",
+  "severity": "LOW|MEDIUM|HIGH|CRITICAL",
+  "status": "DETECTED",
+  "source_type": "HIDS_LOG|NIDS|HONEYPOT|CORRELATION",
+  "description": "...",
+  "raw_log": "...",
+  "ip_address": "...",
+  "mitre_attck_id": "...",
+  "event_count": 1,
+  "first_seen": "...",
+  "last_seen": "...",
+  "correlation_key": "...",
+  "ml_confidence": null,
+  "ai_analysis": null,
+  "ai_recommended_severity": null,
+  "ai_disposition": null
+}
+```
+
+### Tasks
+
+- [x] Tạo hàm factory, ví dụ `build_alert(...)`.
+- [x] Sinh `alert_id` ổn định bằng UUID.
+- [x] Chuẩn hóa timestamp thành UTC ISO-8601 kết thúc bằng `Z`.
+- [x] Chuẩn hóa severity thành enum cố định.
+- [x] Không dùng nhiều tên field cho cùng một khái niệm.
+- [x] Field không có dữ liệu dùng `null`, không dùng nhiều biến thể `"N/A"`, `""`, `"Unknown"`.
+- [x] Các sensor cũ vẫn tạo alert thành công.
+- [x] Dashboard không lỗi với alert cũ thiếu field.
+
+### Definition of Done
+
+- [x] HIDS alert đúng schema.
+- [x] NIDS alert đúng schema.
+- [x] Honeypot alert đúng schema.
+- [x] Correlated alert đúng schema.
+- [x] Ollama vẫn enrich được.
+- [x] `/api/alerts` trả dữ liệu tương thích dashboard.
+- [x] Không làm mất field hiện có.
+
+### Manual verification
+
+```powershell
+docker compose up -d --build --force-recreate agent dashboard
+docker compose run --rm agent python tools/attack_sim.py
+docker compose logs --tail=200 agent
+Invoke-RestMethod http://localhost:5000/api/alerts
+```
+
+### Commit gợi ý
+
+```text
+refactor: standardize security alert schema
+```
+
+---
+
+## Batch M2.3 — Correlation deduplication và cooldown
+
+**Trạng thái:** ✅ Hoàn thành
+
+### Mục tiêu
+
+Ngăn cùng một campaign tạo quá nhiều alert giống nhau.
+
+### Tasks
+
+- [x] Xác định correlation key:
+  - alert type
+  - source IP
+  - target host/user nếu có
+- [x] Thêm cooldown sau khi trigger.
+- [x] Trong cooldown, cập nhật `event_count` và `last_seen`.
+- [x] Không append alert mới cho từng event.
+- [x] Khi window mới bắt đầu, cho phép tạo campaign mới.
+- [x] AI cache không dùng chung cho hai IP khác nhau.
+- [x] Thêm `deduplicated_events` hoặc `suppressed_count`.
+
+### Definition of Done
+
+- [x] 20 failed logins trong một campaign tạo một alert cập nhật.
+- [x] Hai source IP tạo hai campaign.
+- [x] Sau cooldown có thể tạo campaign mới.
+- [x] Dashboard hiển thị count mới nhất.
+
+### Commit gợi ý
+
+```text
+feat: deduplicate correlated attack campaigns
+```
+
+---
+
+## Batch M2.4 — Prompt grounding cho AI
+
+**Trạng thái:** ✅ Hoàn thành
+
+### Mục tiêu
+
+Không để LLM suy diễn event volume, compromise hoặc attack progression khi alert không cung cấp bằng chứng.
+
+### Tasks
+
+- [x] Gửi `event_count`.
+- [x] Gửi `window_seconds`.
+- [x] Gửi `first_seen`, `last_seen`.
+- [x] Gửi `target_users`.
+- [x] Thêm prompt rule:
+  - Không giả định dữ liệu không có.
+  - Phân biệt observed facts và inference.
+  - Không nói “successful compromise” nếu không có successful login.
+- [x] Thêm field:
+  - `observed_facts`
+  - `analyst_inferences`
+  - hoặc cập nhật `threat_summary` theo nguyên tắc evidence-only.
+
+### Definition of Done
+
+- [x] Một authentication failure không bị mô tả là high-volume brute force.
+- [x] AI nói rõ khi evidence chưa đủ.
+- [x] AI playbook vẫn hữu ích.
+- [x] JSON parse không lỗi.
+
+### Xác nhận Milestone M2 — 2026-08-05
+
+- [x] `python -m tools.check_m2` pass trong agent container vừa rebuild.
+- [x] Python và JavaScript syntax check pass.
+- [x] `agent` và `dashboard` Up sau rebuild/recreate.
+- [x] `/api/alerts` trả alert contract mới và vẫn đọc alert cũ.
+- [x] Ollama Cloud mô tả đúng một failed login, không suy diễn brute force hoặc compromise.
+
+### Commit gợi ý
+
+```text
+refactor: ground AI triage in correlated alert evidence
+```
+
+---
+
+# Milestone M3 — Incident lifecycle và analyst workflow
+
+## Mục tiêu
+
+Cho phép SOC analyst quản lý alert như một incident có trạng thái, người phụ trách, notes và timeline.
+
+---
+
+## Batch M3.1 — Alert identity và lifecycle fields
+
+**Trạng thái:** ⬜
+
+### File dự kiến sửa
+
+- `src/alert_store.py`
+- `dashboard.py`
+- `static/js/app.js`
+- Có thể thêm: `src/incident_service.py`
+
+### Fields đề xuất
+
+```json
+{
+  "alert_id": "ALT-...",
+  "incident_id": "INC-...",
+  "incident_status": "NEW",
+  "assigned_to": null,
+  "analyst_notes": [],
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+### Status hợp lệ
+
+```text
+NEW
+INVESTIGATING
+CONTAINED
+RESOLVED
+FALSE_POSITIVE
+```
+
+### Tasks
+
+- [ ] Alert mới có `alert_id`.
+- [ ] Incident-worthy alert có `incident_id`.
+- [ ] Status mặc định là `NEW`.
+- [ ] AI không được tự sửa incident status.
+- [ ] Alert cũ thiếu field vẫn đọc được.
+
+### Definition of Done
+
+- [ ] Alert mới có ID không phụ thuộc index JSON.
+- [ ] Reload dashboard không đổi ID.
+- [ ] Không có hai alert cùng ID.
+
+### Commit gợi ý
+
+```text
+feat: add alert identity and incident lifecycle fields
+```
+
+---
+
+## Batch M3.2 — API cập nhật incident status
+
+**Trạng thái:** ⬜
+
+### API đề xuất
+
+```http
+PATCH /api/alerts/<alert_id>/status
+```
+
+Request:
+
+```json
+{
+  "status": "INVESTIGATING"
+}
+```
+
+### Tasks
+
+- [ ] Validate status.
+- [ ] Trả `404` nếu không có alert.
+- [ ] Trả `400` nếu status không hợp lệ.
+- [ ] Cập nhật `updated_at`.
+- [ ] Ghi event vào timeline/audit.
+- [ ] Không ghi đè alert mới do agent append đồng thời.
+
+### Definition of Done
+
+- [ ] `NEW → INVESTIGATING` hoạt động.
+- [ ] `INVESTIGATING → CONTAINED` hoạt động.
+- [ ] `CONTAINED → RESOLVED` hoạt động.
+- [ ] `FALSE_POSITIVE` persist sau reload.
+- [ ] Invalid status bị từ chối.
+
+### Commit gợi ý
+
+```text
+feat: add incident status update API
+```
+
+---
+
+## Batch M3.3 — Analyst notes và assignment
+
+**Trạng thái:** ⬜
+
+### API đề xuất
+
+```http
+POST /api/alerts/<alert_id>/notes
+PATCH /api/alerts/<alert_id>/assignee
+```
+
+### Tasks
+
+- [ ] Note không được rỗng.
+- [ ] Giới hạn độ dài note.
+- [ ] Lưu author và timestamp.
+- [ ] Escape output để chống XSS.
+- [ ] Có thể gán `assigned_to`.
+- [ ] Timeline ghi nhận status, note và assignment changes.
+
+### Definition of Done
+
+- [ ] Thêm note thành công.
+- [ ] Reload vẫn còn note.
+- [ ] HTML trong note không được thực thi.
+- [ ] Assignment hiển thị trên dashboard.
+
+### Commit gợi ý
+
+```text
+feat: add analyst notes and incident assignment
+```
+
+---
+
+## Batch M3.4 — Incident dashboard UI
+
+**Trạng thái:** ⬜
+
+### Tasks
+
+- [ ] Status badge.
+- [ ] Status action buttons.
+- [ ] Assignee field.
+- [ ] Analyst note form.
+- [ ] Timeline.
+- [ ] Filter theo incident status.
+- [ ] Filter `REQUIRES_HUMAN_REVIEW`.
+- [ ] Hiển thị system severity cạnh AI recommendation.
+
+### Definition of Done
+
+- [ ] Analyst xử lý incident mà không mở JSON thủ công.
+- [ ] UI vẫn hoạt động với alert không có AI.
+- [ ] API error hiển thị rõ.
+- [ ] Không reload toàn page cho mỗi action nếu có thể.
+
+### Commit gợi ý
+
+```text
+feat: add incident workflow to SOC dashboard
+```
+
+---
+
+# Milestone M4 — SQLite storage migration
+
+## Mục tiêu
+
+Thay JSON file làm primary storage bằng SQLite để hỗ trợ update, pagination, filtering và concurrency tốt hơn.
+
+> Không xóa JSON ngay. Triển khai theo cơ chế dual-write rồi mới chuyển read path.
+
+---
+
+## Batch M4.1 — Storage abstraction
+
+**Trạng thái:** ⬜
+
+### File dự kiến
+
+- Thêm `src/storage.py` hoặc `src/sqlite_store.py`
+- Sửa `src/alert_store.py`
+- Sửa `dashboard.py`
+
+### Interface đề xuất
+
+```python
+class AlertRepository:
+    def create_alert(self, alert: dict) -> dict: ...
+    def update_alert(self, alert_id: str, changes: dict) -> dict | None: ...
+    def get_alert(self, alert_id: str) -> dict | None: ...
+    def list_alerts(self, filters: dict, limit: int, offset: int) -> list[dict]: ...
+```
+
+### Tasks
+
+- [ ] Tách code lưu trữ khỏi detector và dashboard.
+- [ ] JSON implementation vẫn hoạt động.
+- [ ] Không để module khác tự mở `siem_alerts.json`.
+
+### Commit gợi ý
+
+```text
+refactor: add alert repository abstraction
+```
+
+---
+
+## Batch M4.2 — SQLite schema và dual-write
+
+**Trạng thái:** ⬜
+
+### Database
+
+```text
+data/mini_siem.db
+```
+
+### Tables đề xuất
+
+- `alerts`
+- `incidents`
+- `incident_events`
+- `analyst_notes`
+- `response_actions`
+
+### Tasks
+
+- [ ] Auto-create database.
+- [ ] Tạo schema idempotent.
+- [ ] Ghi alert vào JSON và SQLite.
+- [ ] JSON write failure không làm SQLite mất dữ liệu.
+- [ ] SQLite failure được log rõ.
+- [ ] Persist nested AI JSON dưới dạng JSON text hoặc normalized fields phù hợp.
+
+### Definition of Done
+
+- [ ] Restart container không mất dữ liệu.
+- [ ] Alert count JSON và SQLite khớp trong smoke test.
+- [ ] Incident updates persist trong SQLite.
+
+### Commit gợi ý
+
+```text
+feat: add SQLite dual-write alert storage
+```
+
+---
+
+## Batch M4.3 — JSON to SQLite migration
+
+**Trạng thái:** ⬜
+
+### File đề xuất
+
+```text
+tools/migrate_json_to_sqlite.py
+```
+
+### Tasks
+
+- [ ] Backup database trước migrate.
+- [ ] Import alert cũ.
+- [ ] Không duplicate khi chạy lại.
+- [ ] Báo số record imported/skipped/failed.
+- [ ] Giữ nguyên `alert_id`.
+- [ ] Sinh ID cho alert legacy chưa có ID.
+
+### Commit gợi ý
+
+```text
+feat: add JSON to SQLite migration tool
+```
+
+---
+
+## Batch M4.4 — Dashboard read từ SQLite
+
+**Trạng thái:** ⬜
+
+### Tasks
+
+- [ ] `/api/alerts` query SQLite.
+- [ ] Server-side pagination.
+- [ ] Filter:
+  - severity
+  - IP
+  - MITRE
+  - status
+  - time range
+  - AI disposition
+- [ ] Sort theo timestamp.
+- [ ] JSON fallback feature flag trong giai đoạn chuyển tiếp.
+
+### Definition of Done
+
+- [ ] Dashboard không đọc toàn bộ history vào RAM.
+- [ ] Filter hoạt động.
+- [ ] Incident update không race với agent append.
+- [ ] Có thể disable JSON dual-write sau khi ổn định.
+
+### Commit gợi ý
+
+```text
+feat: serve dashboard alerts from SQLite
+```
+
+---
+
+# Milestone M5 — Detection engineering và rule management
+
+## Mục tiêu
+
+Chuyển signature detection từ logic hard-coded sang rule có ID, metadata, enable/disable và MITRE mapping rõ ràng.
+
+---
+
+## Batch M5.1 — Rule metadata contract
+
+**Trạng thái:** ⬜
+
+### Rule fields
+
+```yaml
+id: DET-SSH-001
+title: SSH Authentication Failure
+enabled: true
+severity: MEDIUM
+source_type: HIDS_LOG
+mitre:
+  tactic: Credential Access
+  technique: T1110.001
+match:
+  contains:
+    - "Failed password"
+```
+
+### Tasks
+
+- [ ] Mỗi rule có ID.
+- [ ] Mỗi rule có title.
+- [ ] Mỗi rule có severity.
+- [ ] Mỗi rule có MITRE metadata.
+- [ ] Alert lưu `rule_id`.
+- [ ] Dashboard hiển thị rule ID.
+
+### Commit gợi ý
+
+```text
+refactor: add metadata contract for detection rules
+```
+
+---
+
+## Batch M5.2 — YAML rule loader
+
+**Trạng thái:** ⬜
+
+### File đề xuất
+
+```text
+config/rules/
+├── authentication.yml
+├── privilege_escalation.yml
+├── network.yml
+└── persistence.yml
+```
+
+### Tasks
+
+- [ ] Load YAML khi agent start.
+- [ ] Validate required fields.
+- [ ] Rule lỗi không làm agent crash toàn bộ.
+- [ ] Log rule loaded/skipped.
+- [ ] Enable/disable rule.
+- [ ] Giữ fallback cho signatures cũ trong giai đoạn đầu.
+
+### Commit gợi ý
+
+```text
+feat: load configurable detection rules from YAML
+```
+
+---
+
+## Batch M5.3 — Rule matching operators
+
+**Trạng thái:** ⬜
+
+### Operators
+
+- `contains`
+- `contains_any`
+- `contains_all`
+- `regex`
+- `equals`
+- `not_contains`
+- threshold/time-window reference
+
+### Definition of Done
+
+- [ ] Rule SSH hoạt động.
+- [ ] Rule sudo hoạt động.
+- [ ] Rule account creation hoạt động.
+- [ ] Invalid regex được xử lý an toàn.
+- [ ] Rule match ghi `rule_id`.
+
+### Commit gợi ý
+
+```text
+feat: add flexible rule matching operators
+```
+
+---
+
+## Batch M5.4 — Detection coverage tracking
+
+**Trạng thái:** ⬜
+
+### Tasks
+
+- [ ] Mapping attack simulator mode → expected rule ID.
+- [ ] Hiển thị rule hit count.
+- [ ] Hiển thị rule chưa từng trigger.
+- [ ] MITRE coverage summary.
+- [ ] Manual detection checklist document.
+
+### Không bắt buộc
+
+Automated test suite có thể làm sau. Giai đoạn này có thể dùng attack simulator và script smoke check.
+
+### Commit gợi ý
+
+```text
+feat: add detection coverage reporting
+```
+
+---
+
+# Milestone M6 — Lightweight response automation
+
+## Mục tiêu
+
+Cung cấp workflow phản ứng an toàn mà không cần Shuffle, mặc định không thực thi lệnh nguy hiểm.
+
+---
+
+## Batch M6.1 — Response mode và action contract
+
+**Trạng thái:** ⬜
+
+### Modes
+
+```text
+disabled
+simulation
+manual
+automatic
+```
+
+Mặc định:
+
+```env
+RESPONSE_MODE=simulation
+```
+
+### Action schema
+
+```json
+{
+  "action_id": "ACT-...",
+  "incident_id": "INC-...",
+  "action_type": "BLOCK_IP",
+  "target": "192.168.1.50",
+  "mode": "simulation",
+  "status": "PROPOSED",
+  "requested_by": "analyst",
+  "created_at": "..."
+}
+```
+
+### Tasks
+
+- [ ] Không lưu command shell trực tiếp như quyết định cuối.
+- [ ] Mapping action theo OS.
+- [ ] Audit mọi action.
+- [ ] Không tự chạy action do LLM tạo ra.
+
+### Commit gợi ý
+
+```text
+refactor: add safe response action contract
+```
+
+---
+
+## Batch M6.2 — Response simulation
+
+**Trạng thái:** ⬜
+
+### Actions mô phỏng
+
+- Block IP.
+- Unblock IP.
+- Disable user.
+- Kill process.
+- Quarantine file.
+- Notify analyst.
+
+### Definition of Done
+
+- [ ] Dashboard có nút request action.
+- [ ] Simulation ghi “would execute”.
+- [ ] Không thay đổi firewall thật.
+- [ ] Action xuất hiện trong incident timeline.
+
+### Commit gợi ý
+
+```text
+feat: add simulated incident response actions
+```
+
+---
+
+## Batch M6.3 — Manual approval
+
+**Trạng thái:** ⬜
+
+### Workflow
+
+```text
+PROPOSED
+→ APPROVED
+→ EXECUTED / SIMULATED
+→ FAILED / ROLLED_BACK
+```
+
+### Tasks
+
+- [ ] AI playbook chỉ tạo proposal.
+- [ ] Analyst phải approve.
+- [ ] Allowlists cho localhost, gateway, critical assets.
+- [ ] Target validation.
+- [ ] Timeout và error handling.
+- [ ] Không cho command injection.
+
+### Commit gợi ý
+
+```text
+feat: add analyst approval workflow for response actions
+```
+
+---
+
+## Batch M6.4 — Notifications
+
+**Trạng thái:** ⬜
+
+### Kênh ưu tiên
+
+1. Discord webhook hoặc generic webhook.
+2. Email.
+3. Slack nếu cần.
+
+### Tasks
+
+- [ ] Chỉ gửi HIGH/CRITICAL hoặc `REQUIRES_HUMAN_REVIEW`.
+- [ ] Deduplicate notifications.
+- [ ] Không gửi raw secret/log nhạy cảm.
+- [ ] Retry giới hạn.
+- [ ] Notification result ghi audit.
+
+### Commit gợi ý
+
+```text
+feat: add webhook notifications for high-risk incidents
+```
+
+---
+
+# Milestone M7 — Windows telemetry và Sysmon
+
+## Mục tiêu
+
+Bổ sung nguồn dữ liệu phù hợp với Blue Team Windows mà không yêu cầu Wazuh.
+
+> Vì agent đang chạy trong Linux container, không nên giả định container có thể đọc trực tiếp Windows Event Log. Triển khai theo hai giai đoạn: offline/import trước, host collector sau.
+
+---
+
+## Batch M7.1 — Sysmon JSON/EVTX import
+
+**Trạng thái:** ⬜
+
+### Nguồn ưu tiên
+
+- Sysmon XML/JSON export.
+- Windows Event Log export.
+- EVTX offline dataset.
+
+### Tasks
+
+- [ ] Import file offline.
+- [ ] Normalize Event ID.
+- [ ] Map process, parent process, command line, user, hashes, network fields.
+- [ ] Không yêu cầu realtime ở batch đầu.
+
+### Event IDs ưu tiên
+
+- Sysmon 1 — Process Create.
+- Sysmon 3 — Network Connection.
+- Sysmon 7 — Image Load.
+- Sysmon 10 — Process Access.
+- Sysmon 11 — File Create.
+- Sysmon 13 — Registry Value Set.
+- Windows 4624 — Successful Logon.
+- Windows 4625 — Failed Logon.
+- Windows 4688 — Process Creation.
+
+### Commit gợi ý
+
+```text
+feat: import and normalize Windows Sysmon events
+```
+
+---
+
+## Batch M7.2 — Windows host collector
+
+**Trạng thái:** ⬜
+
+### Kiến trúc đề xuất
+
+```text
+Windows collector process
+→ HTTP/JSON or shared file
+→ Mini-SIEM agent/dashboard
+```
+
+### Tasks
+
+- [ ] Collector chạy trực tiếp trên Windows host.
+- [ ] Không cần privileged Linux container.
+- [ ] Batch hoặc stream events.
+- [ ] Shared secret giữa collector và Mini-SIEM.
+- [ ] Retry và local buffer.
+- [ ] Collector không gửi toàn bộ historical log mỗi lần restart.
+
+### Commit gợi ý
+
+```text
+feat: add lightweight Windows event collector
+```
+
+---
+
+## Batch M7.3 — Windows detection rules
+
+**Trạng thái:** ⬜
+
+### Use cases
+
+- Encoded PowerShell.
+- Suspicious LOLBins:
+  - `certutil`
+  - `rundll32`
+  - `regsvr32`
+  - `mshta`
+- Account creation.
+- Scheduled task creation.
+- Defender tampering.
+- Credential dumping indicators.
+- Abnormal parent-child process.
+
+### Commit gợi ý
+
+```text
+feat: add Windows and Sysmon detection rules
+```
+
+---
+
+# Milestone M8 — Dashboard security, observability và reliability
+
+## Batch M8.1 — Dashboard authentication
+
+**Trạng thái:** ⬜
+
+### Scope
+
+- Login/logout.
+- Password hash.
+- Session hoặc JWT.
+- Role tối thiểu:
+  - viewer
+  - analyst
+  - admin
+
+### Permissions
+
+| Action | Viewer | Analyst | Admin |
+|---|---:|---:|---:|
+| View alerts | ✅ | ✅ | ✅ |
+| Add notes | ❌ | ✅ | ✅ |
+| Change status | ❌ | ✅ | ✅ |
+| Approve response | ❌ | ✅ | ✅ |
+| Change settings | ❌ | ❌ | ✅ |
+
+### Commit gợi ý
+
+```text
+feat: add dashboard authentication and analyst roles
+```
+
+---
+
+## Batch M8.2 — Audit log
+
+**Trạng thái:** ⬜
+
+### Audit events
+
+- Login/logout.
+- Status change.
+- Note added.
+- Assignment.
+- Response requested/approved/executed.
+- Rule enabled/disabled.
+- Runtime setting changed.
+
+### Commit gợi ý
+
+```text
+feat: add immutable analyst audit log
+```
+
+---
+
+## Batch M8.3 — Health and diagnostics
+
+**Trạng thái:** ⬜
+
+### Endpoints đề xuất
+
+```http
+GET /health
+GET /api/system/status
+```
+
+### Status cần hiển thị
+
+- Agent heartbeat.
+- Dashboard status.
+- Alert store status.
+- Ollama provider availability.
+- Last successful AI enrichment.
+- Queue/backlog.
+- NIDS enabled/disabled.
+- Honeypot enabled/disabled.
+- Database health.
+
+### Commit gợi ý
+
+```text
+feat: add service health and diagnostics endpoints
+```
+
+---
+
+## Batch M8.4 — Retention và backup
+
+**Trạng thái:** ⬜
+
+### Tasks
+
+- [ ] Config retention days.
+- [ ] Archive old alerts.
+- [ ] SQLite backup command.
+- [ ] Không xóa incident đang mở.
+- [ ] Log rotation.
+- [ ] Document restore procedure.
+
+### Commit gợi ý
+
+```text
+feat: add alert retention and database backup workflow
+```
+
+---
+
+# Milestone M9 — Release, documentation và portfolio demo
+
+## Batch M9.1 — README synchronization
+
+**Trạng thái:** ⬜
+
+### Cần cập nhật
+
+- [ ] Thay tài liệu Groq cũ bằng Ollama Cloud.
+- [ ] Cập nhật `.env.example`.
+- [ ] Cập nhật architecture diagram.
+- [ ] Cập nhật AI output fields.
+- [ ] Cập nhật severity decision model.
+- [ ] Cập nhật screenshot.
+- [ ] Ghi rõ Windows/Docker NIDS limitations.
+- [ ] Ghi rõ response mặc định là simulation.
+
+### Commit gợi ý
+
+```text
+docs: update architecture and Ollama Cloud setup
+```
+
+---
+
+## Batch M9.2 — Demo scenario
+
+**Trạng thái:** ⬜
+
+### Demo end-to-end đề xuất
+
+```text
+1. Inject SSH failed-login campaign.
+2. Threshold detector tạo HIGH alert.
+3. Correlator tổng hợp event_count.
+4. Ollama Cloud phân tích.
+5. AI đề xuất CRITICAL + human review.
+6. System severity vẫn giữ HIGH.
+7. Analyst mở incident.
+8. Analyst thêm note.
+9. Analyst chuyển INVESTIGATING.
+10. Analyst request BLOCK_IP simulation.
+11. Action được audit.
+12. Incident chuyển RESOLVED.
+```
+
+### Artifacts
+
+- Screenshot dashboard.
+- Sample alert JSON.
+- Sample AI analysis.
+- Incident timeline.
+- Response audit.
+- Kiến trúc diagram.
+- Demo commands.
+
+### Commit gợi ý
+
+```text
+docs: add end-to-end Blue Team demo scenario
+```
+
+---
+
+## Batch M9.3 — Versioned release
+
+**Trạng thái:** ⬜
+
+### Tasks
+
+- [ ] Chọn semantic version.
+- [ ] Tạo `CHANGELOG.md`.
+- [ ] Tag release.
+- [ ] Ghi known limitations.
+- [ ] Ghi setup from clean clone.
+- [ ] Xác nhận không có secret trong Git history gần nhất.
+
+### Release goal đề xuất
+
+```text
+v0.3.0 — Ollama Cloud + Incident Workflow + SQLite
+```
+
+---
+
+# 5. Backlog tùy chọn
+
+Các mục này không chặn roadmap chính:
+
+- [ ] Automated unit tests.
+- [ ] GitHub Actions CI.
+- [ ] Sigma import.
+- [ ] STIX/TAXII threat intelligence.
+- [ ] AbuseIPDB/VirusTotal enrichment.
+- [ ] GeoIP enrichment.
+- [ ] Asset inventory.
+- [ ] Multi-tenant support.
+- [ ] TheHive/Jira integration.
+- [ ] PDF incident report.
+- [ ] Prometheus metrics.
+- [ ] Local Ollama fallback.
+- [ ] Multi-provider AI abstraction.
+- [ ] Role-specific dashboard layouts.
+
+---
+
+# 6. Thứ tự thực hiện được khuyến nghị
+
+Không làm nhiều milestone song song. Follow theo thứ tự:
+
+```text
+M3 Incident Lifecycle
+→ M4 SQLite
+→ M5 Rule Management
+→ M6 Response Simulation
+→ M7 Windows/Sysmon
+→ M8 Security/Reliability
+→ M9 Release
+```
+
+## Batch nên bắt đầu ngay
+
+```text
+M3.1 — Alert identity và lifecycle fields
+```
+
+Lý do:
+
+- M2 đã hoàn thành và cung cấp `alert_id` cùng schema ổn định.
+- M3.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau milestone.
+- SQLite chỉ bắt đầu sau khi incident lifecycle ổn định.
+
+---
+
+# 7. Template tracking cho mỗi batch
+
+Sao chép block này khi bắt đầu một batch:
+
+```markdown
+## Batch <ID> — <Tên>
+
+**Status:** 🟠 In Progress
+**Started:** YYYY-MM-DD
+**Completed:**
+**Commit:**
+
+### Goal
+
+...
+
+### Files changed
+
+- `...`
+
+### Tasks
+
+- [ ] ...
+- [ ] ...
+
+### Manual verification
+
+- [ ] Syntax check pass.
+- [ ] Docker build pass.
+- [ ] Service Up.
+- [ ] API smoke check pass.
+- [ ] Dashboard smoke check pass.
+- [ ] No secret committed.
+- [ ] Working tree clean after commit.
+
+### Notes / Decisions
+
+- ...
+
+### Known issues
+
+- ...
+```
+
+---
+
+# 8. Checklist trước mỗi commit
+
+```powershell
+git status --short
+git diff
+git check-ignore .env
+```
+
+- [ ] Không có `.env`.
+- [ ] Không có API key.
+- [ ] Không commit `logs/auth.log`.
+- [ ] Không commit generated alert data ngoài chủ đích.
+- [ ] Không commit model artifacts mới ngoài chủ đích.
+- [ ] Python syntax pass.
+- [ ] JavaScript syntax pass nếu sửa JS.
+- [ ] Docker service liên quan build và chạy được.
+- [ ] Commit message chỉ mô tả một batch.
+
+---
+
+# 9. Checklist smoke verification chung
+
+## Python
+
+```powershell
+docker compose exec agent python -m py_compile /app/main.py
+docker compose exec agent python -m py_compile /app/src/ai_analyst.py
+```
+
+## JavaScript
+
+```powershell
+node --check static/js/app.js
+```
+
+## Docker
+
+```powershell
+docker compose up -d --build --force-recreate agent dashboard
+docker compose ps
+docker compose logs --tail=100 agent
+docker compose logs --tail=100 dashboard
+```
+
+## API
+
+```powershell
+Invoke-RestMethod http://localhost:5000/api/alerts
+```
+
+## Dashboard
+
+```text
+http://localhost:5000/logs
+```
+
+## Git
+
+```powershell
+git status
+```
+
+Expected:
+
+```text
+nothing to commit, working tree clean
+```
+
+---
+
+# 10. Decision log
+
+| Date | Decision | Reason |
+|---|---|---|
+| 2026-08 | Không dùng Wazuh/Shuffle | Hạn chế dung lượng và tài nguyên máy |
+| 2026-08 | Giữ Docker | Repo gốc đã dùng Docker và vẫn phù hợp máy |
+| 2026-08 | Dùng Ollama Cloud | Không tải local model, không phụ thuộc Groq |
+| 2026-08 | Model `gemma4:cloud` | Đã xác nhận API trả HTTP 200 |
+| 2026-08 | AI không sửa system severity | Detection/risk engine giữ quyền quyết định |
+| 2026-08 | Manual smoke checks trước | Phù hợp workflow hiện tại; automated tests để backlog |
+| 2026-08 | SQLite triển khai sau incident schema | Tránh migration khi data contract chưa ổn định |
+
+---
+
+# 11. Definition of Project Completion
+
+Project được xem là đạt một phiên bản Blue Team portfolio hoàn chỉnh khi:
+
+- [ ] HIDS/NIDS/Honeypot tạo alert theo schema chung.
+- [ ] Correlation giảm alert trùng và tổng hợp campaign.
+- [ ] AI triage hoạt động nhưng không tự thay đổi quyết định hệ thống.
+- [ ] Analyst có thể quản lý lifecycle incident.
+- [ ] Analyst có thể ghi notes và assignment.
+- [ ] Storage dùng SQLite và có migration.
+- [ ] Detection rules có ID, MITRE mapping và enable/disable.
+- [ ] Response action mặc định simulation và có audit.
+- [ ] Có ít nhất một Windows/Sysmon ingestion path.
+- [ ] Dashboard có authentication.
+- [ ] Có health/diagnostics.
+- [ ] Có demo end-to-end tái tạo được từ clean clone.
+- [ ] README và `.env.example` phản ánh đúng implementation.
+- [ ] Không có secret trong repository.

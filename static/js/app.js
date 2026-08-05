@@ -105,7 +105,7 @@ function initDashboard() {
   severityChart = new Chart(ctx1, {
     type: "doughnut",
     data: {
-      labels: ["CRITICAL", "HIGH", "MEDIUM", "INFO"],
+      labels: ["CRITICAL", "HIGH", "MEDIUM", "LOW / INFO"],
       datasets: [
         {
           data: [0, 0, 0, 0],

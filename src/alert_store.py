@@ -5,19 +5,10 @@ from config import config
 
 _lock = threading.Lock()
 
-def append_alert(alert: dict) -> None:
-    """
-    Thread-safe append-1-line JSON alert into OUTPUT_ALERT_FILE.
-    """
-    os.makedirs(os.path.dirname(config.OUTPUT_ALERT_FILE), exist_ok=True)
-    line = json.dumps(alert, ensure_ascii=False)
-
-    with _lock:
-        with open(config.OUTPUT_ALERT_FILE, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-
 
 def _same_alert(left: dict, right: dict) -> bool:
+    if left.get("alert_id") and right.get("alert_id"):
+        return left["alert_id"] == right["alert_id"]
     return (
         left.get("timestamp") == right.get("timestamp")
         and left.get("alert_name") == right.get("alert_name")

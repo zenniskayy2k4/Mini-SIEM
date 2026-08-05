@@ -26,6 +26,7 @@ import torch.nn as nn
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from config import config
+from src.alert_schema import build_alert
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +186,7 @@ class ThreatDetector:
         self.scaler      = None
         self.ae_threshold = 1.0
         self._ssh_failures = defaultdict(deque)
+        self._ssh_alerts = {}
         self._ssh_lock = threading.Lock()
 
         self._load_all_models()
@@ -297,43 +299,40 @@ class ThreatDetector:
         confidence: int,
     ) -> dict:
         """Build a structured alert from AI detection layers."""
-        return {
-            "timestamp":       datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "alert_name":      title,
-            "severity":        severity,
-            "mitre_attck_id":  "T1204 (Zero-day Anomaly)",
-            "description": (
+        return build_alert(
+            alert_name=title,
+            severity=severity,
+            source_type="HIDS_LOG",
+            mitre_attck_id="T1204 (Zero-day Anomaly)",
+            description=(
                 f"AI anomaly — NLP score={nlp_score:.3f}, "
                 f"AE loss={ae_loss:.5f} (thresh={self.ae_threshold:.5f}), "
                 f"confidence={confidence}%"
             ),
-            "raw_log":             log_line.strip(),
-            "ml_anomaly_score":    round(ae_loss, 5),
-            "ml_confidence":       confidence,
-            "ip_address":          "N/A",
-            "mitigation_command":  "Manual Investigation Required",
-            "status":              "AI_DETECTED",
-        }
+            raw_log=log_line.strip(),
+            ml_anomaly_score=round(ae_loss, 5),
+            ml_confidence=confidence,
+            mitigation_command="Manual Investigation Required",
+        )
 
     def _rule_based_detect(self, log_line: str) -> dict | None:
         """Iterate signatures; return structured alert on first match."""
         for sig in self.signatures:
             match = re.search(sig["pattern"], log_line, re.IGNORECASE)
             if match:
-                return {
-                    "timestamp":      datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                    "alert_name":     sig["name"],
-                    "severity":       sig["severity"],
-                    "mitre_attck_id": sig["mitre_id"],
-                    "description":    sig["description"],
-                    "raw_log":        log_line.strip(),
-                    "status":         "DETECTED",
-                    "ip_address": (
+                return build_alert(
+                    alert_name=sig["name"],
+                    severity=sig["severity"],
+                    source_type="HIDS_LOG",
+                    mitre_attck_id=sig["mitre_id"],
+                    description=sig["description"],
+                    raw_log=log_line.strip(),
+                    ip_address=(
                         match.group(1)
                         if sig.get("extract_ip") and match.lastindex
-                        else "N/A"
+                        else None
                     ),
-                }
+                )
         return None
 
     def _check_ssh_bruteforce(self, log_line: str) -> tuple[bool, dict | None]:
@@ -348,32 +347,48 @@ class ThreatDetector:
 
         with self._ssh_lock:
             failures = self._ssh_failures[ip]
-            failures.append((now, match.group("user"), log_line.strip()))
             cutoff = now - timedelta(seconds=window)
             while failures and failures[0][0] < cutoff:
                 failures.popleft()
+            if not failures:
+                self._ssh_alerts.pop(ip, None)
+
+            failures.append((now, match.group("user"), log_line.strip()))
+
+            active = self._ssh_alerts.get(ip)
+            if active:
+                active["event_count"] += 1
+                active["last_seen"] = now.isoformat().replace("+00:00", "Z")
+                active["raw_log"] = log_line.strip()
+                active["target_users"] = sorted(set(active["target_users"]) | {match.group("user")})
+                active["suppressed_count"] = active["event_count"] - threshold
+                active["description"] = (
+                    f"{active['event_count']} failed SSH logins from {ip} within an active {window}s campaign."
+                )
+                return True, active
 
             if len(failures) < threshold:
                 return True, None
 
             events = list(failures)
-            failures.clear()
-
-        return True, {
-            "timestamp": now.isoformat().replace("+00:00", "Z"),
-            "alert_name": "SSH Brute Force Attempt",
-            "severity": "HIGH",
-            "mitre_attck_id": "T1110.001",
-            "description": f"{len(events)} failed SSH logins from {ip} within {window}s.",
-            "raw_log": log_line.strip(),
-            "status": "DETECTED",
-            "ip_address": ip,
-            "event_count": len(events),
-            "window_seconds": window,
-            "first_seen": events[0][0].isoformat().replace("+00:00", "Z"),
-            "last_seen": events[-1][0].isoformat().replace("+00:00", "Z"),
-            "target_users": sorted({user for _, user, _ in events}),
-        }
+            alert = build_alert(
+                alert_name="SSH Brute Force Attempt",
+                severity="HIGH",
+                source_type="HIDS_LOG",
+                mitre_attck_id="T1110.001",
+                description=f"{len(events)} failed SSH logins from {ip} within {window}s.",
+                raw_log=log_line.strip(),
+                ip_address=ip,
+                event_count=len(events),
+                window_seconds=window,
+                first_seen=events[0][0],
+                last_seen=events[-1][0],
+                target_users=sorted({user for _, user, _ in events}),
+                correlation_key=f"SSH Brute Force Attempt|{ip}",
+                suppressed_count=0,
+            )
+            self._ssh_alerts[ip] = alert
+            return True, alert
 
     # ------------------------------------------------------------------
     # Main entry point

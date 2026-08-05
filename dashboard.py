@@ -205,7 +205,7 @@ def api_stats():
         "critical": count("CRITICAL"),
         "high": count("HIGH"),
         "medium": count("MEDIUM"),
-        "info": count("INFO"),
+        "info": count("LOW") + count("INFO"),
         "anomalies": sum(1 for a in alerts if "ml_anomaly_score" in a),
         "total": len(alerts),
     }
@@ -223,7 +223,7 @@ def api_alerts_search():
     Query params:
       - page (default 1)
       - page_size (default 50, max 200)
-      - severity (CRITICAL/HIGH/MEDIUM/INFO)
+      - severity (CRITICAL/HIGH/MEDIUM/LOW; legacy INFO is still readable)
       - q (free text: alert_name/description/raw_log)
       - ip (substring match)
       - mitre (substring match)

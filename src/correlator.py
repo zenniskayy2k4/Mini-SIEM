@@ -9,9 +9,12 @@ Alert Correlator:
 """
 
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 import logging
+import threading
+
+from src.alert_schema import build_alert
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +65,7 @@ CAMPAIGN_THRESHOLDS: dict[str, int] = {
 # ---------------------------------------------------------------------------
 # Cross-source bonus: if IP seen in N distinct sources → multiply severity
 # ---------------------------------------------------------------------------
-SOURCE_PRIORITY = {"HONEYPOT": 3, "NETWORK_SENSOR": 2, "HIDS_LOG": 1}
+SOURCE_PRIORITY = {"HONEYPOT": 3, "NIDS": 2, "HIDS_LOG": 1}
 
 
 def _classify_alert(alert_name: str) -> str:
@@ -73,12 +76,8 @@ def _classify_alert(alert_name: str) -> str:
     return "DEFAULT"
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
 def _parse_ts(ts: str) -> datetime:
-    return datetime.fromisoformat(ts.rstrip("Z"))
+    return datetime.fromisoformat(ts[:-1] + "+00:00" if ts.endswith("Z") else ts)
 
 
 # ---------------------------------------------------------------------------
@@ -106,14 +105,20 @@ class AlertCorrelator:
 
         # Prevent duplicate escalation: (ip, campaign_type) → last_escalation_ts
         self._escalated: dict[tuple, datetime] = {}
+        self._active_alerts: dict[tuple, dict] = {}
+        self._lock = threading.Lock()
 
         # Escalation cooldown (avoid spamming same campaign alert)
-        self._escalation_cooldown_minutes = window_minutes * 2
+        self._escalation_cooldown_minutes = window_minutes
 
     # ------------------------------------------------------------------
     # Public entry point
     # ------------------------------------------------------------------
     def correlate(self, alert: dict) -> dict:
+        with self._lock:
+            return self._correlate(alert)
+
+    def _correlate(self, alert: dict) -> dict:
         """
         Process one alert through the correlation engine.
         Returns either the original alert (no correlation yet) or a new
@@ -127,7 +132,12 @@ class AlertCorrelator:
         self._evict_old(ip, current_time)
 
         # Register event
-        self._buffers[ip].append(alert)
+        for index, existing in enumerate(self._buffers[ip]):
+            if existing.get("alert_id") == alert.get("alert_id"):
+                self._buffers[ip][index] = alert
+                break
+        else:
+            self._buffers[ip].append(alert)
         self._sources_seen[ip].add(alert.get("source_type", "UNKNOWN"))
         category = _classify_alert(alert.get("alert_name", ""))
         self._tactics_seen[ip].append(category)
@@ -165,32 +175,34 @@ class AlertCorrelator:
             return None
 
         escalation_key = (ip, "KILL_CHAIN")
-        if self._is_in_cooldown(escalation_key, now):
-            return None
-
-        self._register_escalation(escalation_key, now)
-        self._buffers[ip].clear()
-        self._tactics_seen[ip].clear()
+        active = self._active_alert(escalation_key, now, self._buffers[ip])
+        if active:
+            return active
 
         chain_str = " → ".join(matched_stages)
         logger.warning(f"[Correlator] Kill chain detected: {ip}  {chain_str}")
 
-        return {
-            "timestamp":       _utc_now_iso(),
-            "alert_name":      "Multi-Stage Attack Chain Detected",
-            "severity":        "CRITICAL",
-            "mitre_attck_id":  "TA0001→TA0006→TA0004 (Kill Chain)",
-            "description": (
+        result = build_alert(
+            alert_name="Multi-Stage Attack Chain Detected",
+            severity="CRITICAL",
+            source_type="CORRELATION",
+            mitre_attck_id="TA0001→TA0006→TA0004 (Kill Chain)",
+            description=(
                 f"Attack chain from {ip}: {chain_str}  "
                 f"({len(self._buffers[ip])} total events in {self.window_minutes} min)"
             ),
-            "correlated_events": [a.get("raw_log", "") for a in self._buffers[ip]],
-            "status":           "KILL_CHAIN_DETECTED",
-            "ip_address":       ip,
-            "sources":          list(self._sources_seen[ip]),
-            "chain_stages":     matched_stages,
-            "mitigation_command": f"iptables -A INPUT -s {ip} -j DROP  # BLOCK IMMEDIATELY",
-        }
+            raw_log=None,
+            ip_address=ip,
+            event_count=len(self._buffers[ip]),
+            correlation_key=f"KILL_CHAIN|{ip}",
+            correlated_events=[a.get("raw_log") for a in self._buffers[ip]],
+            sources=sorted(self._sources_seen[ip]),
+            chain_stages=matched_stages,
+            trigger_event_count=len(self._buffers[ip]),
+            mitigation_command=f"iptables -A INPUT -s {ip} -j DROP  # BLOCK IMMEDIATELY",
+        )
+        self._register_escalation(escalation_key, now, result)
+        return result
 
     # ------------------------------------------------------------------
     # Check 2: Cross-source correlation
@@ -198,7 +210,7 @@ class AlertCorrelator:
     def _check_cross_source(self, ip: str, now: datetime) -> Optional[dict]:
         """
         If the same IP appears in 2+ distinct sensor sources (e.g. HIDS_LOG +
-        NETWORK_SENSOR), that's a high-fidelity indicator of a real attack.
+        NIDS), that's a high-fidelity indicator of a real attack.
         """
         sources = self._sources_seen[ip]
         if len(sources) < 2:
@@ -206,32 +218,37 @@ class AlertCorrelator:
 
         # Weight sources by priority
         total_weight = sum(SOURCE_PRIORITY.get(s, 1) for s in sources)
-        if total_weight < 4:   # e.g. HIDS(1) + NETWORK(2) = 3 → not yet
+        if total_weight < 4:   # e.g. HIDS(1) + NIDS(2) = 3 → not yet
             return None
 
         escalation_key = (ip, "CROSS_SOURCE")
-        if self._is_in_cooldown(escalation_key, now):
-            return None
-
-        self._register_escalation(escalation_key, now)
+        active = self._active_alert(escalation_key, now, self._buffers[ip])
+        if active:
+            active["sources"] = sorted(sources)
+            return active
 
         logger.warning(f"[Correlator] Cross-source alert: {ip}  sources={sources}")
 
-        return {
-            "timestamp":       _utc_now_iso(),
-            "alert_name":      "Cross-Sensor Correlated Threat",
-            "severity":        "CRITICAL",
-            "mitre_attck_id":  "T1078 (Multi-vector)",
-            "description": (
+        result = build_alert(
+            alert_name="Cross-Sensor Correlated Threat",
+            severity="CRITICAL",
+            source_type="CORRELATION",
+            mitre_attck_id="T1078 (Multi-vector)",
+            description=(
                 f"IP {ip} detected across multiple sensors: {', '.join(sorted(sources))}. "
                 f"High-fidelity indicator of targeted attack."
             ),
-            "correlated_events": [a.get("raw_log", "") for a in self._buffers[ip]],
-            "status":           "CROSS_SENSOR_ESCALATED",
-            "ip_address":       ip,
-            "sources":          sorted(sources),
-            "mitigation_command": f"iptables -A INPUT -s {ip} -j DROP",
-        }
+            raw_log=None,
+            ip_address=ip,
+            event_count=len(self._buffers[ip]),
+            correlation_key=f"CROSS_SOURCE|{ip}",
+            correlated_events=[a.get("raw_log") for a in self._buffers[ip]],
+            sources=sorted(sources),
+            trigger_event_count=len(self._buffers[ip]),
+            mitigation_command=f"iptables -A INPUT -s {ip} -j DROP",
+        )
+        self._register_escalation(escalation_key, now, result)
+        return result
 
     # ------------------------------------------------------------------
     # Check 3: Volume-based campaign
@@ -257,11 +274,13 @@ class AlertCorrelator:
             return None
 
         escalation_key = (ip, f"CAMPAIGN_{category}")
-        if self._is_in_cooldown(escalation_key, now):
-            return None
-
-        self._register_escalation(escalation_key, now)
-        self._buffers[ip].clear()
+        active = self._active_alert(escalation_key, now, same_cat)
+        if active:
+            active["description"] = (
+                f"Campaign from {ip}: {active['event_count']} {category} events "
+                f"in {self.window_minutes} min window."
+            )
+            return active
 
         campaign_name = {
             "CRED_ACCESS":   "Brute Force Campaign",
@@ -283,21 +302,28 @@ class AlertCorrelator:
 
         logger.warning(f"[Correlator] Campaign: {campaign_name}  ip={ip}  events={len(same_cat)}")
 
-        return {
-            "timestamp":       _utc_now_iso(),
-            "alert_name":      campaign_name,
-            "severity":        severity,
-            "mitre_attck_id":  mitre_ids,
-            "description": (
+        result = build_alert(
+            alert_name=campaign_name,
+            severity=severity,
+            source_type="CORRELATION",
+            mitre_attck_id=mitre_ids,
+            description=(
                 f"Campaign from {ip}: {len(same_cat)} {category} events "
                 f"in {self.window_minutes} min window."
             ),
-            "correlated_events": [a.get("raw_log", "") for a in same_cat],
-            "status":           "CAMPAIGN_ESCALATED",
-            "ip_address":       ip,
-            "event_count":      len(same_cat),
-            "mitigation_command": f"iptables -A INPUT -s {ip} -j DROP",
-        }
+            raw_log=None,
+            ip_address=ip,
+            event_count=len(same_cat),
+            first_seen=same_cat[0]["timestamp"],
+            last_seen=same_cat[-1]["timestamp"],
+            correlation_key=f"CAMPAIGN_{category}|{ip}",
+            correlated_events=[a.get("raw_log") for a in same_cat],
+            trigger_event_count=len(same_cat),
+            mitigation_command=f"iptables -A INPUT -s {ip} -j DROP",
+        )
+        result["deduplicated_events"] = 0
+        self._register_escalation(escalation_key, now, result)
+        return result
 
     # ------------------------------------------------------------------
     # Helpers
@@ -309,9 +335,10 @@ class AlertCorrelator:
             a for a in self._buffers[ip]
             if _parse_ts(a["timestamp"]) >= cutoff
         ]
-        if not self._buffers[ip]:
-            self._sources_seen[ip].clear()
-            self._tactics_seen[ip].clear()
+        self._sources_seen[ip] = {a.get("source_type", "UNKNOWN") for a in self._buffers[ip]}
+        self._tactics_seen[ip] = [
+            _classify_alert(a.get("alert_name", "")) for a in self._buffers[ip]
+        ]
 
     def _is_in_cooldown(self, key: tuple, now: datetime) -> bool:
         last = self._escalated.get(key)
@@ -319,5 +346,22 @@ class AlertCorrelator:
             return False
         return (now - last) < timedelta(minutes=self._escalation_cooldown_minutes)
 
-    def _register_escalation(self, key: tuple, now: datetime) -> None:
+    def _active_alert(self, key: tuple, now: datetime, events: list[dict]) -> Optional[dict]:
+        if not self._is_in_cooldown(key, now):
+            self._active_alerts.pop(key, None)
+            return None
+        alert = self._active_alerts.get(key)
+        if not alert:
+            return None
+
+        alert["event_count"] = sum(max(1, int(event.get("event_count") or 1)) for event in events)
+        alert["last_seen"] = max(event["last_seen"] for event in events)
+        alert["correlated_events"] = [event.get("raw_log") for event in events]
+        alert["deduplicated_events"] = max(
+            0, alert["event_count"] - alert.get("trigger_event_count", alert["event_count"])
+        )
+        return alert
+
+    def _register_escalation(self, key: tuple, now: datetime, alert: dict) -> None:
         self._escalated[key] = now
+        self._active_alerts[key] = alert
