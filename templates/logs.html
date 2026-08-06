@@ -37,6 +37,23 @@
             </div>
 
             <div class="filter-field">
+                <label class="input-label">Incident Status</label>
+                <select id="filter-incident-status" class="styled-input">
+                    <option value="">All</option>
+                    <option value="NEW">NEW</option>
+                    <option value="INVESTIGATING">INVESTIGATING</option>
+                    <option value="CONTAINED">CONTAINED</option>
+                    <option value="RESOLVED">RESOLVED</option>
+                    <option value="FALSE_POSITIVE">FALSE_POSITIVE</option>
+                </select>
+            </div>
+
+            <div class="filter-field filter-checkbox">
+                <label class="input-label" for="filter-human-review">AI Decision</label>
+                <label><input id="filter-human-review" type="checkbox"> Human review only</label>
+            </div>
+
+            <div class="filter-field">
                 <label class="input-label">IP</label>
                 <input id="filter-ip" class="styled-input" type="text" placeholder="e.g. 192.168.1.10">
             </div>

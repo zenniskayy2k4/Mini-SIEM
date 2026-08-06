@@ -123,7 +123,17 @@ def _parse_ts_maybe(value: str):
     except Exception:
         return None
 
-def _matches_filters(alert, severity=None, q=None, ip=None, mitre=None, from_ts=None, to_ts=None):
+def _matches_filters(
+    alert,
+    severity=None,
+    q=None,
+    ip=None,
+    mitre=None,
+    from_ts=None,
+    to_ts=None,
+    incident_status=None,
+    human_review=False,
+):
     # Time range
     if from_ts or to_ts:
         a_ts = _parse_ts_maybe(alert.get("timestamp"))
@@ -136,6 +146,12 @@ def _matches_filters(alert, severity=None, q=None, ip=None, mitre=None, from_ts=
 
     # Severity
     if severity and str(alert.get("severity", "")).upper() != severity.upper():
+        return False
+
+    if incident_status and str(alert.get("incident_status", "")).upper() != incident_status.upper():
+        return False
+
+    if human_review and alert.get("ai_disposition") != "REQUIRES_HUMAN_REVIEW":
         return False
 
     # IP
@@ -270,6 +286,8 @@ def api_alerts_search():
       - q (free text: alert_name/description/raw_log)
       - ip (substring match)
       - mitre (substring match)
+      - incident_status
+      - human_review (true/false)
     """
     try:
         page = int(request.args.get("page", 1))
@@ -287,6 +305,8 @@ def api_alerts_search():
     q = (request.args.get("q") or "").strip() or None
     ip = (request.args.get("ip") or "").strip() or None
     mitre = (request.args.get("mitre") or "").strip() or None
+    incident_status = (request.args.get("incident_status") or "").strip() or None
+    human_review = (request.args.get("human_review") or "").lower() in {"1", "true", "yes"}
 
     from_ts = _parse_ts_maybe(request.args.get("from"))
     to_ts = _parse_ts_maybe(request.args.get("to"))
@@ -294,7 +314,17 @@ def api_alerts_search():
     alerts = _read_all_alerts_newest_first()
     filtered = [
         a for a in alerts
-        if _matches_filters(a, severity=severity, q=q, ip=ip, mitre=mitre, from_ts=from_ts, to_ts=to_ts)
+        if _matches_filters(
+            a,
+            severity=severity,
+            q=q,
+            ip=ip,
+            mitre=mitre,
+            from_ts=from_ts,
+            to_ts=to_ts,
+            incident_status=incident_status,
+            human_review=human_review,
+        )
     ]
 
     total = len(filtered)

@@ -494,6 +494,8 @@ function initLogs() {
   const inpFrom = document.getElementById("filter-from");
   const inpTo = document.getElementById("filter-to");
   const inpSeverity = document.getElementById("filter-severity");
+  const inpIncidentStatus = document.getElementById("filter-incident-status");
+  const inpHumanReview = document.getElementById("filter-human-review");
   const inpIp = document.getElementById("filter-ip");
   const inpMitre = document.getElementById("filter-mitre");
   const inpQ = document.getElementById("filter-q");
@@ -512,6 +514,8 @@ function initLogs() {
     from: "",
     to: "",
     severity: "",
+    incidentStatus: "",
+    humanReview: false,
     ip: "",
     mitre: "",
     q: "",
@@ -549,6 +553,8 @@ function initLogs() {
     state.to = toIsoOrEmpty(inpTo?.value);
 
     state.severity = (inpSeverity?.value || "").trim();
+    state.incidentStatus = (inpIncidentStatus?.value || "").trim();
+    state.humanReview = Boolean(inpHumanReview?.checked);
     state.ip = (inpIp?.value || "").trim();
     state.mitre = (inpMitre?.value || "").trim();
     state.q = (inpQ?.value || "").trim();
@@ -564,6 +570,8 @@ function initLogs() {
     if (state.to) params.set("to", state.to);
 
     if (state.severity) params.set("severity", state.severity);
+    if (state.incidentStatus) params.set("incident_status", state.incidentStatus);
+    if (state.humanReview) params.set("human_review", "true");
     if (state.ip) params.set("ip", state.ip);
     if (state.mitre) params.set("mitre", state.mitre);
     if (state.q) params.set("q", state.q);
@@ -615,6 +623,8 @@ function initLogs() {
     if (inpFrom) inpFrom.value = "";
     if (inpTo) inpTo.value = "";
     if (inpSeverity) inpSeverity.value = "";
+    if (inpIncidentStatus) inpIncidentStatus.value = "";
+    if (inpHumanReview) inpHumanReview.checked = false;
     if (inpIp) inpIp.value = "";
     if (inpMitre) inpMitre.value = "";
     if (inpQ) inpQ.value = "";
@@ -644,6 +654,8 @@ function initLogs() {
     setLive(!state.live);
     if (!state.live) fetchPage(1);
   });
+
+  tableBody.addEventListener("focusin", () => setLive(false));
 
   readFiltersFromUI();
   setLive(true);
@@ -675,6 +687,7 @@ function createRow(alert) {
   }
   detailsHTML += renderAIAnalysis(alert);
   detailsHTML += `<div class="log-raw" title="${escapeAttr(alert.raw_log || "")}">${escapeHTML(alert.raw_log || "")}</div>`;
+  detailsHTML += renderIncidentPanel(alert);
 
   tr.innerHTML = `
         <td class="font-mono">${time}</td>
@@ -684,7 +697,90 @@ function createRow(alert) {
         <td>${detailsHTML}</td>
         <td>${mitigationHTML}</td>
     `;
+  bindIncidentActions(tr, alert);
   return tr;
+}
+
+function renderIncidentPanel(alert) {
+  if (!alert.incident_id) return "";
+
+  const statuses = ["NEW", "INVESTIGATING", "CONTAINED", "RESOLVED", "FALSE_POSITIVE"];
+  const statusButtons = statuses.map((status) => `
+    <button class="btn btn-ghost incident-status-btn" type="button" data-status="${status}"
+      ${status === alert.incident_status ? "disabled" : ""}>${status}</button>`).join("");
+  const notes = (alert.analyst_notes || []).slice(-5).reverse().map((note) => `
+    <li><strong>${escapeHTML(note.author || "analyst")}</strong>: ${escapeHTML(note.text || "")}</li>`).join("");
+  const timelineEvents = [
+    { event_type: "CREATED", timestamp: alert.created_at || alert.timestamp },
+    ...(alert.timeline || []),
+  ];
+  const timeline = timelineEvents.slice(-8).reverse().map((event) => `
+    <li>${escapeHTML(event.timestamp || "")} · ${escapeHTML(event.event_type || "UPDATED")}</li>`).join("");
+
+  return `
+    <section class="incident-panel" aria-label="Incident ${escapeAttr(alert.incident_id)}">
+      <div class="incident-heading">
+        <strong>${escapeHTML(alert.incident_id)}</strong>
+        <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
+      </div>
+      <div class="incident-actions">${statusButtons}</div>
+      <div class="incident-form-row">
+        <input class="styled-input incident-assignee" maxlength="100" aria-label="Assignee"
+          value="${escapeAttr(alert.assigned_to || "")}" placeholder="Assignee">
+        <button class="btn btn-primary incident-assign-btn" type="button">Assign</button>
+      </div>
+      <div class="incident-form-row">
+        <textarea class="styled-input incident-note" maxlength="2000" aria-label="Analyst note"
+          placeholder="Add analyst note"></textarea>
+        <button class="btn btn-primary incident-note-btn" type="button">Add note</button>
+      </div>
+      ${notes ? `<div class="incident-history"><strong>Notes</strong><ul>${notes}</ul></div>` : ""}
+      ${timeline ? `<div class="incident-history"><strong>Timeline</strong><ul>${timeline}</ul></div>` : ""}
+      <div class="incident-error" role="alert"></div>
+    </section>`;
+}
+
+function bindIncidentActions(row, alert) {
+  if (!alert.incident_id) return;
+  const url = `/api/alerts/${encodeURIComponent(alert.alert_id)}`;
+  row.querySelectorAll(".incident-status-btn").forEach((button) => {
+    button.addEventListener("click", () => mutateIncident(
+      row, button, `${url}/status`, "PATCH", { status: button.dataset.status },
+    ));
+  });
+  row.querySelector(".incident-assign-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/assignee`,
+    "PATCH",
+    { assigned_to: row.querySelector(".incident-assignee").value },
+  ));
+  row.querySelector(".incident-note-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/notes`,
+    "POST",
+    { note: row.querySelector(".incident-note").value },
+  ));
+}
+
+async function mutateIncident(row, button, url, method, body) {
+  const error = row.querySelector(".incident-error");
+  error.textContent = "";
+  button.disabled = true;
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+    row.replaceWith(createRow(result));
+  } catch (requestError) {
+    error.textContent = requestError.message || "Incident update failed";
+    button.disabled = false;
+  }
 }
 
 function renderAIAnalysis(alert) {

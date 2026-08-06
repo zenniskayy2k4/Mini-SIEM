@@ -435,6 +435,73 @@ tr:hover {
   color: var(--text-muted);
 }
 
+.incident-panel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.incident-heading,
+.incident-actions,
+.incident-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.incident-heading {
+  justify-content: space-between;
+}
+
+.incident-status {
+  padding: 3px 8px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 999px;
+  color: var(--accent-blue);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.incident-actions .btn,
+.incident-form-row .btn {
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.incident-form-row .styled-input {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+
+.incident-note {
+  min-height: 54px;
+  resize: vertical;
+}
+
+.incident-history {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.incident-history ul {
+  margin: 4px 0 0 18px;
+  padding: 0;
+  color: var(--text-secondary);
+}
+
+.incident-error {
+  min-height: 16px;
+  margin-top: 4px;
+  color: #f87171;
+  font-size: 12px;
+}
+
 /* Anchor navigation helper (optional) */
 .page-section {
   scroll-margin-top: 90px;
@@ -762,6 +829,36 @@ input:checked + .slider:before {
   top: 0;
   margin: 0;
   box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 16px;
+}
+
+.filter-field {
+  flex: 1 1 150px;
+}
+
+.filter-field-wide {
+  flex-basis: 260px;
+}
+
+.filter-checkbox label:last-child {
+  display: flex;
+  align-items: center;
+  min-height: 39px;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 /* Pager always visible but compact */

@@ -594,25 +594,34 @@ feat: add analyst notes and incident assignment
 
 ## Batch M3.4 — Incident dashboard UI
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### Tasks
 
-- [ ] Status badge.
-- [ ] Status action buttons.
-- [ ] Assignee field.
-- [ ] Analyst note form.
-- [ ] Timeline.
-- [ ] Filter theo incident status.
-- [ ] Filter `REQUIRES_HUMAN_REVIEW`.
-- [ ] Hiển thị system severity cạnh AI recommendation.
+- [x] Status badge.
+- [x] Status action buttons.
+- [x] Assignee field.
+- [x] Analyst note form.
+- [x] Timeline.
+- [x] Filter theo incident status.
+- [x] Filter `REQUIRES_HUMAN_REVIEW`.
+- [x] Hiển thị system severity cạnh AI recommendation.
 
 ### Definition of Done
 
-- [ ] Analyst xử lý incident mà không mở JSON thủ công.
-- [ ] UI vẫn hoạt động với alert không có AI.
-- [ ] API error hiển thị rõ.
-- [ ] Không reload toàn page cho mỗi action nếu có thể.
+- [x] Analyst xử lý incident mà không mở JSON thủ công.
+- [x] UI vẫn hoạt động với alert không có AI.
+- [x] API error hiển thị rõ.
+- [x] Không reload toàn page cho mỗi action nếu có thể.
+
+### Xác nhận Batch M3.4 — 2026-08-06
+
+- [x] Status, assignment, notes và timeline thao tác trực tiếp trên Logs UI.
+- [x] Status/assignee/note action chỉ thay dòng vừa cập nhật, không reload toàn page.
+- [x] Incident status và human-review filters hoạt động phía server.
+- [x] API error hiển thị inline trong incident panel.
+- [x] `python -m tools.check_m3_4` và toàn bộ regression M2–M3 pass.
+- [x] Dashboard trả HTTP 200 sau Docker rebuild.
 
 ### Commit gợi ý
 
@@ -1371,14 +1380,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M3.4 — Incident dashboard UI
+M4.1 — Storage abstraction
 ```
 
 Lý do:
 
-- M3.3 đã cung cấp notes, assignment và timeline API ổn định.
-- M3.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
-- M3 chỉ đóng sau khi incident workflow dùng được trực tiếp trên dashboard.
+- M3 đã hoàn thành incident lifecycle và analyst workflow trên dashboard.
+- M4.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- Storage abstraction là bước đệm trước khi dual-write SQLite.
 
 ---
 
@@ -1519,8 +1528,8 @@ Project được xem là đạt một phiên bản Blue Team portfolio hoàn ch�
 - [ ] HIDS/NIDS/Honeypot tạo alert theo schema chung.
 - [ ] Correlation giảm alert trùng và tổng hợp campaign.
 - [ ] AI triage hoạt động nhưng không tự thay đổi quyết định hệ thống.
-- [ ] Analyst có thể quản lý lifecycle incident.
-- [ ] Analyst có thể ghi notes và assignment.
+- [x] Analyst có thể quản lý lifecycle incident.
+- [x] Analyst có thể ghi notes và assignment.
 - [ ] Storage dùng SQLite và có migration.
 - [ ] Detection rules có ID, MITRE mapping và enable/disable.
 - [ ] Response action mặc định simulation và có audit.
