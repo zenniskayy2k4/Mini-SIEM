@@ -664,6 +664,9 @@ function createRow(alert) {
   const src = alert.source_type || "HIDS_LOG";
   let detailsHTML = `<div class="log-details">${escapeHTML(alert.description || "")}</div>`;
   detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Source: ${escapeHTML(src)}</div>`;
+  if (alert.assigned_to) {
+    detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Assigned to: ${escapeHTML(alert.assigned_to)}</div>`;
+  }
 
   if (alert.ml_anomaly_score) {
     detailsHTML += `<div style="margin-top:4px; color:#c084fc; font-weight:700; font-size:11px">

@@ -550,7 +550,7 @@ feat: add incident status update API
 
 ## Batch M3.3 — Analyst notes và assignment
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### API đề xuất
 
@@ -561,19 +561,28 @@ PATCH /api/alerts/<alert_id>/assignee
 
 ### Tasks
 
-- [ ] Note không được rỗng.
-- [ ] Giới hạn độ dài note.
-- [ ] Lưu author và timestamp.
-- [ ] Escape output để chống XSS.
-- [ ] Có thể gán `assigned_to`.
-- [ ] Timeline ghi nhận status, note và assignment changes.
+- [x] Note không được rỗng.
+- [x] Giới hạn độ dài note.
+- [x] Lưu author và timestamp.
+- [x] Escape output để chống XSS.
+- [x] Có thể gán `assigned_to`.
+- [x] Timeline ghi nhận status, note và assignment changes.
 
 ### Definition of Done
 
-- [ ] Thêm note thành công.
-- [ ] Reload vẫn còn note.
-- [ ] HTML trong note không được thực thi.
-- [ ] Assignment hiển thị trên dashboard.
+- [x] Thêm note thành công.
+- [x] Reload vẫn còn note.
+- [x] HTML trong note không được thực thi.
+- [x] Assignment hiển thị trên dashboard.
+
+### Xác nhận Batch M3.3 — 2026-08-06
+
+- [x] Note rỗng và vượt 2.000 ký tự trả `400`.
+- [x] Note, author và assignee được HTML-escape trước khi persist.
+- [x] API trả `404` cho alert không tồn tại.
+- [x] Timeline có đủ status, note và assignment events.
+- [x] `python -m tools.check_m3_3` pass.
+- [x] M3.2, M3.1, M2 regression và syntax checks pass.
 
 ### Commit gợi ý
 
@@ -1362,14 +1371,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M3.3 — Analyst notes và assignment
+M3.4 — Incident dashboard UI
 ```
 
 Lý do:
 
-- M3.2 đã cung cấp API cập nhật status và timeline nguyên tử.
-- M3.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
-- UI incident chỉ bắt đầu sau khi notes và assignment API ổn định.
+- M3.3 đã cung cấp notes, assignment và timeline API ổn định.
+- M3.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M3 chỉ đóng sau khi incident workflow dùng được trực tiếp trên dashboard.
 
 ---
 

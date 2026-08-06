@@ -8,7 +8,7 @@ import re
 
 from config import config
 from src.alert_schema import INCIDENT_STATUSES
-from src.alert_store import update_incident_status
+from src.alert_store import add_analyst_note, update_assignee, update_incident_status
 
 app = Flask(__name__)
 
@@ -227,6 +227,32 @@ def api_alert_status(alert_id):
         return jsonify({"error": "Invalid incident status"}), 400
     try:
         alert = update_incident_status(alert_id, status.upper())
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    return jsonify(alert)
+
+
+@app.route("/api/alerts/<alert_id>/notes", methods=["POST"])
+def api_alert_note(alert_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        alert = add_analyst_note(alert_id, body.get("note"), body.get("author", "analyst"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    return jsonify(alert)
+
+
+@app.route("/api/alerts/<alert_id>/assignee", methods=["PATCH"])
+def api_alert_assignee(alert_id):
+    body = request.get_json(silent=True) or {}
+    if "assigned_to" not in body:
+        return jsonify({"error": "assigned_to is required"}), 400
+    try:
+        alert = update_assignee(alert_id, body["assigned_to"])
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     if alert is None:
