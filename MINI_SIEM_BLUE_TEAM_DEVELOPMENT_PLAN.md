@@ -499,7 +499,7 @@ feat: add alert identity and incident lifecycle fields
 
 ## Batch M3.2 — API cập nhật incident status
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### API đề xuất
 
@@ -517,20 +517,28 @@ Request:
 
 ### Tasks
 
-- [ ] Validate status.
-- [ ] Trả `404` nếu không có alert.
-- [ ] Trả `400` nếu status không hợp lệ.
-- [ ] Cập nhật `updated_at`.
-- [ ] Ghi event vào timeline/audit.
-- [ ] Không ghi đè alert mới do agent append đồng thời.
+- [x] Validate status.
+- [x] Trả `404` nếu không có alert.
+- [x] Trả `400` nếu status không hợp lệ.
+- [x] Cập nhật `updated_at`.
+- [x] Ghi event vào timeline/audit.
+- [x] Không ghi đè alert mới do agent append đồng thời.
 
 ### Definition of Done
 
-- [ ] `NEW → INVESTIGATING` hoạt động.
-- [ ] `INVESTIGATING → CONTAINED` hoạt động.
-- [ ] `CONTAINED → RESOLVED` hoạt động.
-- [ ] `FALSE_POSITIVE` persist sau reload.
-- [ ] Invalid status bị từ chối.
+- [x] `NEW → INVESTIGATING` hoạt động.
+- [x] `INVESTIGATING → CONTAINED` hoạt động.
+- [x] `CONTAINED → RESOLVED` hoạt động.
+- [x] `FALSE_POSITIVE` persist sau reload.
+- [x] Invalid status bị từ chối.
+
+### Xác nhận Batch M3.2 — 2026-08-06
+
+- [x] PATCH API, `400` và `404` pass bằng Flask test client.
+- [x] Timeline lưu `from_status`, `to_status` và UTC timestamp.
+- [x] Hai process status-update/append đồng thời không làm mất alert.
+- [x] `python -m tools.check_m3_2` pass.
+- [x] M3.1, M2 regression và Python syntax check pass.
 
 ### Commit gợi ý
 
@@ -1354,14 +1362,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M3.2 — API cập nhật incident status
+M3.3 — Analyst notes và assignment
 ```
 
 Lý do:
 
-- M3.1 đã cung cấp ID và lifecycle mặc định ổn định.
-- M3.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
-- UI incident chỉ bắt đầu sau khi API cập nhật status ổn định.
+- M3.2 đã cung cấp API cập nhật status và timeline nguyên tử.
+- M3.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- UI incident chỉ bắt đầu sau khi notes và assignment API ổn định.
 
 ---
 

@@ -7,6 +7,8 @@ import hashlib
 import re
 
 from config import config
+from src.alert_schema import INCIDENT_STATUSES
+from src.alert_store import update_incident_status
 
 app = Flask(__name__)
 
@@ -215,6 +217,21 @@ def api_stats():
 def api_alerts():
     """API return latest log list (for dashboard + live snippets)"""
     return jsonify(load_alerts(50))
+
+
+@app.route("/api/alerts/<alert_id>/status", methods=["PATCH"])
+def api_alert_status(alert_id):
+    body = request.get_json(silent=True) or {}
+    status = body.get("status")
+    if not isinstance(status, str) or status.upper() not in INCIDENT_STATUSES:
+        return jsonify({"error": "Invalid incident status"}), 400
+    try:
+        alert = update_incident_status(alert_id, status.upper())
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    return jsonify(alert)
 
 @app.route("/api/alerts/search")
 def api_alerts_search():
