@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 
 from config import config
 from src.elk_forwarder import ELKForwarder
-from src.alert_store import upsert_alert
+from src.alert_pipeline import persist_and_enrich
 from src.alert_schema import build_alert
 
 # Import scapy lazily to avoid import-time issues when not enabled
@@ -18,9 +18,10 @@ class NetworkMonitor:
       - ARP spoof heuristic (MAC changes for same IP)
     Emits alerts using the same JSON-lines file as HIDS.
     """
-    def __init__(self, correlator=None, responder=None):
+    def __init__(self, correlator=None, responder=None, ai_analyst=None):
         self.correlator = correlator
         self.responder = responder
+        self.ai_analyst = ai_analyst
         self.elk = ELKForwarder()
 
         self._lock = threading.Lock()
@@ -45,7 +46,7 @@ class NetworkMonitor:
             alert = self.responder.handle_incident(alert)
 
         self.elk.send_alert(alert)
-        upsert_alert(alert)
+        persist_and_enrich(alert, self.ai_analyst)
 
         print(f"\n[!] NETWORK ALERT: {alert['alert_name']} [{alert['severity']}] src={alert.get('ip_address')}")
 

@@ -163,7 +163,6 @@ class AIAnalyst:
     def __init__(
         self,
         api_key: str | None = None,
-        max_workers: int = 3,
         cache_ttl: int = 120,
         rate_per_min: int = 10,
     ):
@@ -205,9 +204,10 @@ class AIAnalyst:
             )
 
         self._executor = ThreadPoolExecutor(
-            max_workers=max_workers,
+            max_workers=1,
             thread_name_prefix="ollama_analyst",
         )
+        self._single_flight = threading.Lock()
 
         self._cache = _TTLCache(
             maxsize=200,
@@ -230,9 +230,17 @@ class AIAnalyst:
         """
         if not self._enabled:
             return
+        if not self._single_flight.acquire(blocking=False):
+            self._mark_skipped(alert, "busy")
+            logger.info("[AIAnalyst] Busy; skipped %s", alert.get("alert_name"))
+            if on_complete:
+                try:
+                    on_complete(alert)
+                except Exception as exc:
+                    logger.warning(f"[AIAnalyst] Completion callback failed: {exc}")
+            return
         future = self._executor.submit(self._safe_enrich, alert)
-        if on_complete:
-            future.add_done_callback(self._callback(on_complete))
+        future.add_done_callback(self._completion(on_complete))
 
     def enrich_sync(self, alert: dict) -> dict:
         """
@@ -241,7 +249,8 @@ class AIAnalyst:
         """
         if not self._enabled:
             return alert
-        return self._safe_enrich(alert)
+        with self._single_flight:
+            return self._safe_enrich(alert)
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)
@@ -249,14 +258,25 @@ class AIAnalyst:
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
-    def _callback(self, on_complete):
+    def _completion(self, on_complete):
         def run(done):
             try:
-                on_complete(done.result())
+                result = done.result()
+                if on_complete:
+                    on_complete(result)
             except Exception as exc:
                 logger.warning(f"[AIAnalyst] Completion callback failed: {exc}")
+            finally:
+                self._single_flight.release()
 
         return run
+
+    def _mark_skipped(self, alert, reason):
+        alert["ai_analysis"] = {
+            "skipped": reason,
+            "provider": self._provider,
+            "model": self._model,
+        }
 
     def _cache_key(self, alert: dict) -> str:
         """Deduplicate similar alerts without merging different sources."""
@@ -278,6 +298,11 @@ class AIAnalyst:
         except Exception as exc:
             logger.warning(f"[AIAnalyst] Enrichment failed: {exc}")
             alert["ai_analyst_error"] = str(exc)
+            alert["ai_analysis"] = {
+                "error": str(exc),
+                "provider": self._provider,
+                "model": self._model,
+            }
             return alert
 
     def _enrich(self, alert: dict) -> dict:
@@ -294,7 +319,7 @@ class AIAnalyst:
         # Rate-limit check
         if not self._limiter.acquire():
             logger.debug("[AIAnalyst] Rate limit hit, skipping analysis.")
-            alert["ai_analysis"] = {"skipped": "rate_limited"}
+            self._mark_skipped(alert, "rate_limited")
             return alert
 
         # Build prompt

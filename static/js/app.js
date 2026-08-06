@@ -790,6 +790,12 @@ function renderAIAnalysis(alert) {
       ? '<div class="ai-pending"><i class="fa-solid fa-clock"></i> AI analysis pending...</div>'
       : "";
   }
+  if (ai.skipped) {
+    return `<div class="ai-pending"><i class="fa-solid fa-forward"></i> AI analysis skipped: ${escapeHTML(ai.skipped)}</div>`;
+  }
+  if (ai.error) {
+    return `<div class="incident-error"><i class="fa-solid fa-triangle-exclamation"></i> AI analysis failed: ${escapeHTML(ai.error)}</div>`;
+  }
 
   const playbook = Array.isArray(ai.recommended_playbook)
     ? ai.recommended_playbook.map((step) => `<li>${escapeHTML(step)}</li>`).join("")

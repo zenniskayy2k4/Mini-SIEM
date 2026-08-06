@@ -685,7 +685,7 @@ refactor: add alert repository abstraction
 
 ## Batch M4.2 — SQLite schema và dual-write
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### Database
 
@@ -703,18 +703,30 @@ data/mini_siem.db
 
 ### Tasks
 
-- [ ] Auto-create database.
-- [ ] Tạo schema idempotent.
-- [ ] Ghi alert vào JSON và SQLite.
-- [ ] JSON write failure không làm SQLite mất dữ liệu.
-- [ ] SQLite failure được log rõ.
-- [ ] Persist nested AI JSON dưới dạng JSON text hoặc normalized fields phù hợp.
+- [x] Auto-create database.
+- [x] Tạo schema idempotent.
+- [x] Ghi alert vào JSON và SQLite.
+- [x] JSON write failure không làm SQLite mất dữ liệu.
+- [x] SQLite failure được log rõ.
+- [x] Persist nested AI JSON dưới dạng JSON text hoặc normalized fields phù hợp.
+- [x] HIDS/NIDS/Honeypot dùng chung AI dispatch path.
+- [x] Ollama giới hạn một request đang chạy; alert đến khi bận được đánh dấu `busy`.
 
 ### Definition of Done
 
-- [ ] Restart container không mất dữ liệu.
-- [ ] Alert count JSON và SQLite khớp trong smoke test.
-- [ ] Incident updates persist trong SQLite.
+- [x] Restart container không mất dữ liệu.
+- [x] Alert count JSON và SQLite khớp trong smoke test.
+- [x] Incident updates persist trong SQLite.
+
+### Xác nhận Batch M4.2 — 2026-08-06
+
+- [x] Tạo idempotent các bảng alerts, incidents, incident_events, analyst_notes và response_actions.
+- [x] JSON/SQLite failure isolation và concurrent append/update pass trong temporary regression.
+- [x] AI dispatcher dùng một worker và không tạo hàng đợi vô hạn.
+- [x] Live HIDS alert được Ollama enrich và dual-write với JSON = SQLite = 1.
+- [x] Live incident status/timeline persist trong SQLite.
+- [x] UI phân biệt AI `busy`, `rate_limited` và error thay vì pending vô hạn.
+- [x] File check tạm đã xóa trước commit.
 
 ### Commit gợi ý
 
@@ -1388,14 +1400,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M4.2 — SQLite schema và dual-write
+M4.3 — JSON to SQLite migration
 ```
 
 Lý do:
 
-- M4.1 đã gom JSON I/O và locking vào repository.
-- M4.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
-- SQLite sẽ được thêm theo cơ chế dual-write, chưa thay JSON read path.
+- M4.2 đã dual-write alert và incident update sang JSON/SQLite.
+- M4.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- JSON vẫn là read path cho tới M4.4.
 
 ---
 

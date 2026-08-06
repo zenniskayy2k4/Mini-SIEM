@@ -1,15 +1,16 @@
 import socket
 import threading
 
-from src.alert_store import upsert_alert
+from src.alert_pipeline import persist_and_enrich
 from src.alert_schema import build_alert
 from src.elk_forwarder import ELKForwarder
 from config import config
 
 class MiniHoneypot:
-    def __init__(self, port: int = 2222, bind_ip: str = "0.0.0.0"):
+    def __init__(self, port: int = 2222, bind_ip: str = "0.0.0.0", ai_analyst=None):
         self.port = port
         self.bind_ip = bind_ip
+        self.ai_analyst = ai_analyst
         self.elk = ELKForwarder()
         self._stop = threading.Event()
 
@@ -43,7 +44,7 @@ class MiniHoneypot:
 
         try:
             self.elk.send_alert(alert)
-            upsert_alert(alert)
+            persist_and_enrich(alert, self.ai_analyst)
 
             client_socket.sendall(b"Welcome\nLogin: ")
             _ = client_socket.recv(1024)

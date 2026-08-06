@@ -87,7 +87,9 @@ def main():
         nonlocal nids
         if nids is not None:
             return
-        nids = NetworkMonitor(correlator=correlator, responder=responder)
+        nids = NetworkMonitor(
+            correlator=correlator, responder=responder, ai_analyst=ai_analyst,
+        )
         threading.Thread(target=nids.start, daemon=True).start()
         print("[+] NIDS enabled.")
 
@@ -106,6 +108,7 @@ def main():
         hp = MiniHoneypot(
             port=getattr(config, "HONEYPOT_PORT", 2222),
             bind_ip=getattr(config, "HONEYPOT_BIND_IP", "0.0.0.0"),
+            ai_analyst=ai_analyst,
         )
         threading.Thread(target=hp.start, daemon=True).start()
         print("[+] Honeypot enabled.")

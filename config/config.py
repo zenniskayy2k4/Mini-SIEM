@@ -5,10 +5,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Log file input
 LOG_FILE_TO_WATCH = os.path.join(BASE_DIR, 'logs', 'auth.log')
-RESPONSE_LOG_FILE = os.path.join(BASE_DIR, 'data', 'incident_responses.log')
 
 # Alert output file
 OUTPUT_ALERT_FILE = os.path.join(BASE_DIR, 'data', 'siem_alerts.json')
+SQLITE_ALERT_DB = os.path.join(BASE_DIR, 'data', 'mini_siem.db')
 RESPONSE_LOG_FILE = os.path.join(BASE_DIR, 'data', 'incident_responses.log')
 
 # --- ENGINE SETTINGS ---
