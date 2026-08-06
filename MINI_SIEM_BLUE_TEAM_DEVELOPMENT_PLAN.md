@@ -643,7 +643,7 @@ Thay JSON file làm primary storage bằng SQLite để hỗ trợ update, pagin
 
 ## Batch M4.1 — Storage abstraction
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### File dự kiến
 
@@ -663,9 +663,17 @@ class AlertRepository:
 
 ### Tasks
 
-- [ ] Tách code lưu trữ khỏi detector và dashboard.
-- [ ] JSON implementation vẫn hoạt động.
-- [ ] Không để module khác tự mở `siem_alerts.json`.
+- [x] Tách code lưu trữ khỏi detector và dashboard.
+- [x] JSON implementation vẫn hoạt động.
+- [x] Không để module khác tự mở `siem_alerts.json`.
+
+### Xác nhận Batch M4.1 — 2026-08-06
+
+- [x] `JsonAlertRepository` cung cấp create, update, get và list/filter/pagination.
+- [x] Detector giữ API `upsert_alert`; dashboard đọc qua repository.
+- [x] Incident status, notes và assignment vẫn update nguyên tử dưới file lock.
+- [x] Temporary regression M4.1 và Python syntax check pass trong container.
+- [x] File check tạm đã xóa trước commit.
 
 ### Commit gợi ý
 
@@ -1380,14 +1388,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M4.1 — Storage abstraction
+M4.2 — SQLite schema và dual-write
 ```
 
 Lý do:
 
-- M3 đã hoàn thành incident lifecycle và analyst workflow trên dashboard.
-- M4.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
-- Storage abstraction là bước đệm trước khi dual-write SQLite.
+- M4.1 đã gom JSON I/O và locking vào repository.
+- M4.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- SQLite sẽ được thêm theo cơ chế dual-write, chưa thay JSON read path.
 
 ---
 

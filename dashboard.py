@@ -9,6 +9,7 @@ import re
 from config import config
 from src.alert_schema import INCIDENT_STATUSES
 from src.alert_store import add_analyst_note, update_assignee, update_incident_status
+from src.storage import alert_repository
 
 app = Flask(__name__)
 
@@ -68,36 +69,10 @@ def _effective_settings() -> dict:
 
 # Helper to read logs (reverse to get newest first)
 def load_alerts(limit=100):
-    alerts = []
-    if os.path.exists(config.OUTPUT_ALERT_FILE):
-        with open(config.OUTPUT_ALERT_FILE, 'r') as f:
-            lines = f.readlines()
-            # Get last 100 lines and reverse
-            for line in reversed(lines[-limit:]):
-                if line.strip():
-                    try:
-                        alerts.append(json.loads(line))
-                    except:
-                        pass
-    return alerts
+    return alert_repository.list_alerts(limit=limit)
 
 def _read_all_alerts_newest_first():
-    alerts = []
-    if not os.path.exists(config.OUTPUT_ALERT_FILE):
-        return alerts
-
-    with open(config.OUTPUT_ALERT_FILE, "r", encoding="utf-8", errors="ignore") as f:
-        lines = f.readlines()
-
-    for line in reversed(lines):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            alerts.append(json.loads(line))
-        except:
-            pass
-    return alerts
+    return alert_repository.list_alerts()
 
 def _parse_ts_maybe(value: str):
     """
