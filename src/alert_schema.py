@@ -4,6 +4,7 @@ from uuid import uuid4
 
 SEVERITIES = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
 SOURCE_TYPES = {"HIDS_LOG", "NIDS", "HONEYPOT", "CORRELATION"}
+INCIDENT_STATUSES = {"NEW", "INVESTIGATING", "CONTAINED", "RESOLVED", "FALSE_POSITIVE"}
 
 
 def utc_iso(value=None) -> str:
@@ -16,12 +17,33 @@ def utc_iso(value=None) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def ensure_lifecycle(alert: dict) -> dict:
+    if not alert.get("alert_id"):
+        alert["alert_id"] = f"ALT-{uuid4()}"
+    alert["created_at"] = utc_iso(alert.get("created_at") or alert.get("timestamp"))
+    alert["updated_at"] = utc_iso(alert.get("updated_at") or alert["created_at"])
+
+    if alert.get("severity") in {"HIGH", "CRITICAL"} and not alert.get("incident_id"):
+        alert["incident_id"] = f"INC-{uuid4()}"
+    alert.setdefault("incident_id", None)
+
+    incident_status = alert.get("incident_status") or ("NEW" if alert["incident_id"] else None)
+    if incident_status and incident_status not in INCIDENT_STATUSES:
+        raise ValueError(f"Invalid incident status: {incident_status}")
+    alert["incident_status"] = incident_status
+    alert.setdefault("assigned_to", None)
+    alert["analyst_notes"] = list(alert.get("analyst_notes") or [])
+    return alert
+
+
 def build_alert(
     *, alert_name: str, severity: str, source_type: str, description: str,
     raw_log=None, ip_address=None, mitre_attck_id=None, timestamp=None,
     status="DETECTED", alert_id=None, event_count=1, first_seen=None,
     last_seen=None, correlation_key=None, ml_confidence=None,
     ai_analysis=None, ai_recommended_severity=None, ai_disposition=None,
+    incident_id=None, incident_status=None, assigned_to=None,
+    analyst_notes=None, created_at=None, updated_at=None,
     **extra,
 ) -> dict:
     severity = severity.upper()
@@ -54,6 +76,12 @@ def build_alert(
         "ai_analysis": ai_analysis,
         "ai_recommended_severity": ai_recommended_severity,
         "ai_disposition": ai_disposition,
+        "incident_id": incident_id,
+        "incident_status": incident_status,
+        "assigned_to": assigned_to,
+        "analyst_notes": list(analyst_notes or []),
+        "created_at": created_at or timestamp,
+        "updated_at": updated_at or created_at or timestamp,
     }
     alert.update(extra)
-    return alert
+    return ensure_lifecycle(alert)

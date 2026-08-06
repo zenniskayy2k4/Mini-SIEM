@@ -2,6 +2,7 @@ import json
 import os
 import threading
 from config import config
+from src.alert_schema import ensure_lifecycle, utc_iso
 
 _lock = threading.Lock()
 
@@ -21,6 +22,8 @@ def upsert_alert(alert: dict) -> None:
     Replace the existing JSONL row for this alert, or append if missing.
     """
     os.makedirs(os.path.dirname(config.OUTPUT_ALERT_FILE), exist_ok=True)
+    ensure_lifecycle(alert)
+    alert["updated_at"] = utc_iso()
 
     with _lock:
         lines = []

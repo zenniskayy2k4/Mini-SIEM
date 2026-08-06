@@ -2,7 +2,7 @@
 
 > **Repository:** `zenniskayy2k4/Mini-SIEM`
 > **Plan type:** Milestone / batch execution plan
-> **Last updated:** 2026-08-05
+> **Last updated:** 2026-08-06
 > **Primary environment:** Windows + Docker Desktop
 > **Primary AI provider:** Ollama Cloud (`gemma4:cloud`)
 > **Storage hiện tại:** `data/siem_alerts.json`
@@ -80,7 +80,7 @@ Các thành phần sau **không nằm trong roadmap chính** vì giới hạn t�
 | M0 | Baseline Docker và pipeline gốc | ✅ |
 | M1 | Ollama Cloud AI Analyst | ✅ |
 | M2 | Detection correctness và alert contract | ✅ |
-| M3 | Incident lifecycle và analyst workflow | ⬜ |
+| M3 | Incident lifecycle và analyst workflow | 🟡 |
 | M4 | SQLite storage migration | ⬜ |
 | M5 | Detection engineering và rule management | ⬜ |
 | M6 | Lightweight response automation | ⬜ |
@@ -434,7 +434,7 @@ Cho phép SOC analyst quản lý alert như một incident có trạng thái, ng
 
 ## Batch M3.1 — Alert identity và lifecycle fields
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### File dự kiến sửa
 
@@ -469,17 +469,25 @@ FALSE_POSITIVE
 
 ### Tasks
 
-- [ ] Alert mới có `alert_id`.
-- [ ] Incident-worthy alert có `incident_id`.
-- [ ] Status mặc định là `NEW`.
-- [ ] AI không được tự sửa incident status.
-- [ ] Alert cũ thiếu field vẫn đọc được.
+- [x] Alert mới có `alert_id`.
+- [x] Incident-worthy alert có `incident_id`.
+- [x] Status mặc định là `NEW`.
+- [x] AI không được tự sửa incident status.
+- [x] Alert cũ thiếu field vẫn đọc được.
 
 ### Definition of Done
 
-- [ ] Alert mới có ID không phụ thuộc index JSON.
-- [ ] Reload dashboard không đổi ID.
-- [ ] Không có hai alert cùng ID.
+- [x] Alert mới có ID không phụ thuộc index JSON.
+- [x] Reload dashboard không đổi ID.
+- [x] Không có hai alert cùng ID.
+
+### Xác nhận Batch M3.1 — 2026-08-06
+
+- [x] HIGH/CRITICAL tự tạo `incident_id`; LOW/MEDIUM giữ `null`.
+- [x] `created_at` và `updated_at` dùng UTC ISO-8601.
+- [x] Alert bị ML nâng severity vẫn nhận lifecycle trước khi persist.
+- [x] `python -m tools.check_m3_1` pass.
+- [x] M2 regression và Python syntax check pass.
 
 ### Commit gợi ý
 
@@ -1346,14 +1354,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M3.1 — Alert identity và lifecycle fields
+M3.2 — API cập nhật incident status
 ```
 
 Lý do:
 
-- M2 đã hoàn thành và cung cấp `alert_id` cùng schema ổn định.
-- M3.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau milestone.
-- SQLite chỉ bắt đầu sau khi incident lifecycle ổn định.
+- M3.1 đã cung cấp ID và lifecycle mặc định ổn định.
+- M3.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- UI incident chỉ bắt đầu sau khi API cập nhật status ổn định.
 
 ---
 
