@@ -2,6 +2,7 @@
 
 services:
   train:
+    image: mini-siem:latest
     build: .
     command: python tools/train_ml.py
     volumes:
@@ -11,7 +12,7 @@ services:
 
   # --- SIEM Agent (log monitor) ---
   agent:
-    build: .
+    image: mini-siem:latest
     command: python main.py
     env_file:
       - .env
@@ -28,6 +29,7 @@ services:
 
   # --- Web Dashboard ---
   dashboard:
+    image: mini-siem:latest
     build: .
     command: python dashboard.py
     ports:
