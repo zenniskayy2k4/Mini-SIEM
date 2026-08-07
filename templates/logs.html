@@ -48,9 +48,13 @@
                 </select>
             </div>
 
-            <div class="filter-field filter-checkbox">
-                <label class="input-label" for="filter-human-review">AI Decision</label>
-                <label><input id="filter-human-review" type="checkbox"> Human review only</label>
+            <div class="filter-field">
+                <label class="input-label" for="filter-ai-disposition">AI Decision</label>
+                <select id="filter-ai-disposition" class="styled-input">
+                    <option value="">All</option>
+                    <option value="REQUIRES_HUMAN_REVIEW">Human review</option>
+                    <option value="FALSE_POSITIVE_SUSPECTED">False-positive suspected</option>
+                </select>
             </div>
 
             <div class="filter-field">

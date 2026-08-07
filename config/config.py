@@ -10,6 +10,9 @@ LOG_FILE_TO_WATCH = os.path.join(BASE_DIR, 'logs', 'auth.log')
 OUTPUT_ALERT_FILE = os.path.join(BASE_DIR, 'data', 'siem_alerts.json')
 SQLITE_ALERT_DB = os.path.join(BASE_DIR, 'data', 'mini_siem.db')
 RESPONSE_LOG_FILE = os.path.join(BASE_DIR, 'data', 'incident_responses.log')
+SQLITE_READ_ENABLED = os.getenv("SQLITE_READ_ENABLED", "true").lower() in {"1", "true", "yes"}
+JSON_READ_FALLBACK_ENABLED = os.getenv("JSON_READ_FALLBACK_ENABLED", "true").lower() in {"1", "true", "yes"}
+JSON_DUAL_WRITE_ENABLED = os.getenv("JSON_DUAL_WRITE_ENABLED", "true").lower() in {"1", "true", "yes"}
 
 # --- ENGINE SETTINGS ---
 CORRELATION_WINDOW_MINUTES = 5

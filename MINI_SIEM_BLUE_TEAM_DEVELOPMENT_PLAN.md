@@ -775,28 +775,36 @@ feat: add JSON to SQLite migration tool
 
 ## Batch M4.4 — Dashboard read từ SQLite
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### Tasks
 
-- [ ] `/api/alerts` query SQLite.
-- [ ] Server-side pagination.
-- [ ] Filter:
+- [x] `/api/alerts` query SQLite.
+- [x] Server-side pagination.
+- [x] Filter:
   - severity
   - IP
   - MITRE
   - status
   - time range
   - AI disposition
-- [ ] Sort theo timestamp.
-- [ ] JSON fallback feature flag trong giai đoạn chuyển tiếp.
+- [x] Sort theo timestamp.
+- [x] JSON fallback feature flag trong giai đoạn chuyển tiếp.
 
 ### Definition of Done
 
-- [ ] Dashboard không đọc toàn bộ history vào RAM.
-- [ ] Filter hoạt động.
-- [ ] Incident update không race với agent append.
-- [ ] Có thể disable JSON dual-write sau khi ổn định.
+- [x] Dashboard không đọc toàn bộ history vào RAM.
+- [x] Filter hoạt động.
+- [x] Incident update không race với agent append.
+- [x] Có thể disable JSON dual-write sau khi ổn định.
+
+### Xác nhận Batch M4.4 — 2026-08-07
+
+- [x] `/api/alerts`, `/api/alerts/search`, `/api/stats` và graph dùng SQLite read path mặc định.
+- [x] SQLite thực hiện filter, count, sort và pagination trước khi deserialize payload trả về.
+- [x] UI hỗ trợ severity, IP, MITRE, incident status, time range, free text và AI disposition.
+- [x] Có feature flags cho SQLite read, JSON fallback và JSON dual-write.
+- [x] Regression synthetic và live API smoke test pass; temporary check đã xóa trước commit.
 
 ### Commit gợi ý
 
@@ -1410,14 +1418,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M4.4 — Dashboard read từ SQLite
+M5.1 — Rule metadata contract
 ```
 
 Lý do:
 
-- M4.3 đã migrate idempotent alert JSON legacy sang SQLite.
-- M4.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
-- JSON vẫn là read path cho tới khi M4.4 hoàn tất.
+- M4.4 đã chuyển dashboard sang SQLite read path với JSON fallback.
+- Milestone M4 đã hoàn tất theo thứ tự, không còn batch SQLite đang mở.
+- M5.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

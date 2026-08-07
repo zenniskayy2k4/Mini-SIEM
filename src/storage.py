@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 from contextlib import contextmanager
+from datetime import datetime, timezone
 
 from config import config
 from src.sqlite_store import SQLiteAlertRepository
@@ -106,18 +107,73 @@ class JsonAlertRepository:
     def list_alerts(
         self, filters: dict | None = None, limit: int | None = None, offset: int = 0,
     ) -> list[dict]:
+        return self.search_alerts(filters, limit, offset)["items"]
+
+    @staticmethod
+    def _matches(alert, filters):
+        filters = filters or {}
+        for key in ("severity", "incident_status", "ai_disposition"):
+            if filters.get(key) and str(alert.get(key) or "").upper() != str(filters[key]).upper():
+                return False
+        if filters.get("ip") and str(filters["ip"]) not in str(alert.get("ip_address") or ""):
+            return False
+        if filters.get("mitre") and str(filters["mitre"]).upper() not in str(alert.get("mitre_attck_id") or "").upper():
+            return False
+        if filters.get("q"):
+            haystack = " ".join(str(alert.get(key) or "") for key in ("alert_name", "description", "raw_log"))
+            if str(filters["q"]).lower() not in haystack.lower():
+                return False
+        if filters.get("from") or filters.get("to"):
+            try:
+                value = str(alert.get("timestamp") or "").replace("Z", "+00:00")
+                timestamp = datetime.fromisoformat(value)
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                timestamp = timestamp.astimezone(timezone.utc)
+            except ValueError:
+                return False
+            for key, operator in (("from", lambda left, right: left < right), ("to", lambda left, right: left > right)):
+                if not filters.get(key):
+                    continue
+                boundary = datetime.fromisoformat(str(filters[key]).replace("Z", "+00:00"))
+                if boundary.tzinfo is None:
+                    boundary = boundary.replace(tzinfo=timezone.utc)
+                if operator(timestamp, boundary.astimezone(timezone.utc)):
+                    return False
+        handled = {"severity", "incident_status", "ai_disposition", "ip", "mitre", "q", "from", "to"}
+        return all(alert.get(key) == value for key, value in filters.items() if key not in handled)
+
+    def search_alerts(
+        self, filters: dict | None = None, limit: int | None = None, offset: int = 0,
+    ) -> dict:
         with self._locked():
             alerts = []
-            for line in reversed(self._read_lines()):
+            for line in self._read_lines():
                 try:
                     alert = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if filters and any(alert.get(key) != value for key, value in filters.items()):
+                if not self._matches(alert, filters):
                     continue
                 alerts.append(alert)
+        alerts.sort(key=lambda alert: str(alert.get("timestamp") or ""), reverse=True)
         offset = max(0, offset)
-        return alerts[offset:] if limit is None else alerts[offset:offset + max(0, limit)]
+        items = alerts[offset:] if limit is None else alerts[offset:offset + max(0, limit)]
+        return {"items": items, "total": len(alerts)}
+
+    def stats(self) -> dict:
+        alerts = self.list_alerts()
+        count = lambda severity: sum(
+            str(alert.get("severity") or "").upper() == severity for alert in alerts
+        )
+        return {
+            "critical": count("CRITICAL"),
+            "high": count("HIGH"),
+            "medium": count("MEDIUM"),
+            "info": count("LOW") + count("INFO"),
+            "anomalies": sum("ml_anomaly_score" in alert for alert in alerts),
+            "total": len(alerts),
+        }
 
 
 class DualWriteAlertRepository:
@@ -143,16 +199,30 @@ class DualWriteAlertRepository:
                     fcntl.flock(lock_file, fcntl.LOCK_UN)
 
     def _save_both(self, alert):
+        repositories = [("SQLite", self.sqlite)]
+        if getattr(config, "JSON_DUAL_WRITE_ENABLED", True):
+            repositories.append(("JSON", self.json))
         failures = []
-        for name, repository in (("SQLite", self.sqlite), ("JSON", self.json)):
+        for name, repository in repositories:
             try:
                 repository.create_alert(alert)
             except Exception as exc:
                 failures.append((name, exc))
                 logger.error("%s alert write failed for %s: %s", name, alert.get("alert_id"), exc)
-        if len(failures) == 2:
+        if len(failures) == len(repositories):
             raise RuntimeError("All alert storage backends failed") from failures[0][1]
         return alert
+
+    def _read(self, method, *args, **kwargs):
+        if not getattr(config, "SQLITE_READ_ENABLED", True):
+            return getattr(self.json, method)(*args, **kwargs)
+        try:
+            return getattr(self.sqlite, method)(*args, **kwargs)
+        except Exception as exc:
+            if not getattr(config, "JSON_READ_FALLBACK_ENABLED", True):
+                raise
+            logger.error("SQLite alert read failed; falling back to JSON: %s", exc)
+            return getattr(self.json, method)(*args, **kwargs)
 
     def create_alert(self, alert: dict) -> dict:
         with self._locked():
@@ -160,7 +230,7 @@ class DualWriteAlertRepository:
 
     def update_alert(self, alert_id: str, changes) -> dict | None:
         with self._locked():
-            current = self.json.get_alert(alert_id) or self.sqlite.get_alert(alert_id)
+            current = self.get_alert(alert_id)
             if current is None:
                 return None
             updated = copy.deepcopy(current)
@@ -168,12 +238,20 @@ class DualWriteAlertRepository:
             return self._save_both(updated)
 
     def get_alert(self, alert_id: str) -> dict | None:
-        return self.json.get_alert(alert_id)
+        return self._read("get_alert", alert_id)
 
     def list_alerts(
         self, filters: dict | None = None, limit: int | None = None, offset: int = 0,
     ) -> list[dict]:
-        return self.json.list_alerts(filters=filters, limit=limit, offset=offset)
+        return self._read("list_alerts", filters=filters, limit=limit, offset=offset)
+
+    def search_alerts(
+        self, filters: dict | None = None, limit: int | None = None, offset: int = 0,
+    ) -> dict:
+        return self._read("search_alerts", filters=filters, limit=limit, offset=offset)
+
+    def stats(self) -> dict:
+        return self._read("stats")
 
 
 json_repository = JsonAlertRepository()

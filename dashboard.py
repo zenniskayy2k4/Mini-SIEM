@@ -71,9 +71,6 @@ def _effective_settings() -> dict:
 def load_alerts(limit=100):
     return alert_repository.list_alerts(limit=limit)
 
-def _read_all_alerts_newest_first():
-    return alert_repository.list_alerts()
-
 def _parse_ts_maybe(value: str):
     """
     Parse ISO timestamp to aware UTC datetime.
@@ -97,62 +94,6 @@ def _parse_ts_maybe(value: str):
         return dt.astimezone(timezone.utc)
     except Exception:
         return None
-
-def _matches_filters(
-    alert,
-    severity=None,
-    q=None,
-    ip=None,
-    mitre=None,
-    from_ts=None,
-    to_ts=None,
-    incident_status=None,
-    human_review=False,
-):
-    # Time range
-    if from_ts or to_ts:
-        a_ts = _parse_ts_maybe(alert.get("timestamp"))
-        if a_ts is None:
-            return False
-        if from_ts and a_ts < from_ts:
-            return False
-        if to_ts and a_ts > to_ts:
-            return False
-
-    # Severity
-    if severity and str(alert.get("severity", "")).upper() != severity.upper():
-        return False
-
-    if incident_status and str(alert.get("incident_status", "")).upper() != incident_status.upper():
-        return False
-
-    if human_review and alert.get("ai_disposition") != "REQUIRES_HUMAN_REVIEW":
-        return False
-
-    # IP
-    if ip:
-        a_ip = str(alert.get("ip_address", "") or "")
-        if ip not in a_ip:
-            return False
-
-    # MITRE
-    if mitre:
-        a_mitre = str(alert.get("mitre_attck_id", "") or "")
-        if mitre.upper() not in a_mitre.upper():
-            return False
-
-    # Free text
-    if q:
-        needle = q.lower()
-        hay = " ".join([
-            str(alert.get("alert_name", "") or ""),
-            str(alert.get("description", "") or ""),
-            str(alert.get("raw_log", "") or ""),
-        ]).lower()
-        if needle not in hay:
-            return False
-
-    return True
 
 @app.route('/')
 def dashboard():
@@ -189,20 +130,7 @@ def api_settings_update():
 @app.route('/api/stats')
 def api_stats():
     """API return basic stats for dashboard (real data)"""
-    alerts = _read_all_alerts_newest_first()
-
-    def count(sev):
-        return sum(1 for a in alerts if str(a.get("severity", "")).upper() == sev)
-
-    stats = {
-        "critical": count("CRITICAL"),
-        "high": count("HIGH"),
-        "medium": count("MEDIUM"),
-        "info": count("LOW") + count("INFO"),
-        "anomalies": sum(1 for a in alerts if "ml_anomaly_score" in a),
-        "total": len(alerts),
-    }
-    return jsonify(stats)
+    return jsonify(alert_repository.stats())
 
 @app.route('/api/alerts')
 def api_alerts():
@@ -281,34 +209,31 @@ def api_alerts_search():
     ip = (request.args.get("ip") or "").strip() or None
     mitre = (request.args.get("mitre") or "").strip() or None
     incident_status = (request.args.get("incident_status") or "").strip() or None
-    human_review = (request.args.get("human_review") or "").lower() in {"1", "true", "yes"}
+    ai_disposition = (request.args.get("ai_disposition") or "").strip() or None
+    if not ai_disposition and (request.args.get("human_review") or "").lower() in {"1", "true", "yes"}:
+        ai_disposition = "REQUIRES_HUMAN_REVIEW"
 
     from_ts = _parse_ts_maybe(request.args.get("from"))
     to_ts = _parse_ts_maybe(request.args.get("to"))
-
-    alerts = _read_all_alerts_newest_first()
-    filtered = [
-        a for a in alerts
-        if _matches_filters(
-            a,
-            severity=severity,
-            q=q,
-            ip=ip,
-            mitre=mitre,
-            from_ts=from_ts,
-            to_ts=to_ts,
-            incident_status=incident_status,
-            human_review=human_review,
-        )
-    ]
-
-    total = len(filtered)
     start = (page - 1) * page_size
-    end = start + page_size
-    items = filtered[start:end]
+    result = alert_repository.search_alerts(
+        filters={
+            "severity": severity,
+            "q": q,
+            "ip": ip,
+            "mitre": mitre,
+            "incident_status": incident_status,
+            "ai_disposition": ai_disposition,
+            "from": from_ts.isoformat() if from_ts else None,
+            "to": to_ts.isoformat() if to_ts else None,
+        },
+        limit=page_size,
+        offset=start,
+    )
+    total = result["total"]
 
     return jsonify({
-        "items": items,
+        "items": result["items"],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -334,7 +259,7 @@ def api_graph():
     MAX_EVENT_NODES_TOTAL = 100
     MAX_EVENTS_PER_CAMPAIGN = 5
 
-    alerts = _read_all_alerts_newest_first()[:max_alerts]
+    alerts = load_alerts(max_alerts)
 
     # Node counters
     ip_count = defaultdict(int)

@@ -189,21 +189,100 @@ class SQLiteAlertRepository:
     def list_alerts(
         self, filters: dict | None = None, limit: int | None = None, offset: int = 0,
     ) -> list[dict]:
+        return self.search_alerts(filters, limit, offset)["items"]
+
+    @staticmethod
+    def _query(filters):
+        filters = filters or {}
+        clauses = []
+        values = []
+
+        def exact(sql, value):
+            if value:
+                clauses.append(sql)
+                values.append(value)
+
+        def contains(sql, value):
+            if value:
+                escaped = str(value).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                clauses.append(sql)
+                values.append(f"%{escaped}%")
+
+        exact("UPPER(a.severity) = UPPER(?)", filters.get("severity"))
+        exact(
+            "UPPER(COALESCE(i.status, json_extract(a.payload_json, '$.incident_status'), '')) = UPPER(?)",
+            filters.get("incident_status"),
+        )
+        exact(
+            "UPPER(COALESCE(json_extract(a.payload_json, '$.ai_disposition'), '')) = UPPER(?)",
+            filters.get("ai_disposition"),
+        )
+        contains(
+            "COALESCE(json_extract(a.payload_json, '$.ip_address'), '') LIKE ? ESCAPE '\\'",
+            filters.get("ip"),
+        )
+        contains(
+            "UPPER(COALESCE(json_extract(a.payload_json, '$.mitre_attck_id'), '')) LIKE UPPER(?) ESCAPE '\\'",
+            filters.get("mitre"),
+        )
+        if filters.get("from"):
+            clauses.append("datetime(a.timestamp) >= datetime(?)")
+            values.append(filters["from"])
+        if filters.get("to"):
+            clauses.append("datetime(a.timestamp) <= datetime(?)")
+            values.append(filters["to"])
+        if filters.get("q"):
+            escaped = str(filters["q"]).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            clauses.append(
+                "LOWER(COALESCE(json_extract(a.payload_json, '$.alert_name'), '') || ' ' || "
+                "COALESCE(json_extract(a.payload_json, '$.description'), '') || ' ' || "
+                "COALESCE(json_extract(a.payload_json, '$.raw_log'), '')) LIKE LOWER(?) ESCAPE '\\'"
+            )
+            values.append(f"%{escaped}%")
+        return (" WHERE " + " AND ".join(clauses) if clauses else ""), values
+
+    def search_alerts(
+        self, filters: dict | None = None, limit: int | None = None, offset: int = 0,
+    ) -> dict:
         self.ensure_schema()
+        where, values = self._query(filters)
+        source = " FROM alerts a LEFT JOIN incidents i ON i.alert_id = a.alert_id"
+        offset = max(0, int(offset or 0))
+        page = ""
+        page_values = []
+        if limit is not None:
+            page = " LIMIT ? OFFSET ?"
+            page_values = [max(0, int(limit)), offset]
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT payload_json FROM alerts ORDER BY rowid DESC",
+                "SELECT a.payload_json" + source + where
+                + " ORDER BY a.timestamp DESC, a.rowid DESC" + page,
+                values + page_values,
             ).fetchall()
-        alerts = [json.loads(row[0]) for row in rows]
-        if filters:
-            alerts = [
-                alert for alert in alerts
-                if all(alert.get(key) == value for key, value in filters.items())
-            ]
-        offset = max(0, offset)
-        return alerts[offset:] if limit is None else alerts[offset:offset + max(0, limit)]
+            total = connection.execute(
+                "SELECT COUNT(*)" + source + where, values,
+            ).fetchone()[0]
+        return {"items": [json.loads(row[0]) for row in rows], "total": total}
 
-    def count_alerts(self) -> int:
+    def count_alerts(self, filters: dict | None = None) -> int:
+        return self.search_alerts(filters, limit=0)["total"]
+
+    def stats(self) -> dict:
         self.ensure_schema()
         with self._connect() as connection:
-            return connection.execute("SELECT COUNT(*) FROM alerts").fetchone()[0]
+            row = connection.execute(
+                """
+                SELECT
+                    COUNT(*),
+                    SUM(CASE WHEN UPPER(severity) = 'CRITICAL' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN UPPER(severity) = 'HIGH' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN UPPER(severity) = 'MEDIUM' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN UPPER(severity) IN ('LOW', 'INFO') THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN json_type(payload_json, '$.ml_anomaly_score') IS NOT NULL THEN 1 ELSE 0 END)
+                FROM alerts
+                """
+            ).fetchone()
+        return dict(zip(
+            ("total", "critical", "high", "medium", "info", "anomalies"),
+            (int(value or 0) for value in row),
+        ))

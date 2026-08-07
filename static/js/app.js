@@ -495,7 +495,7 @@ function initLogs() {
   const inpTo = document.getElementById("filter-to");
   const inpSeverity = document.getElementById("filter-severity");
   const inpIncidentStatus = document.getElementById("filter-incident-status");
-  const inpHumanReview = document.getElementById("filter-human-review");
+  const inpAiDisposition = document.getElementById("filter-ai-disposition");
   const inpIp = document.getElementById("filter-ip");
   const inpMitre = document.getElementById("filter-mitre");
   const inpQ = document.getElementById("filter-q");
@@ -515,7 +515,7 @@ function initLogs() {
     to: "",
     severity: "",
     incidentStatus: "",
-    humanReview: false,
+    aiDisposition: "",
     ip: "",
     mitre: "",
     q: "",
@@ -554,7 +554,7 @@ function initLogs() {
 
     state.severity = (inpSeverity?.value || "").trim();
     state.incidentStatus = (inpIncidentStatus?.value || "").trim();
-    state.humanReview = Boolean(inpHumanReview?.checked);
+    state.aiDisposition = (inpAiDisposition?.value || "").trim();
     state.ip = (inpIp?.value || "").trim();
     state.mitre = (inpMitre?.value || "").trim();
     state.q = (inpQ?.value || "").trim();
@@ -571,7 +571,7 @@ function initLogs() {
 
     if (state.severity) params.set("severity", state.severity);
     if (state.incidentStatus) params.set("incident_status", state.incidentStatus);
-    if (state.humanReview) params.set("human_review", "true");
+    if (state.aiDisposition) params.set("ai_disposition", state.aiDisposition);
     if (state.ip) params.set("ip", state.ip);
     if (state.mitre) params.set("mitre", state.mitre);
     if (state.q) params.set("q", state.q);
@@ -624,7 +624,7 @@ function initLogs() {
     if (inpTo) inpTo.value = "";
     if (inpSeverity) inpSeverity.value = "";
     if (inpIncidentStatus) inpIncidentStatus.value = "";
-    if (inpHumanReview) inpHumanReview.checked = false;
+    if (inpAiDisposition) inpAiDisposition.value = "";
     if (inpIp) inpIp.value = "";
     if (inpMitre) inpMitre.value = "";
     if (inpQ) inpQ.value = "";
