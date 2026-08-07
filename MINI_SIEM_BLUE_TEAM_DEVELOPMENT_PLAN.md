@@ -738,7 +738,7 @@ feat: add SQLite dual-write alert storage
 
 ## Batch M4.3 — JSON to SQLite migration
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### File đề xuất
 
@@ -748,12 +748,22 @@ tools/migrate_json_to_sqlite.py
 
 ### Tasks
 
-- [ ] Backup database trước migrate.
-- [ ] Import alert cũ.
-- [ ] Không duplicate khi chạy lại.
-- [ ] Báo số record imported/skipped/failed.
-- [ ] Giữ nguyên `alert_id`.
-- [ ] Sinh ID cho alert legacy chưa có ID.
+- [x] Backup database trước migrate.
+- [x] Import alert cũ.
+- [x] Không duplicate khi chạy lại.
+- [x] Báo số record imported/skipped/failed.
+- [x] Giữ nguyên `alert_id`.
+- [x] Sinh ID cho alert legacy chưa có ID.
+
+### Xác nhận Batch M4.3 — 2026-08-07
+
+- [x] SQLite online backup được tạo trước mỗi lần migrate.
+- [x] Legacy alert thiếu ID nhận UUID5 ổn định theo nội dung.
+- [x] Chạy lại migration skip ID đã tồn tại và không duplicate.
+- [x] Báo riêng imported, skipped, failed và lỗi theo số dòng.
+- [x] Temporary regression hai lượt và Python syntax check pass.
+- [x] Live migration baseline: import 0, skip 1, fail 0; JSON = SQLite = 1.
+- [x] File check tạm đã xóa trước commit.
 
 ### Commit gợi ý
 
@@ -1400,14 +1410,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M4.3 — JSON to SQLite migration
+M4.4 — Dashboard read từ SQLite
 ```
 
 Lý do:
 
-- M4.2 đã dual-write alert và incident update sang JSON/SQLite.
-- M4.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
-- JSON vẫn là read path cho tới M4.4.
+- M4.3 đã migrate idempotent alert JSON legacy sang SQLite.
+- M4.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- JSON vẫn là read path cho tới khi M4.4 hoàn tất.
 
 ---
 

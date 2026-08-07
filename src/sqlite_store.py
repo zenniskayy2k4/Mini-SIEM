@@ -58,13 +58,14 @@ CREATE TABLE IF NOT EXISTS response_actions (
 
 
 class SQLiteAlertRepository:
-    def __init__(self):
+    def __init__(self, path=None):
+        self._path = path
         self._schema_path = None
         self._schema_lock = threading.Lock()
 
     @property
     def path(self):
-        return config.SQLITE_ALERT_DB
+        return self._path or config.SQLITE_ALERT_DB
 
     def _connect(self):
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
