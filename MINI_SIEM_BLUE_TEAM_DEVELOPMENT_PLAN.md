@@ -838,8 +838,7 @@ mitre:
   tactic: Credential Access
   technique: T1110.001
 match:
-  contains:
-    - "Failed password"
+  contains: "Failed password"
 ```
 
 ### Tasks
@@ -908,7 +907,7 @@ feat: load configurable detection rules from YAML
 
 ## Batch M5.3 — Rule matching operators
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### Operators
 
@@ -922,11 +921,19 @@ feat: load configurable detection rules from YAML
 
 ### Definition of Done
 
-- [ ] Rule SSH hoạt động.
-- [ ] Rule sudo hoạt động.
-- [ ] Rule account creation hoạt động.
-- [ ] Invalid regex được xử lý an toàn.
-- [ ] Rule match ghi `rule_id`.
+- [x] Rule SSH hoạt động.
+- [x] Rule sudo hoạt động.
+- [x] Rule account creation hoạt động.
+- [x] Invalid regex được xử lý an toàn.
+- [x] Rule match ghi `rule_id`.
+
+### Xác nhận Batch M5.3 — 2026-08-09
+
+- [x] Hỗ trợ `contains`, `contains_any`, `contains_all`, `regex`, `equals`, `not_contains` không phân biệt hoa thường.
+- [x] Nhiều operator trong cùng `match` được kết hợp theo điều kiện AND.
+- [x] SSH dùng regex/metadata từ `DET-SSH-001` và tham chiếu threshold/window tới cấu hình hiện tại.
+- [x] Validator từ chối operator/value/reference sai và regex lỗi trước khi rule chạy.
+- [x] Regression trong image và live alerts cho `DET-SSH-001`, `DET-LNX-001`, `DET-LNX-002` đều pass.
 
 ### Commit gợi ý
 
@@ -1434,14 +1441,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M5.3 — Rule matching operators
+M5.4 — Detection coverage tracking
 ```
 
 Lý do:
 
-- M5.2 đã nạp rule YAML, hỗ trợ disabled/skipped và fallback signatures cũ.
-- Validator contract tiếp tục là điểm kiểm tra duy nhất cho rule Python/YAML.
-- M5.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M5.3 đã hỗ trợ matching operators linh hoạt và đưa SSH threshold vào rule metadata.
+- Ba detection rule hiện tại đều tạo alert có `rule_id` qua regression/live test.
+- M5.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

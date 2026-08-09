@@ -7,7 +7,7 @@ from src.rules import load_rules
 
 def test_rule_loader():
     actual = load_rules(config.RULES_DIR, config.SIGNATURES)
-    assert [rule["id"] for rule in actual] == ["DET-LNX-002", "DET-LNX-001"]
+    assert [rule["id"] for rule in actual] == ["DET-SSH-001", "DET-LNX-002", "DET-LNX-001"]
 
     with tempfile.TemporaryDirectory() as directory:
         Path(directory, "rules.yml").write_text(

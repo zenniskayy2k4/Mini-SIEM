@@ -36,13 +36,30 @@ ELK_URL = "http://localhost:9200/siem-logs/_doc"
 # --- SIGNATURES ---
 SIGNATURES = [
     {
+        "id": "DET-SSH-001",
+        "title": "SSH Brute Force Attempt",
+        "enabled": True,
+        "severity": "HIGH",
+        "source_type": "HIDS_LOG",
+        "mitre": {"tactic": "Credential Access", "technique": "T1110.001"},
+        "match": {
+            "regex": r"Failed password for (?:invalid user )?(?P<user>\S+) from (?P<ip>\d{1,3}(?:\.\d{1,3}){3})"
+        },
+        "threshold": {
+            "count": "SSH_BRUTE_FORCE_THRESHOLD",
+            "window_seconds": "SSH_BRUTE_FORCE_WINDOW_SECONDS",
+        },
+        "description": "Repeated failed SSH logins from one source.",
+        "extract_ip": True,
+    },
+    {
         "id": "DET-LNX-001",
         "title": "Sudo Privilege Escalation",
         "enabled": True,
         "severity": "MEDIUM",
         "source_type": "HIDS_LOG",
         "mitre": {"tactic": "Privilege Escalation", "technique": "T1548.003"},
-        "match": {"regex": r"COMMAND=.*/usr/bin/su|COMMAND=.*/usr/bin/sudo"},
+        "match": {"contains_any": ["COMMAND=/usr/bin/su", "COMMAND=/usr/bin/sudo"]},
         "description": "User attempted to execute a command with elevated privileges.",
         "extract_ip": False
     },
@@ -53,7 +70,7 @@ SIGNATURES = [
         "severity": "LOW",
         "source_type": "HIDS_LOG",
         "mitre": {"tactic": "Persistence", "technique": "T1136.001"},
-        "match": {"regex": r"new user: name=(\w+)"},
+        "match": {"contains": "new user: name="},
         "description": "A new local user account was created.",
         "extract_ip": False
     }

@@ -27,7 +27,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from config import config
 from src.alert_schema import build_alert
-from src.rules import validate_rules
+from src.rules import match_rule, validate_rules
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +68,6 @@ _ATTACK_KEYWORDS = re.compile(
 
 _HEX_SEQ = re.compile(r"(\\x[0-9a-fA-F]{2}|0x[0-9a-fA-F]+)")
 _URL_LIKE = re.compile(r"https?://|ftp://", re.IGNORECASE)
-_SSH_FAILED_RE = re.compile(
-    r"Failed password for (?:invalid user )?(?P<user>\S+) "
-    r"from (?P<ip>\d{1,3}(?:\.\d{1,3}){3})",
-    re.IGNORECASE,
-)
 
 
 def extract_features(line: str) -> list[float]:
@@ -319,7 +314,9 @@ class ThreatDetector:
     def _rule_based_detect(self, log_line: str) -> dict | None:
         """Iterate signatures; return structured alert on first match."""
         for sig in self.signatures:
-            match = re.search(sig["match"]["regex"], log_line, re.IGNORECASE)
+            if sig.get("threshold"):
+                continue
+            match = match_rule(sig["match"], log_line)
             if match:
                 return build_alert(
                     rule_id=sig["id"],
@@ -331,20 +328,28 @@ class ThreatDetector:
                     raw_log=log_line.strip(),
                     ip_address=(
                         match.group(1)
-                        if sig.get("extract_ip") and match.lastindex
+                        if sig.get("extract_ip") and getattr(match, "lastindex", None)
                         else None
                     ),
                 )
         return None
 
     def _check_ssh_bruteforce(self, log_line: str) -> tuple[bool, dict | None]:
-        match = _SSH_FAILED_RE.search(log_line)
-        if not match:
+        rule = None
+        match = None
+        for candidate in self.signatures:
+            if candidate.get("threshold"):
+                candidate_match = match_rule(candidate["match"], log_line)
+                groups = candidate_match.groupdict() if hasattr(candidate_match, "groupdict") else {}
+                if groups.get("ip") and groups.get("user"):
+                    rule, match = candidate, candidate_match
+                    break
+        if rule is None:
             return False, None
 
         now = datetime.now(timezone.utc)
-        window = int(getattr(config, "SSH_BRUTE_FORCE_WINDOW_SECONDS", 60))
-        threshold = int(getattr(config, "SSH_BRUTE_FORCE_THRESHOLD", 5))
+        window = int(getattr(config, rule["threshold"]["window_seconds"]))
+        threshold = int(getattr(config, rule["threshold"]["count"]))
         ip = match.group("ip")
 
         with self._ssh_lock:
@@ -374,10 +379,11 @@ class ThreatDetector:
 
             events = list(failures)
             alert = build_alert(
-                alert_name="SSH Brute Force Attempt",
-                severity="HIGH",
-                source_type="HIDS_LOG",
-                mitre_attck_id="T1110.001",
+                rule_id=rule["id"],
+                alert_name=rule["title"],
+                severity=rule["severity"],
+                source_type=rule["source_type"],
+                mitre_attck_id=rule["mitre"]["technique"],
                 description=f"{len(events)} failed SSH logins from {ip} within {window}s.",
                 raw_log=log_line.strip(),
                 ip_address=ip,
@@ -386,7 +392,7 @@ class ThreatDetector:
                 first_seen=events[0][0],
                 last_seen=events[-1][0],
                 target_users=sorted({user for _, user, _ in events}),
-                correlation_key=f"SSH Brute Force Attempt|{ip}",
+                correlation_key=f"{rule['title']}|{ip}",
                 suppressed_count=0,
             )
             self._ssh_alerts[ip] = alert

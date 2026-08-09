@@ -4,7 +4,33 @@ from pathlib import Path
 
 import yaml
 
+from config import config
 from src.alert_schema import SEVERITIES, SOURCE_TYPES
+
+MATCH_OPERATORS = {
+    "contains", "contains_any", "contains_all", "regex", "equals", "not_contains",
+}
+
+
+def match_rule(match: dict, value: str):
+    text = value.casefold()
+    regex_match = None
+    for operator, expected in match.items():
+        if operator == "contains" and expected.casefold() not in text:
+            return False
+        if operator == "contains_any" and not any(item.casefold() in text for item in expected):
+            return False
+        if operator == "contains_all" and not all(item.casefold() in text for item in expected):
+            return False
+        if operator == "equals" and value.strip().casefold() != expected.casefold():
+            return False
+        if operator == "not_contains" and expected.casefold() in text:
+            return False
+        if operator == "regex":
+            regex_match = re.search(expected, value, re.IGNORECASE)
+            if not regex_match:
+                return False
+    return regex_match or True
 
 
 def validate_rule(rule: dict) -> dict:
@@ -28,12 +54,35 @@ def validate_rule(rule: dict) -> dict:
         raise ValueError(f"Rule {rule['id']} requires MITRE tactic and technique")
 
     match = rule.get("match")
-    if not isinstance(match, dict) or not isinstance(match.get("regex"), str):
-        raise ValueError(f"Rule {rule['id']} requires match.regex")
-    try:
-        re.compile(match["regex"])
-    except re.error as exc:
-        raise ValueError(f"Rule {rule['id']} has invalid regex: {exc}") from exc
+    if not isinstance(match, dict) or not match or set(match) - MATCH_OPERATORS:
+        raise ValueError(f"Rule {rule['id']} has invalid match operators")
+    for operator, value in match.items():
+        if operator in {"contains_any", "contains_all"}:
+            if not isinstance(value, list) or not value or not all(
+                isinstance(item, str) and item for item in value
+            ):
+                raise ValueError(f"Rule {rule['id']} {operator} requires a non-empty string list")
+        elif not isinstance(value, str) or not value:
+            raise ValueError(f"Rule {rule['id']} {operator} requires a non-empty string")
+    compiled_regex = None
+    if "regex" in match:
+        try:
+            compiled_regex = re.compile(match["regex"])
+        except re.error as exc:
+            raise ValueError(f"Rule {rule['id']} has invalid regex: {exc}") from exc
+
+    threshold = rule.get("threshold")
+    if threshold is not None:
+        if not isinstance(threshold, dict) or set(threshold) != {"count", "window_seconds"}:
+            raise ValueError(f"Rule {rule['id']} has invalid threshold references")
+        if compiled_regex is None or not {"ip", "user"} <= set(compiled_regex.groupindex):
+            raise ValueError(f"Rule {rule['id']} threshold regex requires named ip/user groups")
+        for field, reference in threshold.items():
+            if not isinstance(reference, str) or not hasattr(config, reference):
+                raise ValueError(f"Rule {rule['id']} has invalid {field} reference")
+            configured = getattr(config, reference)
+            if not isinstance(configured, int) or isinstance(configured, bool) or configured <= 0:
+                raise ValueError(f"Rule {rule['id']} {field} must reference a positive value")
     return rule
 
 

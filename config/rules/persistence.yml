@@ -7,6 +7,6 @@ mitre:
   tactic: Persistence
   technique: T1136.001
 match:
-  regex: 'new user: name=(\w+)'
+  contains: 'new user: name='
 description: A new local user account was created.
 extract_ip: false
