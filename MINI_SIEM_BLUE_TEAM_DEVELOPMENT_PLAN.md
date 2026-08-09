@@ -82,7 +82,7 @@ Các thành phần sau **không nằm trong roadmap chính** vì giới hạn t�
 | M2 | Detection correctness và alert contract | ✅ |
 | M3 | Incident lifecycle và analyst workflow | 🟡 |
 | M4 | SQLite storage migration | ⬜ |
-| M5 | Detection engineering và rule management | ⬜ |
+| M5 | Detection engineering và rule management | ✅ |
 | M6 | Lightweight response automation | ⬜ |
 | M7 | Windows telemetry và Sysmon | ⬜ |
 | M8 | Dashboard security, observability và reliability | ⬜ |
@@ -945,15 +945,23 @@ feat: add flexible rule matching operators
 
 ## Batch M5.4 — Detection coverage tracking
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### Tasks
 
-- [ ] Mapping attack simulator mode → expected rule ID.
-- [ ] Hiển thị rule hit count.
-- [ ] Hiển thị rule chưa từng trigger.
-- [ ] MITRE coverage summary.
-- [ ] Manual detection checklist document.
+- [x] Mapping attack simulator mode → expected rule ID.
+- [x] Hiển thị rule hit count.
+- [x] Hiển thị rule chưa từng trigger.
+- [x] MITRE coverage summary.
+- [x] Manual detection checklist document.
+
+### Xác nhận Batch M5.4 — 2026-08-09
+
+- [x] `/api/detection-coverage` tổng hợp hit count bằng SQLite `GROUP BY rule_id`, có JSON streaming fallback.
+- [x] Dashboard hiển thị từng rule với `HIT`/`NEVER HIT` và tổng quan MITRE techniques.
+- [x] Attack simulator hiển thị expected rule ID cho từng mode; mode AI/NIDS ghi rõ không thuộc YAML rule coverage.
+- [x] `DETECTION_CHECKLIST.md` mô tả pass criteria cho simulator và account creation rule.
+- [x] Regression trong image, Flask smoke test và live API/UI đều pass.
 
 ### Không bắt buộc
 
@@ -1441,14 +1449,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M5.4 — Detection coverage tracking
+M6.1 — Response mode và action contract
 ```
 
 Lý do:
 
-- M5.3 đã hỗ trợ matching operators linh hoạt và đưa SSH threshold vào rule metadata.
-- Ba detection rule hiện tại đều tạo alert có `rule_id` qua regression/live test.
-- M5.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- Milestone M5 đã hoàn tất rule metadata, YAML loader, matching operators và coverage reporting.
+- Coverage hiện tổng hợp trực tiếp từ alert storage, không cần bảng hoặc worker mới.
+- M6.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

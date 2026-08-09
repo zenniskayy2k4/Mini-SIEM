@@ -9,11 +9,13 @@ import re
 from config import config
 from src.alert_schema import INCIDENT_STATUSES
 from src.alert_store import add_analyst_note, update_assignee, update_incident_status
+from src.rules import build_detection_coverage, load_rules
 from src.storage import alert_repository
 
 app = Flask(__name__)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
+DETECTION_RULES = load_rules(config.RULES_DIR, config.SIGNATURES)
 
 ALLOWED_SETTINGS = {
     "NIDS_ENABLED",
@@ -131,6 +133,15 @@ def api_settings_update():
 def api_stats():
     """API return basic stats for dashboard (real data)"""
     return jsonify(alert_repository.stats())
+
+
+@app.route('/api/detection-coverage')
+def api_detection_coverage():
+    rule_ids = [rule["id"] for rule in DETECTION_RULES]
+    return jsonify(build_detection_coverage(
+        DETECTION_RULES,
+        alert_repository.rule_hit_counts(rule_ids),
+    ))
 
 @app.route('/api/alerts')
 def api_alerts():

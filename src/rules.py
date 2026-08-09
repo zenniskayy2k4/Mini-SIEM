@@ -94,6 +94,45 @@ def validate_rules(rules: list) -> list:
     return validated
 
 
+def build_detection_coverage(rules: list, hit_counts: dict) -> dict:
+    report = []
+    mitre = {}
+    for rule in rules:
+        hits = int(hit_counts.get(rule["id"], 0))
+        technique = rule["mitre"]["technique"]
+        report.append({
+            "rule_id": rule["id"],
+            "title": rule["title"],
+            "severity": rule["severity"],
+            "mitre_tactic": rule["mitre"]["tactic"],
+            "mitre_technique": technique,
+            "hit_count": hits,
+            "triggered": hits > 0,
+        })
+        item = mitre.setdefault(technique, {
+            "technique": technique,
+            "tactic": rule["mitre"]["tactic"],
+            "rule_count": 0,
+            "hit_count": 0,
+        })
+        item["rule_count"] += 1
+        item["hit_count"] += hits
+
+    rules_hit = sum(item["triggered"] for item in report)
+    mitre_items = list(mitre.values())
+    return {
+        "summary": {
+            "rules_total": len(report),
+            "rules_hit": rules_hit,
+            "rules_never_hit": len(report) - rules_hit,
+            "mitre_techniques_total": len(mitre_items),
+            "mitre_techniques_hit": sum(item["hit_count"] > 0 for item in mitre_items),
+        },
+        "rules": report,
+        "mitre": mitre_items,
+    }
+
+
 def load_rules(directory: str, fallback: list) -> list:
     loaded = []
     valid_yaml_found = False

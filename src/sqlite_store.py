@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS alerts (
 );
 CREATE INDEX IF NOT EXISTS idx_alerts_timestamp ON alerts(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_alerts_rule_id ON alerts(json_extract(payload_json, '$.rule_id'));
 
 CREATE TABLE IF NOT EXISTS incidents (
     incident_id TEXT PRIMARY KEY,
@@ -266,6 +267,23 @@ class SQLiteAlertRepository:
 
     def count_alerts(self, filters: dict | None = None) -> int:
         return self.search_alerts(filters, limit=0)["total"]
+
+    def rule_hit_counts(self, rule_ids: list[str]) -> dict[str, int]:
+        if not rule_ids:
+            return {}
+        self.ensure_schema()
+        placeholders = ", ".join("?" for _ in rule_ids)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT json_extract(payload_json, '$.rule_id'), COUNT(*)
+                FROM alerts
+                WHERE json_extract(payload_json, '$.rule_id') IN ({placeholders})
+                GROUP BY json_extract(payload_json, '$.rule_id')
+                """,
+                rule_ids,
+            ).fetchall()
+        return {rule_id: int(count) for rule_id, count in rows}
 
     def stats(self) -> dict:
         self.ensure_schema()

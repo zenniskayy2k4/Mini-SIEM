@@ -39,4 +39,5 @@ services:
       - ./data:/app/data
       - ./models:/app/models
       - ./logs:/app/logs
+      - ./config/rules:/app/config/rules:ro
     restart: unless-stopped

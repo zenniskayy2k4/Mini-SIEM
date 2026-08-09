@@ -2,6 +2,7 @@
 const API_STATS = "/api/stats";
 const API_ALERTS = "/api/alerts";
 const API_ALERTS_SEARCH = "/api/alerts/search";
+const API_DETECTION_COVERAGE = "/api/detection-coverage";
 const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
@@ -456,6 +457,27 @@ function initDashboard() {
         sourceChart.data.labels = Object.keys(ipCounts).slice(0, 5);
         sourceChart.data.datasets[0].data = Object.values(ipCounts).slice(0, 5);
         sourceChart.update();
+      });
+
+    fetch(API_DETECTION_COVERAGE)
+      .then((res) => res.json())
+      .then((data) => {
+        const summary = data.summary || {};
+        document.getElementById("coverage-summary").innerText =
+          `${summary.rules_hit || 0}/${summary.rules_total || 0} rules hit · ` +
+          `${summary.mitre_techniques_hit || 0}/${summary.mitre_techniques_total || 0} MITRE techniques`;
+        document.getElementById("coverage-table-body").innerHTML = (data.rules || [])
+          .map((rule) => `
+            <tr>
+              <td class="font-mono">${escapeHTML(rule.rule_id)}</td>
+              <td>${escapeHTML(rule.title)}</td>
+              <td class="font-mono">${escapeHTML(rule.mitre_technique)}</td>
+              <td>${rule.hit_count}</td>
+              <td style="color:${rule.triggered ? "#22c55e" : "#ef4444"}">
+                ${rule.triggered ? "HIT" : "NEVER HIT"}
+              </td>
+            </tr>`)
+          .join("");
       });
   }
 

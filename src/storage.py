@@ -1,4 +1,5 @@
 import copy
+from collections import Counter
 import json
 import logging
 import os
@@ -175,6 +176,19 @@ class JsonAlertRepository:
             "total": len(alerts),
         }
 
+    def rule_hit_counts(self, rule_ids: list[str]) -> dict[str, int]:
+        expected = set(rule_ids)
+        counts = Counter()
+        with self._locked():
+            for line in self._read_lines():
+                try:
+                    rule_id = json.loads(line).get("rule_id")
+                except json.JSONDecodeError:
+                    continue
+                if rule_id in expected:
+                    counts[rule_id] += 1
+        return dict(counts)
+
 
 class DualWriteAlertRepository:
     def __init__(self, json_repository, sqlite_repository):
@@ -252,6 +266,9 @@ class DualWriteAlertRepository:
 
     def stats(self) -> dict:
         return self._read("stats")
+
+    def rule_hit_counts(self, rule_ids: list[str]) -> dict[str, int]:
+        return self._read("rule_hit_counts", rule_ids)
 
 
 json_repository = JsonAlertRepository()
