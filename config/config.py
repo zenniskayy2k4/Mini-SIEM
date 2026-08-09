@@ -14,6 +14,8 @@ RESPONSE_LOG_FILE = os.path.join(BASE_DIR, 'data', 'incident_responses.log')
 SQLITE_READ_ENABLED = os.getenv("SQLITE_READ_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_READ_FALLBACK_ENABLED = os.getenv("JSON_READ_FALLBACK_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_DUAL_WRITE_ENABLED = os.getenv("JSON_DUAL_WRITE_ENABLED", "true").lower() in {"1", "true", "yes"}
+RESPONSE_MODE = os.getenv("RESPONSE_MODE", "simulation").lower()
+RESPONSE_TARGET_OS = os.getenv("RESPONSE_TARGET_OS", "linux").lower()
 
 # --- ENGINE SETTINGS ---
 CORRELATION_WINDOW_MINUTES = 5

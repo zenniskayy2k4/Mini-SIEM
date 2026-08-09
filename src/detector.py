@@ -308,7 +308,6 @@ class ThreatDetector:
             raw_log=log_line.strip(),
             ml_anomaly_score=round(ae_loss, 5),
             ml_confidence=confidence,
-            mitigation_command="Manual Investigation Required",
         )
 
     def _rule_based_detect(self, log_line: str) -> dict | None:

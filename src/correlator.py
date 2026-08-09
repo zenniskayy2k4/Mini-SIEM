@@ -199,7 +199,6 @@ class AlertCorrelator:
             sources=sorted(self._sources_seen[ip]),
             chain_stages=matched_stages,
             trigger_event_count=len(self._buffers[ip]),
-            mitigation_command=f"iptables -A INPUT -s {ip} -j DROP  # BLOCK IMMEDIATELY",
         )
         self._register_escalation(escalation_key, now, result)
         return result
@@ -245,7 +244,6 @@ class AlertCorrelator:
             correlated_events=[a.get("raw_log") for a in self._buffers[ip]],
             sources=sorted(sources),
             trigger_event_count=len(self._buffers[ip]),
-            mitigation_command=f"iptables -A INPUT -s {ip} -j DROP",
         )
         self._register_escalation(escalation_key, now, result)
         return result
@@ -319,7 +317,6 @@ class AlertCorrelator:
             correlation_key=f"CAMPAIGN_{category}|{ip}",
             correlated_events=[a.get("raw_log") for a in same_cat],
             trigger_event_count=len(same_cat),
-            mitigation_command=f"iptables -A INPUT -s {ip} -j DROP",
         )
         result["deduplicated_events"] = 0
         self._register_escalation(escalation_key, now, result)

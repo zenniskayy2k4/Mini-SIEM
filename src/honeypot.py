@@ -7,10 +7,14 @@ from src.elk_forwarder import ELKForwarder
 from config import config
 
 class MiniHoneypot:
-    def __init__(self, port: int = 2222, bind_ip: str = "0.0.0.0", ai_analyst=None):
+    def __init__(
+        self, port: int = 2222, bind_ip: str = "0.0.0.0",
+        ai_analyst=None, responder=None,
+    ):
         self.port = port
         self.bind_ip = bind_ip
         self.ai_analyst = ai_analyst
+        self.responder = responder
         self.elk = ELKForwarder()
         self._stop = threading.Event()
 
@@ -39,8 +43,9 @@ class MiniHoneypot:
             raw_log=f"HONEYPOT src={ip}:{src_port} dport={self.port}",
             ip_address=ip,
             correlation_key=f"Honeypot Connection|{ip}",
-            mitigation_command=f"iptables -A INPUT -s {ip} -j DROP",
         )
+        if self.responder:
+            alert = self.responder.handle_incident(alert)
 
         try:
             self.elk.send_alert(alert)

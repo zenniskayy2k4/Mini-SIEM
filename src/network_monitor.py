@@ -76,7 +76,6 @@ class NetworkMonitor:
                 event_count=count,
                 window_seconds=window,
                 correlation_key=f"Network Port Scanning|{src_ip}",
-                mitigation_command=f"iptables -A INPUT -s {src_ip} -j DROP",
             )
             # Reset to reduce alert spam
             with self._lock:
@@ -115,7 +114,6 @@ class NetworkMonitor:
                         event_count=len(dq),
                         window_seconds=window,
                         correlation_key=f"ARP Spoofing Suspected|{psrc_ip}",
-                        mitigation_command="Manual Investigation Required",
                     )
                     dq.clear()
                     self._emit(alert)

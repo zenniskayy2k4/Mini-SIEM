@@ -690,10 +690,13 @@ function createRow(alert) {
 
   const time = new Date(alert.timestamp).toLocaleTimeString();
 
-  const mitigationCmd = alert.mitigation_command || alert.mitigation || "";
-  let mitigationHTML = '<span style="color:#64748b; font-size:11px;">No Action</span>';
-  if (mitigationCmd) {
-    mitigationHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ${escapeHTML(mitigationCmd)}</div>`;
+  const responseActions = alert.response_actions || [];
+  const responseAction = responseActions[responseActions.length - 1];
+  let responseHTML = '<span style="color:#64748b; font-size:11px;">No Action</span>';
+  if (responseAction) {
+    responseHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ` +
+      `${escapeHTML(responseAction.action_type)} ${escapeHTML(responseAction.target)} ` +
+      `[${escapeHTML(responseAction.status)} · ${escapeHTML(responseAction.mode)}]</div>`;
   }
 
   const src = alert.source_type || "HIDS_LOG";
@@ -721,7 +724,7 @@ function createRow(alert) {
         <td><span class="severity-badge severity-${escapeHTML(alert.severity || "")}">${escapeHTML(alert.severity || "")}</span></td>
         <td class="font-mono">${escapeHTML(alert.mitre_attck_id || "-")}</td>
         <td>${detailsHTML}</td>
-        <td>${mitigationHTML}</td>
+        <td>${responseHTML}</td>
     `;
   bindIncidentActions(tr, alert);
   return tr;

@@ -985,7 +985,7 @@ Cung cấp workflow phản ứng an toàn mà không cần Shuffle, mặc địn
 
 ## Batch M6.1 — Response mode và action contract
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-09)
 
 ### Modes
 
@@ -1019,10 +1019,17 @@ RESPONSE_MODE=simulation
 
 ### Tasks
 
-- [ ] Không lưu command shell trực tiếp như quyết định cuối.
-- [ ] Mapping action theo OS.
-- [ ] Audit mọi action.
-- [ ] Không tự chạy action do LLM tạo ra.
+- [x] Không lưu command shell trực tiếp như quyết định cuối.
+- [x] Mapping action theo OS.
+- [x] Audit mọi action.
+- [x] Không tự chạy action do LLM tạo ra.
+
+### Xác nhận hoàn tất (2026-08-09)
+
+- Hỗ trợ đủ bốn mode, mặc định `simulation`; M6.1 chỉ tạo contract và không có executor.
+- Action có ID riêng, mapping handler Linux/Windows và được audit vào JSONL cùng SQLite.
+- Legacy shell mitigation bị loại khỏi schema/UI; action do LLM yêu cầu luôn cần phê duyệt, còn mode `disabled` luôn `SKIPPED`.
+- Regression test và live test SSH → `BLOCK_IP` đều pass; Ollama hoàn tất đúng một lượt phân tích cho alert thử nghiệm.
 
 ### Commit gợi ý
 
@@ -1449,14 +1456,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M6.1 — Response mode và action contract
+M6.2 — Response simulation
 ```
 
 Lý do:
 
-- Milestone M5 đã hoàn tất rule metadata, YAML loader, matching operators và coverage reporting.
-- Coverage hiện tổng hợp trực tiếp từ alert storage, không cần bảng hoặc worker mới.
-- M6.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M6.1 đã hoàn tất action contract an toàn, mapping theo OS và audit response action.
+- Luồng hiện chỉ đề xuất action, không thực thi lệnh shell hay action do LLM sinh ra.
+- M6.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

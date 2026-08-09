@@ -110,6 +110,7 @@ def main():
             port=getattr(config, "HONEYPOT_PORT", 2222),
             bind_ip=getattr(config, "HONEYPOT_BIND_IP", "0.0.0.0"),
             ai_analyst=ai_analyst,
+            responder=responder,
         )
         threading.Thread(target=hp.start, daemon=True).start()
         print("[+] Honeypot enabled.")

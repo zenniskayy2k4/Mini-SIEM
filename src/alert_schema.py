@@ -18,6 +18,8 @@ def utc_iso(value=None) -> str:
 
 
 def ensure_lifecycle(alert: dict) -> dict:
+    alert.pop("mitigation", None)
+    alert.pop("mitigation_command", None)
     if not alert.get("alert_id"):
         alert["alert_id"] = f"ALT-{uuid4()}"
     alert["created_at"] = utc_iso(alert.get("created_at") or alert.get("timestamp"))
@@ -34,6 +36,7 @@ def ensure_lifecycle(alert: dict) -> dict:
     alert.setdefault("rule_id", None)
     alert.setdefault("assigned_to", None)
     alert["analyst_notes"] = list(alert.get("analyst_notes") or [])
+    alert["response_actions"] = list(alert.get("response_actions") or [])
     return alert
 
 

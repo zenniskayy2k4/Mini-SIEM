@@ -62,6 +62,8 @@ class LogHandler(FileSystemEventHandler):
                 print(f"  - {event}")
         else:
             print(f" Log: {alert['raw_log']}")
-        print(f" Mitigation: {alert.get('mitigation', 'None')}")
+        actions = alert.get("response_actions") or []
+        action = actions[-1] if actions else None
+        print(f" Response Action: {action or 'None'}")
 
         persist_and_enrich(alert, getattr(self.detector, "ai_analyst", None))

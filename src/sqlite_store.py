@@ -171,6 +171,21 @@ class SQLiteAlertRepository:
                 for note in alert.get("analyst_notes") or []
             ],
         )
+        connection.execute("DELETE FROM response_actions WHERE incident_id = ?", (incident_id,))
+        connection.executemany(
+            """
+            INSERT INTO response_actions (
+                incident_id, action_type, status, timestamp, payload_json
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    incident_id, action["action_type"], action["status"],
+                    action["created_at"], json.dumps(action, ensure_ascii=False),
+                )
+                for action in alert.get("response_actions") or []
+            ],
+        )
 
     def update_alert(self, alert_id: str, changes) -> dict | None:
         alert = self.get_alert(alert_id)
