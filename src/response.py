@@ -10,6 +10,10 @@ from src.alert_schema import ensure_lifecycle, utc_iso
 RESPONSE_MODES = {"disabled", "simulation", "manual", "automatic"}
 ACTION_HANDLERS = {
     "BLOCK_IP": {"linux": "linux_firewall", "windows": "windows_firewall"},
+    "UNBLOCK_IP": {"linux": "linux_firewall", "windows": "windows_firewall"},
+    "DISABLE_USER": {"linux": "linux_account", "windows": "windows_account"},
+    "KILL_PROCESS": {"linux": "linux_process", "windows": "windows_process"},
+    "QUARANTINE_FILE": {"linux": "linux_filesystem", "windows": "windows_filesystem"},
     "NOTIFY_ANALYST": {"linux": "local_notification", "windows": "event_log"},
 }
 _audit_lock = threading.Lock()
@@ -47,6 +51,20 @@ def build_response_action(
     }
 
 
+def simulate_response_action(action: dict) -> dict:
+    if action.get("mode") != "simulation":
+        raise ValueError("Only simulation-mode actions can be simulated")
+    action["status"] = "SIMULATED"
+    action["result"] = f"would execute {action['action_type']} on {action['target']}"
+    return action
+
+
+def audit_response_action(action: dict) -> None:
+    os.makedirs(os.path.dirname(config.RESPONSE_LOG_FILE), exist_ok=True)
+    with _audit_lock, open(config.RESPONSE_LOG_FILE, "a", encoding="utf-8") as file:
+        file.write(json.dumps(action, ensure_ascii=False) + "\n")
+
+
 class IncidentResponder:
     def __init__(self, mode=None, target_os=None):
         self.mode = str(mode or config.RESPONSE_MODE).lower()
@@ -77,7 +95,7 @@ class IncidentResponder:
 
         if not alert.get("suppressed_count") and not alert.get("deduplicated_events"):
             self._notify(alert, action)
-        self._audit(action)
+        audit_response_action(action)
         return alert
 
     @staticmethod
@@ -94,9 +112,3 @@ class IncidentResponder:
             f"\n[INCIDENT RESPONSE] {alert['alert_name']} -> "
             f"{action['action_type']} {action['target']} [{action['status']}]"
         )
-
-    @staticmethod
-    def _audit(action):
-        os.makedirs(os.path.dirname(config.RESPONSE_LOG_FILE), exist_ok=True)
-        with _audit_lock, open(config.RESPONSE_LOG_FILE, "a", encoding="utf-8") as file:
-            file.write(json.dumps(action, ensure_ascii=False) + "\n")

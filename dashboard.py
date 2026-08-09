@@ -8,7 +8,12 @@ import re
 
 from config import config
 from src.alert_schema import INCIDENT_STATUSES
-from src.alert_store import add_analyst_note, update_assignee, update_incident_status
+from src.alert_store import (
+    add_analyst_note,
+    request_response_action,
+    update_assignee,
+    update_incident_status,
+)
 from src.rules import build_detection_coverage, load_rules
 from src.storage import alert_repository
 
@@ -188,6 +193,18 @@ def api_alert_assignee(alert_id):
     if alert is None:
         return jsonify({"error": "Alert not found"}), 404
     return jsonify(alert)
+
+
+@app.route("/api/alerts/<alert_id>/response-actions", methods=["POST"])
+def api_alert_response_action(alert_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        alert = request_response_action(alert_id, body.get("action_type"), body.get("target"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    return jsonify(alert), 201
 
 @app.route("/api/alerts/search")
 def api_alerts_search():

@@ -1041,7 +1041,7 @@ refactor: add safe response action contract
 
 ## Batch M6.2 — Response simulation
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-09)
 
 ### Actions mô phỏng
 
@@ -1054,10 +1054,17 @@ refactor: add safe response action contract
 
 ### Definition of Done
 
-- [ ] Dashboard có nút request action.
-- [ ] Simulation ghi “would execute”.
-- [ ] Không thay đổi firewall thật.
-- [ ] Action xuất hiện trong incident timeline.
+- [x] Dashboard có nút request action.
+- [x] Simulation ghi “would execute”.
+- [x] Không thay đổi firewall thật.
+- [x] Action xuất hiện trong incident timeline.
+
+### Xác nhận hoàn tất (2026-08-09)
+
+- Dashboard cho phép request đủ sáu action mô phỏng từ incident panel.
+- Mọi request ở mode `simulation` chuyển thành `SIMULATED`, ghi `would execute`, JSONL audit và SQLite.
+- Timeline lưu action ID, type, target và status; không có shell executor hoặc thay đổi firewall/filesystem thật.
+- Regression test và live test `QUARANTINE_FILE` đều pass; marker file xác minh không được tạo.
 
 ### Commit gợi ý
 
@@ -1456,14 +1463,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M6.2 — Response simulation
+M6.3 — Manual approval
 ```
 
 Lý do:
 
-- M6.1 đã hoàn tất action contract an toàn, mapping theo OS và audit response action.
-- Luồng hiện chỉ đề xuất action, không thực thi lệnh shell hay action do LLM sinh ra.
-- M6.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M6.2 đã hoàn tất sáu action mô phỏng, API/UI request action và incident timeline.
+- Simulation chỉ ghi `would execute`, không có executor hoặc thay đổi hệ thống thật.
+- M6.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

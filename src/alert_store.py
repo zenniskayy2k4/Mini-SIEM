@@ -1,10 +1,18 @@
 from html import escape
 
+from config import config
 from src.alert_schema import INCIDENT_STATUSES, ensure_lifecycle, utc_iso
+from src.response import (
+    ACTION_HANDLERS,
+    audit_response_action,
+    build_response_action,
+    simulate_response_action,
+)
 from src.storage import alert_repository
 
 MAX_NOTE_LENGTH = 2000
 MAX_IDENTITY_LENGTH = 100
+MAX_ACTION_TARGET_LENGTH = 500
 
 
 def upsert_alert(alert: dict) -> None:
@@ -79,5 +87,39 @@ def update_assignee(alert_id: str, assigned_to) -> dict | None:
         _record_event(
             alert, "ASSIGNMENT_CHANGED", from_assignee=previous, to_assignee=assigned_to,
         )
+
+    return _update_incident(alert_id, mutate)
+
+
+def request_response_action(alert_id: str, action_type: str, target: str) -> dict | None:
+    if not isinstance(action_type, str) or action_type.upper() not in ACTION_HANDLERS:
+        raise ValueError("Invalid response action type")
+    if not isinstance(target, str) or not target.strip():
+        raise ValueError("Response action target is required")
+    action_type, target = action_type.upper(), target.strip()
+    if len(target) > MAX_ACTION_TARGET_LENGTH:
+        raise ValueError(f"Target exceeds {MAX_ACTION_TARGET_LENGTH} characters")
+
+    def mutate(alert):
+        action = build_response_action(
+            incident_id=alert["incident_id"],
+            action_type=action_type,
+            target=target,
+            mode=config.RESPONSE_MODE,
+            target_os=config.RESPONSE_TARGET_OS,
+            requested_by="analyst",
+        )
+        if action["mode"] == "simulation":
+            simulate_response_action(action)
+        alert["response_actions"].append(action)
+        _record_event(
+            alert,
+            f"RESPONSE_ACTION_{action['status']}",
+            action_id=action["action_id"],
+            action_type=action_type,
+            target=target,
+            status=action["status"],
+        )
+        audit_response_action(action)
 
     return _update_incident(alert_id, mutate)

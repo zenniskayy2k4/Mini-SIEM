@@ -696,7 +696,8 @@ function createRow(alert) {
   if (responseAction) {
     responseHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ` +
       `${escapeHTML(responseAction.action_type)} ${escapeHTML(responseAction.target)} ` +
-      `[${escapeHTML(responseAction.status)} · ${escapeHTML(responseAction.mode)}]</div>`;
+      `[${escapeHTML(responseAction.status)} · ${escapeHTML(responseAction.mode)}]` +
+      `${responseAction.result ? `<br><small>${escapeHTML(responseAction.result)}</small>` : ""}</div>`;
   }
 
   const src = alert.source_type || "HIDS_LOG";
@@ -744,7 +745,11 @@ function renderIncidentPanel(alert) {
     ...(alert.timeline || []),
   ];
   const timeline = timelineEvents.slice(-8).reverse().map((event) => `
-    <li>${escapeHTML(event.timestamp || "")} · ${escapeHTML(event.event_type || "UPDATED")}</li>`).join("");
+    <li>${escapeHTML(event.timestamp || "")} · ${escapeHTML(event.event_type || "UPDATED")}` +
+      `${event.action_type ? ` · ${escapeHTML(event.action_type)} ${escapeHTML(event.target || "")} [${escapeHTML(event.status || "")}]` : ""}</li>`).join("");
+  const responseActionOptions = [
+    "BLOCK_IP", "UNBLOCK_IP", "DISABLE_USER", "KILL_PROCESS", "QUARANTINE_FILE", "NOTIFY_ANALYST",
+  ].map((type) => `<option value="${type}">${type}</option>`).join("");
 
   return `
     <section class="incident-panel" aria-label="Incident ${escapeAttr(alert.incident_id)}">
@@ -762,6 +767,12 @@ function renderIncidentPanel(alert) {
         <textarea class="styled-input incident-note" maxlength="2000" aria-label="Analyst note"
           placeholder="Add analyst note"></textarea>
         <button class="btn btn-primary incident-note-btn" type="button">Add note</button>
+      </div>
+      <div class="incident-form-row">
+        <select class="styled-input incident-action-type" aria-label="Response action">${responseActionOptions}</select>
+        <input class="styled-input incident-action-target" maxlength="500" aria-label="Response target"
+          value="${escapeAttr(alert.ip_address || alert.incident_id)}" placeholder="Target">
+        <button class="btn btn-primary incident-response-btn" type="button">Request action</button>
       </div>
       ${notes ? `<div class="incident-history"><strong>Notes</strong><ul>${notes}</ul></div>` : ""}
       ${timeline ? `<div class="incident-history"><strong>Timeline</strong><ul>${timeline}</ul></div>` : ""}
@@ -790,6 +801,16 @@ function bindIncidentActions(row, alert) {
     `${url}/notes`,
     "POST",
     { note: row.querySelector(".incident-note").value },
+  ));
+  row.querySelector(".incident-response-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/response-actions`,
+    "POST",
+    {
+      action_type: row.querySelector(".incident-action-type").value,
+      target: row.querySelector(".incident-action-target").value,
+    },
   ));
 }
 
