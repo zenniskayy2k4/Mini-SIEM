@@ -10,7 +10,9 @@ from config import config
 from src.alert_schema import INCIDENT_STATUSES
 from src.alert_store import (
     add_analyst_note,
+    approve_response_action,
     request_response_action,
+    rollback_response_action,
     update_assignee,
     update_incident_status,
 )
@@ -205,6 +207,30 @@ def api_alert_response_action(alert_id):
     if alert is None:
         return jsonify({"error": "Alert not found"}), 404
     return jsonify(alert), 201
+
+
+@app.route("/api/alerts/<alert_id>/response-actions/<action_id>/approve", methods=["POST"])
+def api_alert_response_action_approve(alert_id, action_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        alert = approve_response_action(alert_id, action_id, body.get("analyst", "analyst"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    return jsonify(alert)
+
+
+@app.route("/api/alerts/<alert_id>/response-actions/<action_id>/rollback", methods=["POST"])
+def api_alert_response_action_rollback(alert_id, action_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        alert = rollback_response_action(alert_id, action_id, body.get("analyst", "analyst"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    return jsonify(alert)
 
 @app.route("/api/alerts/search")
 def api_alerts_search():

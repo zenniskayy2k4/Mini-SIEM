@@ -1,6 +1,10 @@
 import json
 import os
+import re
 import threading
+from datetime import datetime, timedelta, timezone
+from ipaddress import ip_address
+from pathlib import Path
 from uuid import uuid4
 
 from config import config
@@ -37,7 +41,8 @@ def build_response_action(
     status = "SKIPPED" if mode == "disabled" else "PROPOSED"
     if requested_by == "llm" and mode != "disabled":
         status = "REQUIRES_APPROVAL"
-    return {
+    created_at = utc_iso()
+    action = {
         "action_id": f"ACT-{uuid4()}",
         "incident_id": incident_id,
         "action_type": action_type,
@@ -45,15 +50,64 @@ def build_response_action(
         "mode": mode,
         "status": status,
         "requested_by": requested_by,
-        "created_at": utc_iso(),
+        "created_at": created_at,
         "target_os": target_os,
         "handler": ACTION_HANDLERS[action_type][target_os],
     }
+    if status in {"PROPOSED", "REQUIRES_APPROVAL"}:
+        action["approval_expires_at"] = utc_iso(
+            datetime.now(timezone.utc) + timedelta(seconds=config.RESPONSE_APPROVAL_TIMEOUT_SECONDS)
+        )
+    return action
+
+
+def validate_response_target(action_type: str, target: str) -> str:
+    action_type, target = str(action_type).upper(), str(target).strip()
+    if action_type not in ACTION_HANDLERS:
+        raise ValueError("Invalid response action type")
+    if not target or len(target) > 500 or any(character in target for character in "\x00\r\n"):
+        raise ValueError("Invalid response action target")
+    protected = config.RESPONSE_PROTECTED_TARGETS
+    if target.lower() in protected:
+        raise ValueError("Protected target cannot receive response actions")
+
+    if action_type in {"BLOCK_IP", "UNBLOCK_IP"}:
+        try:
+            address = ip_address(target)
+        except ValueError as exc:
+            raise ValueError("IP response action requires a valid IP address") from exc
+        if address.is_loopback or address.is_unspecified or address.is_multicast or address.is_link_local:
+            raise ValueError("Protected IP cannot receive response actions")
+        return str(address)
+    if action_type == "DISABLE_USER":
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.-]{0,63}", target):
+            raise ValueError("Invalid user target")
+    elif action_type == "KILL_PROCESS":
+        if not target.isdigit() or int(target) <= 1:
+            raise ValueError("Process target must be a PID greater than 1")
+    elif action_type == "QUARANTINE_FILE":
+        path = Path(target)
+        if not path.is_absolute():
+            raise ValueError("Quarantine target must be an absolute path")
+        resolved = path.resolve(strict=False)
+        for protected_target in protected:
+            protected_path = Path(protected_target)
+            protects_descendants = protected_path != Path(protected_path.anchor)
+            if protected_path.is_absolute() and (
+                resolved == protected_path
+                or protects_descendants and protected_path in resolved.parents
+            ):
+                raise ValueError("Protected path cannot receive response actions")
+        return str(resolved)
+    elif action_type == "NOTIFY_ANALYST":
+        if len(target) > 500:
+            raise ValueError("Notification target is too long")
+    return target
 
 
 def simulate_response_action(action: dict) -> dict:
-    if action.get("mode") != "simulation":
-        raise ValueError("Only simulation-mode actions can be simulated")
+    if action.get("mode") != "simulation" and action.get("status") != "APPROVED":
+        raise ValueError("Action must be simulation-mode or approved")
     action["status"] = "SIMULATED"
     action["result"] = f"would execute {action['action_type']} on {action['target']}"
     return action

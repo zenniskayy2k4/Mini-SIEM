@@ -1076,7 +1076,7 @@ feat: add simulated incident response actions
 
 ## Batch M6.3 — Manual approval
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-09)
 
 ### Workflow
 
@@ -1089,12 +1089,20 @@ PROPOSED
 
 ### Tasks
 
-- [ ] AI playbook chỉ tạo proposal.
-- [ ] Analyst phải approve.
-- [ ] Allowlists cho localhost, gateway, critical assets.
-- [ ] Target validation.
-- [ ] Timeout và error handling.
-- [ ] Không cho command injection.
+- [x] AI playbook chỉ tạo proposal.
+- [x] Analyst phải approve.
+- [x] Allowlists cho localhost, gateway, critical assets.
+- [x] Target validation.
+- [x] Timeout và error handling.
+- [x] Không cho command injection.
+
+### Xác nhận hoàn tất (2026-08-09)
+
+- Proposal có approval expiry; LLM không thể vượt qua `REQUIRES_APPROVAL` nếu chưa có analyst.
+- Analyst approval được audit và chuyển `APPROVED → SIMULATED`; simulation có thể chuyển `ROLLED_BACK` mà không đổi hệ thống thật.
+- Protected-target list hỗ trợ localhost, gateway và critical assets; IP, user, PID và path được validate theo action type.
+- Proposal hết hạn hoặc target lỗi chuyển `FAILED`; không có shell executor nên command injection không có đường thực thi.
+- Regression và live workflow đều pass; Ollama hoàn tất đúng một lượt cho alert thử nghiệm.
 
 ### Commit gợi ý
 
@@ -1463,14 +1471,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M6.3 — Manual approval
+M6.4 — Notifications
 ```
 
 Lý do:
 
-- M6.2 đã hoàn tất sáu action mô phỏng, API/UI request action và incident timeline.
-- Simulation chỉ ghi `would execute`, không có executor hoặc thay đổi hệ thống thật.
-- M6.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M6.3 đã hoàn tất analyst approval, expiry/error state, protected-target validation và rollback mô phỏng.
+- Action do AI đề xuất vẫn cần analyst; không có shell executor hoặc thay đổi hệ thống thật.
+- M6.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

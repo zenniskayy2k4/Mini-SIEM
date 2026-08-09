@@ -10,10 +10,14 @@ from src.sqlite_store import SQLiteAlertRepository
 
 
 def test_response_simulation():
-    action_types = (
-        "BLOCK_IP", "UNBLOCK_IP", "DISABLE_USER",
-        "KILL_PROCESS", "QUARANTINE_FILE", "NOTIFY_ANALYST",
-    )
+    targets = {
+        "BLOCK_IP": "192.0.2.62",
+        "UNBLOCK_IP": "192.0.2.62",
+        "DISABLE_USER": "testuser",
+        "KILL_PROCESS": "4242",
+        "QUARANTINE_FILE": "/tmp/m6.2-eicar",
+        "NOTIFY_ANALYST": "analyst",
+    }
     with tempfile.TemporaryDirectory() as directory:
         original = (config.RESPONSE_LOG_FILE, config.RESPONSE_MODE, config.RESPONSE_TARGET_OS)
         config.RESPONSE_LOG_FILE = str(Path(directory, "responses.jsonl"))
@@ -31,12 +35,12 @@ def test_response_simulation():
         try:
             with patch("src.alert_store.alert_repository", repository):
                 client = app.test_client()
-                for action_type in action_types:
+                for action_type, target in targets.items():
                     response = client.post(
                         f"/api/alerts/{alert['alert_id']}/response-actions",
-                        json={"action_type": action_type, "target": "192.0.2.62"},
+                        json={"action_type": action_type, "target": target},
                     )
-                    assert response.status_code == 201
+                    assert response.status_code == 201, (action_type, response.get_json())
                     action = response.get_json()["response_actions"][-1]
                     assert action["action_type"] == action_type
                     assert action["status"] == "SIMULATED"
@@ -50,12 +54,12 @@ def test_response_simulation():
                 assert invalid.status_code == 400
 
             stored = repository.get_alert(alert["alert_id"])
-            assert len(stored["response_actions"]) == len(action_types)
-            assert len([event for event in stored["timeline"] if event["event_type"] == "RESPONSE_ACTION_SIMULATED"]) == len(action_types)
+            assert len(stored["response_actions"]) == len(targets)
+            assert len([event for event in stored["timeline"] if event["event_type"] == "RESPONSE_ACTION_SIMULATED"]) == len(targets)
             with repository._connect() as connection:
-                assert connection.execute("SELECT COUNT(*) FROM response_actions").fetchone()[0] == len(action_types)
-                assert connection.execute("SELECT COUNT(*) FROM incident_events").fetchone()[0] == len(action_types)
-            assert len(Path(config.RESPONSE_LOG_FILE).read_text(encoding="utf-8").splitlines()) == len(action_types)
+                assert connection.execute("SELECT COUNT(*) FROM response_actions").fetchone()[0] == len(targets)
+                assert connection.execute("SELECT COUNT(*) FROM incident_events").fetchone()[0] == len(targets)
+            assert len(Path(config.RESPONSE_LOG_FILE).read_text(encoding="utf-8").splitlines()) == len(targets)
         finally:
             config.RESPONSE_LOG_FILE, config.RESPONSE_MODE, config.RESPONSE_TARGET_OS = original
 

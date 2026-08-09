@@ -697,7 +697,7 @@ function createRow(alert) {
     responseHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ` +
       `${escapeHTML(responseAction.action_type)} ${escapeHTML(responseAction.target)} ` +
       `[${escapeHTML(responseAction.status)} · ${escapeHTML(responseAction.mode)}]` +
-      `${responseAction.result ? `<br><small>${escapeHTML(responseAction.result)}</small>` : ""}</div>`;
+      `${responseAction.result || responseAction.error ? `<br><small>${escapeHTML(responseAction.result || responseAction.error)}</small>` : ""}</div>`;
   }
 
   const src = alert.source_type || "HIDS_LOG";
@@ -750,6 +750,17 @@ function renderIncidentPanel(alert) {
   const responseActionOptions = [
     "BLOCK_IP", "UNBLOCK_IP", "DISABLE_USER", "KILL_PROCESS", "QUARANTINE_FILE", "NOTIFY_ANALYST",
   ].map((type) => `<option value="${type}">${type}</option>`).join("");
+  const pendingAction = [...(alert.response_actions || [])].reverse().find(
+    (action) => ["PROPOSED", "REQUIRES_APPROVAL"].includes(action.status),
+  );
+  const simulatedAction = [...(alert.response_actions || [])].reverse().find(
+    (action) => action.status === "SIMULATED",
+  );
+  const responseWorkflow = pendingAction
+    ? `<button class="btn btn-primary incident-approve-btn" type="button" data-action-id="${escapeAttr(pendingAction.action_id)}">Approve action</button>`
+    : simulatedAction
+      ? `<button class="btn btn-ghost incident-rollback-btn" type="button" data-action-id="${escapeAttr(simulatedAction.action_id)}">Roll back simulation</button>`
+      : "";
 
   return `
     <section class="incident-panel" aria-label="Incident ${escapeAttr(alert.incident_id)}">
@@ -774,6 +785,7 @@ function renderIncidentPanel(alert) {
           value="${escapeAttr(alert.ip_address || alert.incident_id)}" placeholder="Target">
         <button class="btn btn-primary incident-response-btn" type="button">Request action</button>
       </div>
+      ${responseWorkflow ? `<div class="incident-actions">${responseWorkflow}</div>` : ""}
       ${notes ? `<div class="incident-history"><strong>Notes</strong><ul>${notes}</ul></div>` : ""}
       ${timeline ? `<div class="incident-history"><strong>Timeline</strong><ul>${timeline}</ul></div>` : ""}
       <div class="incident-error" role="alert"></div>
@@ -811,6 +823,20 @@ function bindIncidentActions(row, alert) {
       action_type: row.querySelector(".incident-action-type").value,
       target: row.querySelector(".incident-action-target").value,
     },
+  ));
+  row.querySelector(".incident-approve-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/response-actions/${encodeURIComponent(event.currentTarget.dataset.actionId)}/approve`,
+    "POST",
+    { analyst: "analyst" },
+  ));
+  row.querySelector(".incident-rollback-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/response-actions/${encodeURIComponent(event.currentTarget.dataset.actionId)}/rollback`,
+    "POST",
+    { analyst: "analyst" },
   ));
 }
 

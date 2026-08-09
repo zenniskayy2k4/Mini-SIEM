@@ -16,6 +16,15 @@ JSON_READ_FALLBACK_ENABLED = os.getenv("JSON_READ_FALLBACK_ENABLED", "true").low
 JSON_DUAL_WRITE_ENABLED = os.getenv("JSON_DUAL_WRITE_ENABLED", "true").lower() in {"1", "true", "yes"}
 RESPONSE_MODE = os.getenv("RESPONSE_MODE", "simulation").lower()
 RESPONSE_TARGET_OS = os.getenv("RESPONSE_TARGET_OS", "linux").lower()
+RESPONSE_APPROVAL_TIMEOUT_SECONDS = max(1, int(os.getenv("RESPONSE_APPROVAL_TIMEOUT_SECONDS", "900")))
+RESPONSE_PROTECTED_TARGETS = {
+    value.strip().lower()
+    for value in os.getenv(
+        "RESPONSE_PROTECTED_TARGETS",
+        "localhost,127.0.0.1,::1,host.docker.internal,root,administrator,1,/,/etc,/usr,/bin,/sbin",
+    ).split(",")
+    if value.strip()
+}
 
 # --- ENGINE SETTINGS ---
 CORRELATION_WINDOW_MINUTES = 5

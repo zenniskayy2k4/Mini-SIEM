@@ -1,4 +1,5 @@
 from html import escape
+from datetime import datetime, timedelta, timezone
 
 from config import config
 from src.alert_schema import INCIDENT_STATUSES, ensure_lifecycle, utc_iso
@@ -7,6 +8,7 @@ from src.response import (
     audit_response_action,
     build_response_action,
     simulate_response_action,
+    validate_response_target,
 )
 from src.storage import alert_repository
 
@@ -99,6 +101,7 @@ def request_response_action(alert_id: str, action_type: str, target: str) -> dic
     action_type, target = action_type.upper(), target.strip()
     if len(target) > MAX_ACTION_TARGET_LENGTH:
         raise ValueError(f"Target exceeds {MAX_ACTION_TARGET_LENGTH} characters")
+    target = validate_response_target(action_type, target)
 
     def mutate(alert):
         action = build_response_action(
@@ -121,5 +124,82 @@ def request_response_action(alert_id: str, action_type: str, target: str) -> dic
             status=action["status"],
         )
         audit_response_action(action)
+
+    return _update_incident(alert_id, mutate)
+
+
+def _response_action(alert: dict, action_id: str) -> dict:
+    action = next(
+        (item for item in alert["response_actions"] if item.get("action_id") == action_id),
+        None,
+    )
+    if action is None:
+        raise ValueError("Response action not found")
+    return action
+
+
+def _action_event(alert: dict, action: dict) -> None:
+    _record_event(
+        alert,
+        f"RESPONSE_ACTION_{action['status']}",
+        action_id=action["action_id"],
+        action_type=action["action_type"],
+        target=action["target"],
+        status=action["status"],
+    )
+    audit_response_action(dict(action))
+
+
+def approve_response_action(alert_id: str, action_id: str, analyst="analyst") -> dict | None:
+    if not isinstance(analyst, str) or not analyst.strip() or len(analyst.strip()) > MAX_IDENTITY_LENGTH:
+        raise ValueError("Invalid analyst identity")
+    analyst = escape(analyst.strip())
+
+    def mutate(alert):
+        action = _response_action(alert, action_id)
+        if action.get("status") not in {"PROPOSED", "REQUIRES_APPROVAL"}:
+            raise ValueError("Response action is not awaiting approval")
+        try:
+            expires_value = action.get("approval_expires_at")
+            if expires_value:
+                expires_at = datetime.fromisoformat(expires_value.replace("Z", "+00:00"))
+            else:
+                created_at = datetime.fromisoformat(action["created_at"].replace("Z", "+00:00"))
+                expires_at = created_at + timedelta(seconds=config.RESPONSE_APPROVAL_TIMEOUT_SECONDS)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at <= datetime.now(timezone.utc):
+                raise TimeoutError("Approval window expired")
+            action["target"] = validate_response_target(action["action_type"], action["target"])
+        except (KeyError, TypeError, ValueError, TimeoutError) as exc:
+            action["status"] = "FAILED"
+            action["error"] = str(exc)
+            _action_event(alert, action)
+            return
+
+        action["status"] = "APPROVED"
+        action["approved_by"] = analyst
+        action["approved_at"] = utc_iso()
+        _action_event(alert, action)
+        simulate_response_action(action)
+        _action_event(alert, action)
+
+    return _update_incident(alert_id, mutate)
+
+
+def rollback_response_action(alert_id: str, action_id: str, analyst="analyst") -> dict | None:
+    if not isinstance(analyst, str) or not analyst.strip() or len(analyst.strip()) > MAX_IDENTITY_LENGTH:
+        raise ValueError("Invalid analyst identity")
+    analyst = escape(analyst.strip())
+
+    def mutate(alert):
+        action = _response_action(alert, action_id)
+        if action.get("status") != "SIMULATED":
+            raise ValueError("Only simulated actions can be rolled back")
+        action["status"] = "ROLLED_BACK"
+        action["rolled_back_by"] = analyst
+        action["rolled_back_at"] = utc_iso()
+        action["result"] = "simulation rolled back; no system change was made"
+        _action_event(alert, action)
 
     return _update_incident(alert_id, mutate)
