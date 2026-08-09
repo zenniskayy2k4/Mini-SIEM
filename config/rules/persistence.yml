@@ -1,0 +1,12 @@
+id: DET-LNX-002
+title: New User Creation
+enabled: true
+severity: LOW
+source_type: HIDS_LOG
+mitre:
+  tactic: Persistence
+  technique: T1136.001
+match:
+  regex: 'new user: name=(\w+)'
+description: A new local user account was created.
+extract_ip: false

@@ -1,4 +1,8 @@
+import logging
 import re
+from pathlib import Path
+
+import yaml
 
 from src.alert_schema import SEVERITIES, SOURCE_TYPES
 
@@ -39,3 +43,37 @@ def validate_rules(rules: list) -> list:
     if len(ids) != len(set(ids)):
         raise ValueError("Rule IDs must be unique")
     return validated
+
+
+def load_rules(directory: str, fallback: list) -> list:
+    loaded = []
+    valid_yaml_found = False
+    seen_ids = set()
+
+    for path in sorted(Path(directory).glob("*.yml")):
+        try:
+            document = yaml.safe_load(path.read_text(encoding="utf-8"))
+            candidates = document if isinstance(document, list) else [document]
+        except (OSError, yaml.YAMLError) as exc:
+            logging.warning("[-] Rule file skipped: %s (%s)", path.name, exc)
+            continue
+
+        for candidate in candidates:
+            try:
+                rule = validate_rule(candidate)
+                if rule["id"] in seen_ids:
+                    raise ValueError(f"Duplicate rule ID: {rule['id']}")
+                seen_ids.add(rule["id"])
+                valid_yaml_found = True
+                if not rule["enabled"]:
+                    logging.info("[-] Rule skipped (disabled): %s", rule["id"])
+                    continue
+                loaded.append(rule)
+                logging.info("[+] Rule loaded: %s", rule["id"])
+            except (KeyError, ValueError) as exc:
+                logging.warning("[-] Rule skipped from %s: %s", path.name, exc)
+
+    if valid_yaml_found:
+        return loaded
+    logging.warning("[-] No valid YAML rules found; using legacy signatures")
+    return validate_rules(fallback)

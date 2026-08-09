@@ -869,7 +869,7 @@ refactor: add metadata contract for detection rules
 
 ## Batch M5.2 — YAML rule loader
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### File đề xuất
 
@@ -883,12 +883,20 @@ config/rules/
 
 ### Tasks
 
-- [ ] Load YAML khi agent start.
-- [ ] Validate required fields.
-- [ ] Rule lỗi không làm agent crash toàn bộ.
-- [ ] Log rule loaded/skipped.
-- [ ] Enable/disable rule.
-- [ ] Giữ fallback cho signatures cũ trong giai đoạn đầu.
+- [x] Load YAML khi agent start.
+- [x] Validate required fields.
+- [x] Rule lỗi không làm agent crash toàn bộ.
+- [x] Log rule loaded/skipped.
+- [x] Enable/disable rule.
+- [x] Giữ fallback cho signatures cũ trong giai đoạn đầu.
+
+### Xác nhận Batch M5.2 — 2026-08-09
+
+- [x] Hai signature hiện tại được nạp từ `config/rules/*.yml` qua `yaml.safe_load`.
+- [x] Rule sai bị bỏ qua riêng; rule disabled không được đưa vào detector.
+- [x] Không có YAML hợp lệ thì quay về `config.SIGNATURES`.
+- [x] Regression trong container và live alert `DET-LNX-002` đều pass.
+- [x] Agent khởi động log rõ rule loaded/skipped.
 
 ### Commit gợi ý
 
@@ -1426,14 +1434,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M5.2 — YAML rule loader
+M5.3 — Rule matching operators
 ```
 
 Lý do:
 
-- M5.1 đã chuẩn hóa metadata contract và truyền rule ID vào alert/UI.
-- Validator contract đã sẵn sàng để tái sử dụng khi đọc rule từ file.
-- M5.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M5.2 đã nạp rule YAML, hỗ trợ disabled/skipped và fallback signatures cũ.
+- Validator contract tiếp tục là điểm kiểm tra duy nhất cho rule Python/YAML.
+- M5.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

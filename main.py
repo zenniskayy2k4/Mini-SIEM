@@ -12,6 +12,7 @@ from src.handler import LogHandler
 from src.network_monitor import NetworkMonitor
 from src.honeypot import MiniHoneypot
 from src.ai_analyst import AIAnalyst
+from src.rules import load_rules
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
 
@@ -63,7 +64,7 @@ def main():
     ai_analyst = AIAnalyst()
 
     detector = ThreatDetector(
-        config.SIGNATURES,
+        load_rules(config.RULES_DIR, config.SIGNATURES),
         ai_analyst=ai_analyst,
     )
     

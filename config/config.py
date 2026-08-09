@@ -2,6 +2,7 @@ import os
 
 # --- PATH CONFIGURATION ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RULES_DIR = os.path.join(BASE_DIR, "config", "rules")
 
 # Log file input
 LOG_FILE_TO_WATCH = os.path.join(BASE_DIR, 'logs', 'auth.log')
