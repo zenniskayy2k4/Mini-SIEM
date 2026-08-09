@@ -31,6 +31,7 @@ def ensure_lifecycle(alert: dict) -> dict:
     if incident_status and incident_status not in INCIDENT_STATUSES:
         raise ValueError(f"Invalid incident status: {incident_status}")
     alert["incident_status"] = incident_status
+    alert.setdefault("rule_id", None)
     alert.setdefault("assigned_to", None)
     alert["analyst_notes"] = list(alert.get("analyst_notes") or [])
     return alert
@@ -42,6 +43,7 @@ def build_alert(
     status="DETECTED", alert_id=None, event_count=1, first_seen=None,
     last_seen=None, correlation_key=None, ml_confidence=None,
     ai_analysis=None, ai_recommended_severity=None, ai_disposition=None,
+    rule_id=None,
     incident_id=None, incident_status=None, assigned_to=None,
     analyst_notes=None, created_at=None, updated_at=None,
     **extra,
@@ -76,6 +78,7 @@ def build_alert(
         "ai_analysis": ai_analysis,
         "ai_recommended_severity": ai_recommended_severity,
         "ai_disposition": ai_disposition,
+        "rule_id": rule_id,
         "incident_id": incident_id,
         "incident_status": incident_status,
         "assigned_to": assigned_to,

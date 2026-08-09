@@ -27,6 +27,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from config import config
 from src.alert_schema import build_alert
+from src.rules import validate_rules
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,7 @@ class ThreatDetector:
     FEATURE_DIM = 15
 
     def __init__(self, signatures: list, ai_analyst=None):
-        self.signatures  = signatures
+        self.signatures  = validate_rules(signatures)
         self.ai_analyst  = ai_analyst   # optional async LLM analyst
 
         self.vectorizer  = None
@@ -318,13 +319,14 @@ class ThreatDetector:
     def _rule_based_detect(self, log_line: str) -> dict | None:
         """Iterate signatures; return structured alert on first match."""
         for sig in self.signatures:
-            match = re.search(sig["pattern"], log_line, re.IGNORECASE)
+            match = re.search(sig["match"]["regex"], log_line, re.IGNORECASE)
             if match:
                 return build_alert(
-                    alert_name=sig["name"],
+                    rule_id=sig["id"],
+                    alert_name=sig["title"],
                     severity=sig["severity"],
-                    source_type="HIDS_LOG",
-                    mitre_attck_id=sig["mitre_id"],
+                    source_type=sig["source_type"],
+                    mitre_attck_id=sig["mitre"]["technique"],
                     description=sig["description"],
                     raw_log=log_line.strip(),
                     ip_address=(

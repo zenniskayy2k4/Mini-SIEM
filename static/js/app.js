@@ -440,6 +440,7 @@ function initDashboard() {
               <tr>
                 <td>${new Date(alert.timestamp).toLocaleTimeString()}</td>
                 <td style="font-weight:bold">${alert.alert_name}</td>
+                <td class="font-mono">${escapeHTML(alert.rule_id || "-")}</td>
                 <td><span style="color:${getColor(alert.severity)}">${alert.severity}</span></td>
                 <td>${alert.ip_address || "N/A"}</td>
               </tr>`;
@@ -676,6 +677,9 @@ function createRow(alert) {
   const src = alert.source_type || "HIDS_LOG";
   let detailsHTML = `<div class="log-details">${escapeHTML(alert.description || "")}</div>`;
   detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Source: ${escapeHTML(src)}</div>`;
+  if (alert.rule_id) {
+    detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Rule: ${escapeHTML(alert.rule_id)}</div>`;
+  }
   if (alert.assigned_to) {
     detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Assigned to: ${escapeHTML(alert.assigned_to)}</div>`;
   }

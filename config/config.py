@@ -35,18 +35,24 @@ ELK_URL = "http://localhost:9200/siem-logs/_doc"
 # --- SIGNATURES ---
 SIGNATURES = [
     {
-        "name": "Sudo Privilege Escalation",
-        "pattern": r"COMMAND=.*/usr/bin/su|COMMAND=.*/usr/bin/sudo",
+        "id": "DET-LNX-001",
+        "title": "Sudo Privilege Escalation",
+        "enabled": True,
         "severity": "MEDIUM",
-        "mitre_id": "T1548.003",
+        "source_type": "HIDS_LOG",
+        "mitre": {"tactic": "Privilege Escalation", "technique": "T1548.003"},
+        "match": {"regex": r"COMMAND=.*/usr/bin/su|COMMAND=.*/usr/bin/sudo"},
         "description": "User attempted to execute a command with elevated privileges.",
         "extract_ip": False
     },
     {
-        "name": "New User Creation",
-        "pattern": r"new user: name=(\w+)",
+        "id": "DET-LNX-002",
+        "title": "New User Creation",
+        "enabled": True,
         "severity": "LOW",
-        "mitre_id": "T1136.001",
+        "source_type": "HIDS_LOG",
+        "mitre": {"tactic": "Persistence", "technique": "T1136.001"},
+        "match": {"regex": r"new user: name=(\w+)"},
         "description": "A new local user account was created.",
         "extract_ip": False
     }

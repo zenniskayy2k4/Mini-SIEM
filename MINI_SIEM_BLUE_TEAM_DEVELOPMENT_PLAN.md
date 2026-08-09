@@ -824,7 +824,7 @@ Chuyển signature detection từ logic hard-coded sang rule có ID, metadata, e
 
 ## Batch M5.1 — Rule metadata contract
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn thành
 
 ### Rule fields
 
@@ -844,12 +844,20 @@ match:
 
 ### Tasks
 
-- [ ] Mỗi rule có ID.
-- [ ] Mỗi rule có title.
-- [ ] Mỗi rule có severity.
-- [ ] Mỗi rule có MITRE metadata.
-- [ ] Alert lưu `rule_id`.
-- [ ] Dashboard hiển thị rule ID.
+- [x] Mỗi rule có ID.
+- [x] Mỗi rule có title.
+- [x] Mỗi rule có severity.
+- [x] Mỗi rule có MITRE metadata.
+- [x] Alert lưu `rule_id`.
+- [x] Dashboard hiển thị rule ID.
+
+### Xác nhận Batch M5.1 — 2026-08-09
+
+- [x] Hai signature hiện tại dùng contract `id`, `title`, `enabled`, `severity`, `source_type`, `mitre`, `match`.
+- [x] Validator fail-fast với metadata thiếu, severity/source type sai, regex lỗi và rule ID trùng.
+- [x] Signature match ghi `rule_id` vào alert; alert không thuộc signature giữ `rule_id: null`.
+- [x] Overview và Logs UI hiển thị rule ID khi có.
+- [x] Temporary regression pass và file check đã xóa trước commit.
 
 ### Commit gợi ý
 
@@ -1418,14 +1426,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M5.1 — Rule metadata contract
+M5.2 — YAML rule loader
 ```
 
 Lý do:
 
-- M4.4 đã chuyển dashboard sang SQLite read path với JSON fallback.
-- Milestone M4 đã hoàn tất theo thứ tự, không còn batch SQLite đang mở.
-- M5.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M5.1 đã chuẩn hóa metadata contract và truyền rule ID vào alert/UI.
+- Validator contract đã sẵn sàng để tái sử dụng khi đọc rule từ file.
+- M5.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 
