@@ -1276,7 +1276,7 @@ feat: add Windows and Sysmon detection rules
 
 ## Batch M8.1 — Dashboard authentication
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-13)
 
 ### Scope
 
@@ -1297,6 +1297,15 @@ feat: add Windows and Sysmon detection rules
 | Change status | ❌ | ✅ | ✅ |
 | Approve response | ❌ | ✅ | ✅ |
 | Change settings | ❌ | ❌ | ✅ |
+
+### Xác nhận hoàn tất
+
+- Flask session 8 giờ với persistent random signing key, cookie HttpOnly/SameSite=Strict và tuỳ chọn Secure khi triển khai HTTPS.
+- Tài khoản lưu bằng Werkzeug password hash trong `data/dashboard_users.json`; CLI tạo/cập nhật hỗ trợ đủ role viewer, analyst và admin.
+- Mọi page/read API yêu cầu login; collector giữ shared-secret auth riêng. Mọi session mutation yêu cầu CSRF token.
+- Viewer chỉ xem, analyst/admin quản lý incident và response, chỉ admin truy cập/thay đổi settings; actor note/approve/rollback lấy từ session.
+- Login throttling, session invalidation khi user bị xoá, no-store/security headers và debug mode tắt.
+- Auth/role/CSRF/hash tests và toàn bộ regression M5–M8.1 đều pass trong image cuối.
 
 ### Commit gợi ý
 
@@ -1503,7 +1512,7 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M8.1 — Dashboard authentication
+M8.2 — Audit log
 ```
 
 Lý do:
@@ -1513,7 +1522,8 @@ Lý do:
 - M7.1 đã hoàn tất import/chuẩn hoá Windows event offline, gồm JSON, XML và EVTX.
 - M7.2 đã hoàn tất collector native Windows, shared-secret ingest, retry/buffer và cursor chống gửi lại lịch sử.
 - M7.3 đã hoàn tất Windows/Sysmon detection và nối telemetry vào agent dùng chung AI worker.
-- Milestone M7 đã hoàn tất; M8.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- Milestone M7 đã hoàn tất; M8.1 đã hoàn tất dashboard session authentication và role permissions.
+- M8.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

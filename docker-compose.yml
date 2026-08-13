@@ -35,6 +35,8 @@ services:
     command: python dashboard.py
     environment:
       WINDOWS_COLLECTOR_SECRET: ${WINDOWS_COLLECTOR_SECRET:-}
+      DASHBOARD_SESSION_SECRET: ${DASHBOARD_SESSION_SECRET:-}
+      DASHBOARD_COOKIE_SECURE: ${DASHBOARD_COOKIE_SECURE:-false}
     ports:
       - "5000:5000"
     volumes:

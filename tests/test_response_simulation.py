@@ -7,6 +7,7 @@ from config import config
 from dashboard import app
 from src.alert_schema import build_alert
 from src.sqlite_store import SQLiteAlertRepository
+from tests.auth_helpers import login_as
 
 
 def test_response_simulation():
@@ -19,7 +20,10 @@ def test_response_simulation():
         "NOTIFY_ANALYST": "analyst",
     }
     with tempfile.TemporaryDirectory() as directory:
-        original = (config.RESPONSE_LOG_FILE, config.RESPONSE_MODE, config.RESPONSE_TARGET_OS)
+        original = (
+            config.RESPONSE_LOG_FILE, config.RESPONSE_MODE,
+            config.RESPONSE_TARGET_OS, config.DASHBOARD_USERS_FILE,
+        )
         config.RESPONSE_LOG_FILE = str(Path(directory, "responses.jsonl"))
         config.RESPONSE_MODE = "simulation"
         config.RESPONSE_TARGET_OS = "linux"
@@ -35,6 +39,7 @@ def test_response_simulation():
         try:
             with patch("src.alert_store.alert_repository", repository):
                 client = app.test_client()
+                login_as(client, directory)
                 for action_type, target in targets.items():
                     response = client.post(
                         f"/api/alerts/{alert['alert_id']}/response-actions",
@@ -61,7 +66,10 @@ def test_response_simulation():
                 assert connection.execute("SELECT COUNT(*) FROM incident_events").fetchone()[0] == len(targets)
             assert len(Path(config.RESPONSE_LOG_FILE).read_text(encoding="utf-8").splitlines()) == len(targets)
         finally:
-            config.RESPONSE_LOG_FILE, config.RESPONSE_MODE, config.RESPONSE_TARGET_OS = original
+            (
+                config.RESPONSE_LOG_FILE, config.RESPONSE_MODE,
+                config.RESPONSE_TARGET_OS, config.DASHBOARD_USERS_FILE,
+            ) = original
 
 
 if __name__ == "__main__":

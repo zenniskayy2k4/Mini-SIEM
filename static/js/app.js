@@ -6,6 +6,8 @@ const API_DETECTION_COVERAGE = "/api/detection-coverage";
 const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
+const CURRENT_ROLE = document.querySelector('meta[name="current-role"]')?.content || "";
 
 document.addEventListener("DOMContentLoaded", () => {
   const path = window.location.pathname;
@@ -39,7 +41,7 @@ function initSettings() {
     setStatus("Saving...");
     return fetch(API_SETTINGS_UPDATE, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
       body: JSON.stringify(patch),
     })
       .then((r) => r.json())
@@ -733,11 +735,12 @@ function createRow(alert) {
 
 function renderIncidentPanel(alert) {
   if (!alert.incident_id) return "";
+  const canMutate = ["analyst", "admin"].includes(CURRENT_ROLE);
 
   const statuses = ["NEW", "INVESTIGATING", "CONTAINED", "RESOLVED", "FALSE_POSITIVE"];
-  const statusButtons = statuses.map((status) => `
+  const statusButtons = canMutate ? statuses.map((status) => `
     <button class="btn btn-ghost incident-status-btn" type="button" data-status="${status}"
-      ${status === alert.incident_status ? "disabled" : ""}>${status}</button>`).join("");
+      ${status === alert.incident_status ? "disabled" : ""}>${status}</button>`).join("") : "";
   const notes = (alert.analyst_notes || []).slice(-5).reverse().map((note) => `
     <li><strong>${escapeHTML(note.author || "analyst")}</strong>: ${escapeHTML(note.text || "")}</li>`).join("");
   const timelineEvents = [
@@ -756,7 +759,7 @@ function renderIncidentPanel(alert) {
   const simulatedAction = [...(alert.response_actions || [])].reverse().find(
     (action) => action.status === "SIMULATED",
   );
-  const responseWorkflow = pendingAction
+  const responseWorkflow = !canMutate ? "" : pendingAction
     ? `<button class="btn btn-primary incident-approve-btn" type="button" data-action-id="${escapeAttr(pendingAction.action_id)}">Approve action</button>`
     : simulatedAction
       ? `<button class="btn btn-ghost incident-rollback-btn" type="button" data-action-id="${escapeAttr(simulatedAction.action_id)}">Roll back simulation</button>`
@@ -768,7 +771,7 @@ function renderIncidentPanel(alert) {
         <strong>${escapeHTML(alert.incident_id)}</strong>
         <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
       </div>
-      <div class="incident-actions">${statusButtons}</div>
+      ${canMutate ? `<div class="incident-actions">${statusButtons}</div>
       <div class="incident-form-row">
         <input class="styled-input incident-assignee" maxlength="100" aria-label="Assignee"
           value="${escapeAttr(alert.assigned_to || "")}" placeholder="Assignee">
@@ -784,7 +787,7 @@ function renderIncidentPanel(alert) {
         <input class="styled-input incident-action-target" maxlength="500" aria-label="Response target"
           value="${escapeAttr(alert.ip_address || alert.incident_id)}" placeholder="Target">
         <button class="btn btn-primary incident-response-btn" type="button">Request action</button>
-      </div>
+      </div>` : ""}
       ${responseWorkflow ? `<div class="incident-actions">${responseWorkflow}</div>` : ""}
       ${notes ? `<div class="incident-history"><strong>Notes</strong><ul>${notes}</ul></div>` : ""}
       ${timeline ? `<div class="incident-history"><strong>Timeline</strong><ul>${timeline}</ul></div>` : ""}
@@ -847,7 +850,7 @@ async function mutateIncident(row, button, url, method, body) {
   try {
     const response = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
       body: JSON.stringify(body),
     });
     const result = await response.json();

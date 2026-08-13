@@ -6,6 +6,7 @@ from config import config
 from dashboard import app
 from src.alert_schema import build_alert
 from src.sqlite_store import SQLiteAlertRepository
+from tests.auth_helpers import login_as
 
 
 def test_response_approval():
@@ -15,6 +16,7 @@ def test_response_approval():
             config.RESPONSE_MODE,
             config.RESPONSE_TARGET_OS,
             config.RESPONSE_PROTECTED_TARGETS,
+            config.DASHBOARD_USERS_FILE,
         )
         config.RESPONSE_LOG_FILE = str(Path(directory, "responses.jsonl"))
         config.RESPONSE_MODE = "manual"
@@ -32,6 +34,7 @@ def test_response_approval():
         try:
             with patch("src.alert_store.alert_repository", repository):
                 client = app.test_client()
+                login_as(client, directory)
                 proposed = client.post(
                     f"/api/alerts/{alert['alert_id']}/response-actions",
                     json={"action_type": "BLOCK_IP", "target": "192.0.2.63"},
@@ -99,6 +102,7 @@ def test_response_approval():
                 config.RESPONSE_MODE,
                 config.RESPONSE_TARGET_OS,
                 config.RESPONSE_PROTECTED_TARGETS,
+                config.DASHBOARD_USERS_FILE,
             ) = original
 
 

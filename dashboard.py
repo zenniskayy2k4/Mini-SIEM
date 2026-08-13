@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, redirect, request, session, url_for
 import hmac
 import json
 import os
@@ -9,6 +9,17 @@ import re
 
 from config import config
 from src.alert_schema import INCIDENT_STATUSES
+from src.dashboard_auth import (
+    authenticate,
+    clear_login_failures,
+    csrf_token,
+    csrf_valid,
+    get_user,
+    init_auth,
+    login_allowed,
+    record_login_failure,
+    role_required,
+)
 from src.alert_store import (
     add_analyst_note,
     approve_response_action,
@@ -22,6 +33,7 @@ from src.storage import alert_repository
 from src.windows_events import ingest_windows_events
 
 app = Flask(__name__)
+init_auth(app)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
 DETECTION_RULES = load_rules(config.RULES_DIR, config.SIGNATURES)
@@ -106,6 +118,79 @@ def _parse_ts_maybe(value: str):
     except Exception:
         return None
 
+
+def _auth_error():
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Authentication required"}), 401
+    return redirect(url_for("login", next=request.full_path.rstrip("?")))
+
+
+@app.before_request
+def require_dashboard_authentication():
+    if request.endpoint in {"login", "static", "api_windows_events"}:
+        return None
+    username = session.get("username")
+    user = get_user(username) if username else None
+    if not user:
+        session.clear()
+        return _auth_error()
+    session["role"] = user["role"]
+    if request.method not in {"GET", "HEAD", "OPTIONS"} and not csrf_valid():
+        return jsonify({"error": "Invalid CSRF token"}), 400
+    return None
+
+
+@app.context_processor
+def authentication_context():
+    return {
+        "csrf_token": csrf_token,
+        "current_username": session.get("username"),
+        "current_role": session.get("role"),
+    }
+
+
+@app.after_request
+def dashboard_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    if request.endpoint != "static":
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        if session.get("username") and get_user(session["username"]):
+            return redirect(url_for("dashboard"))
+        return render_template("login.html", error=None, next=request.args.get("next", ""))
+
+    if not csrf_valid():
+        return render_template("login.html", error="Invalid login request.", next=""), 400
+    key = request.remote_addr or "unknown"
+    if not login_allowed(key):
+        return render_template("login.html", error="Too many attempts. Try again in one minute.", next=""), 429
+    username, user = authenticate(request.form.get("username", ""), request.form.get("password", ""))
+    if not user:
+        record_login_failure(key)
+        return render_template("login.html", error="Invalid username or password.", next=request.form.get("next", "")), 401
+
+    clear_login_failures(key)
+    destination = request.form.get("next", "")
+    if not destination.startswith("/") or destination.startswith("//"):
+        destination = url_for("dashboard")
+    session.clear()
+    session.update(username=username, role=user["role"], csrf_token=os.urandom(32).hex())
+    session.permanent = True
+    return redirect(destination)
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
 @app.route('/')
 def dashboard():
     return render_template('dashboard.html', page='dashboard')
@@ -115,6 +200,7 @@ def logs():
     return render_template('logs.html', page='logs')
 
 @app.route('/settings')
+@role_required("admin")
 def settings():
     return render_template(
         'settings.html',
@@ -124,10 +210,12 @@ def settings():
     )
 
 @app.route("/api/settings")
+@role_required("admin")
 def api_settings_get():
     return jsonify(_effective_settings())
 
 @app.route("/api/settings/update", methods=["POST"])
+@role_required("admin")
 def api_settings_update():
     body = request.get_json(silent=True) or {}
     patch = {}
@@ -180,6 +268,7 @@ def api_windows_events():
 
 
 @app.route("/api/alerts/<alert_id>/status", methods=["PATCH"])
+@role_required("analyst")
 def api_alert_status(alert_id):
     body = request.get_json(silent=True) or {}
     status = body.get("status")
@@ -195,10 +284,11 @@ def api_alert_status(alert_id):
 
 
 @app.route("/api/alerts/<alert_id>/notes", methods=["POST"])
+@role_required("analyst")
 def api_alert_note(alert_id):
     body = request.get_json(silent=True) or {}
     try:
-        alert = add_analyst_note(alert_id, body.get("note"), body.get("author", "analyst"))
+        alert = add_analyst_note(alert_id, body.get("note"), session["username"])
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     if alert is None:
@@ -207,6 +297,7 @@ def api_alert_note(alert_id):
 
 
 @app.route("/api/alerts/<alert_id>/assignee", methods=["PATCH"])
+@role_required("analyst")
 def api_alert_assignee(alert_id):
     body = request.get_json(silent=True) or {}
     if "assigned_to" not in body:
@@ -221,6 +312,7 @@ def api_alert_assignee(alert_id):
 
 
 @app.route("/api/alerts/<alert_id>/response-actions", methods=["POST"])
+@role_required("analyst")
 def api_alert_response_action(alert_id):
     body = request.get_json(silent=True) or {}
     try:
@@ -233,10 +325,10 @@ def api_alert_response_action(alert_id):
 
 
 @app.route("/api/alerts/<alert_id>/response-actions/<action_id>/approve", methods=["POST"])
+@role_required("analyst")
 def api_alert_response_action_approve(alert_id, action_id):
-    body = request.get_json(silent=True) or {}
     try:
-        alert = approve_response_action(alert_id, action_id, body.get("analyst", "analyst"))
+        alert = approve_response_action(alert_id, action_id, session["username"])
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     if alert is None:
@@ -245,10 +337,10 @@ def api_alert_response_action_approve(alert_id, action_id):
 
 
 @app.route("/api/alerts/<alert_id>/response-actions/<action_id>/rollback", methods=["POST"])
+@role_required("analyst")
 def api_alert_response_action_rollback(alert_id, action_id):
-    body = request.get_json(silent=True) or {}
     try:
-        alert = rollback_response_action(alert_id, action_id, body.get("analyst", "analyst"))
+        alert = rollback_response_action(alert_id, action_id, session["username"])
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     if alert is None:
@@ -598,4 +690,4 @@ def graph_page():
     return render_template("graph.html", page="graph")
 
 if __name__ == "__main__":
-    app.run(host=config.DASHBOARD_HOST, port=config.DASHBOARD_PORT, debug=True)
+    app.run(host=config.DASHBOARD_HOST, port=config.DASHBOARD_PORT, debug=False)

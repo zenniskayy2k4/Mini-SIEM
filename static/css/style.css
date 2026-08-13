@@ -374,6 +374,105 @@ tr:hover {
   color: var(--text-muted);
 }
 
+.session-user {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.session-user span {
+  text-transform: uppercase;
+}
+
+.logout-button {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 9px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  color: var(--text-main);
+  border-color: var(--color-blue);
+}
+
+.auth-body {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  overflow: auto;
+}
+
+.auth-card {
+  width: min(420px, calc(100vw - 32px));
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+}
+
+.auth-card h1 {
+  margin: 12px 0 6px;
+  font-size: 24px;
+}
+
+.auth-card p,
+.auth-card label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.auth-card label,
+.auth-card input,
+.auth-card button {
+  display: block;
+  width: 100%;
+}
+
+.auth-card label {
+  margin: 18px 0 6px;
+}
+
+.auth-card input {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-body);
+  color: var(--text-main);
+}
+
+.auth-card button {
+  margin-top: 22px;
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--color-blue);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-logo {
+  color: var(--color-blue);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.auth-error {
+  margin-top: 16px;
+  padding: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 8px;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+}
+
 .ai-analysis {
   margin-top: 10px;
   padding: 10px 12px;

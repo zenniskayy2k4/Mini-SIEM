@@ -205,9 +205,18 @@ python main.py
 
 ### Step 5 — Start dashboard (Terminal 2)
 ```bash
+python tools/manage_dashboard_user.py admin admin
 python dashboard.py
 ```
 > Open **http://localhost:5000**
+
+The user command prompts for a password and stores only its Werkzeug hash in
+`data/dashboard_users.json`. Run it again with role `viewer`, `analyst`, or
+`admin` to create or update an account. With Docker Compose, use:
+
+```bash
+docker compose run --rm dashboard python tools/manage_dashboard_user.py admin admin
+```
 
 ### Step 6 (Optional) — Attack simulator (Terminal 3)
 ```bash

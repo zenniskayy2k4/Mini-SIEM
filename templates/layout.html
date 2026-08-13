@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="current-role" content="{{ current_role or '' }}">
     <title>SIEM Pro | SOC Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Favicons -->
@@ -36,12 +38,22 @@
                 <a href="/graph" class="{{ 'active' if page == 'graph' else '' }}">
                     <i class="fa-solid fa-diagram-project"></i> Graph
                 </a>
-                <a href="/settings" class="{{ 'active' if page == 'settings' else '' }}">
-                    <i class="fa-solid fa-gear"></i> Settings
-                </a>
+                {% if current_role == 'admin' %}
+                    <a href="/settings" class="{{ 'active' if page == 'settings' else '' }}">
+                        <i class="fa-solid fa-gear"></i> Settings
+                    </a>
+                {% endif %}
             </nav>
 
             <div class="sidebar-footer">
+                <div class="session-user">
+                    <strong>{{ current_username }}</strong>
+                    <span>{{ current_role }}</span>
+                </div>
+                <form action="{{ url_for('logout') }}" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="logout-button" type="submit"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                </form>
                 <div class="status-badge">
                     <span class="pulse-dot"></span> System Online
                 </div>
