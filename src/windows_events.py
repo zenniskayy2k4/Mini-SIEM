@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import threading
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -19,6 +20,7 @@ PRIORITY_EVENT_IDS = {
     4625: "Failed Logon",
     4688: "Process Creation",
 }
+_WRITE_LOCK = threading.Lock()
 
 
 def _ci(mapping, *names):
@@ -176,6 +178,11 @@ def _hashes(value):
 
 
 def normalize_windows_event(record):
+    if isinstance(record, str):
+        try:
+            record = ElementTree.fromstring(record)
+        except ElementTree.ParseError as exc:
+            raise ValueError("Windows event contains invalid XML") from exc
     common = _xml_common(record) if isinstance(record, ElementTree.Element) else _json_common(record)
     try:
         event_id = int(str(common["event_id"]))
@@ -290,39 +297,50 @@ def iter_windows_events(path):
         raise ValueError("Supported Windows event formats: .json, .jsonl, .ndjson, .xml, .evtx")
 
 
+def _store_windows_events(records, source_name, output_path=None):
+    output_path = Path(output_path or config.WINDOWS_EVENT_FILE)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    summary = {"read": 0, "imported": 0, "duplicates": 0, "unsupported": 0, "errors": 0}
+    with _WRITE_LOCK:
+        existing = set()
+        if output_path.exists():
+            with output_path.open(encoding="utf-8", errors="ignore") as file:
+                for line in file:
+                    try:
+                        existing.add(json.loads(line).get("event_uid"))
+                    except json.JSONDecodeError:
+                        continue
+
+        with output_path.open("a", encoding="utf-8") as output:
+            for record in records:
+                summary["read"] += 1
+                try:
+                    event = normalize_windows_event(record)
+                except (TypeError, ValueError):
+                    summary["errors"] += 1
+                    continue
+                if event is None:
+                    summary["unsupported"] += 1
+                    continue
+                if event["event_uid"] in existing:
+                    summary["duplicates"] += 1
+                    continue
+                event["source_file"] = source_name
+                event["imported_at"] = utc_iso()
+                output.write(json.dumps(event, ensure_ascii=False) + "\n")
+                existing.add(event["event_uid"])
+                summary["imported"] += 1
+    return summary
+
+
+def ingest_windows_events(records, source_name="windows-collector", output_path=None):
+    if not isinstance(records, list):
+        raise ValueError("Windows collector events must be a list")
+    return _store_windows_events(records, str(source_name)[:128], output_path)
+
+
 def import_windows_events(input_path, output_path=None):
     input_path = Path(input_path)
     if not input_path.is_file():
         raise ValueError(f"Windows event input not found: {input_path}")
-    output_path = Path(output_path or config.WINDOWS_EVENT_FILE)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    existing = set()
-    if output_path.exists():
-        with output_path.open(encoding="utf-8", errors="ignore") as file:
-            for line in file:
-                try:
-                    existing.add(json.loads(line).get("event_uid"))
-                except json.JSONDecodeError:
-                    continue
-
-    summary = {"read": 0, "imported": 0, "duplicates": 0, "unsupported": 0, "errors": 0}
-    with output_path.open("a", encoding="utf-8") as output:
-        for record in iter_windows_events(input_path):
-            summary["read"] += 1
-            try:
-                event = normalize_windows_event(record)
-            except (TypeError, ValueError):
-                summary["errors"] += 1
-                continue
-            if event is None:
-                summary["unsupported"] += 1
-                continue
-            if event["event_uid"] in existing:
-                summary["duplicates"] += 1
-                continue
-            event["source_file"] = input_path.name
-            event["imported_at"] = utc_iso()
-            output.write(json.dumps(event, ensure_ascii=False) + "\n")
-            existing.add(event["event_uid"])
-            summary["imported"] += 1
-    return summary
+    return _store_windows_events(iter_windows_events(input_path), input_path.name, output_path)

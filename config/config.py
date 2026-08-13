@@ -33,6 +33,7 @@ NOTIFICATION_LOG_FILE = os.path.join(BASE_DIR, "data", "notification_audit.log")
 WINDOWS_EVENT_FILE = os.getenv(
     "WINDOWS_EVENT_FILE", os.path.join(BASE_DIR, "data", "windows_events.jsonl")
 )
+WINDOWS_COLLECTOR_SECRET = os.getenv("WINDOWS_COLLECTOR_SECRET", "").strip()
 
 # --- ENGINE SETTINGS ---
 CORRELATION_WINDOW_MINUTES = 5

@@ -1,4 +1,5 @@
 from flask import Flask, render_template, jsonify, request
+import hmac
 import json
 import os
 from datetime import datetime, timezone
@@ -18,6 +19,7 @@ from src.alert_store import (
 )
 from src.rules import build_detection_coverage, load_rules
 from src.storage import alert_repository
+from src.windows_events import ingest_windows_events
 
 app = Flask(__name__)
 
@@ -154,6 +156,27 @@ def api_detection_coverage():
 def api_alerts():
     """API return latest log list (for dashboard + live snippets)"""
     return jsonify(load_alerts(50))
+
+
+@app.route("/api/windows-events", methods=["POST"])
+def api_windows_events():
+    expected = config.WINDOWS_COLLECTOR_SECRET
+    if not expected:
+        return jsonify({"error": "Windows collector ingestion is disabled"}), 503
+    supplied = request.headers.get("X-Mini-SIEM-Secret", "")
+    if not hmac.compare_digest(supplied, expected):
+        return jsonify({"error": "Unauthorized"}), 401
+    if request.content_length and request.content_length > 2 * 1024 * 1024:
+        return jsonify({"error": "Windows event batch is too large"}), 413
+
+    body = request.get_json(silent=True) or {}
+    events = body.get("events")
+    if not isinstance(events, list) or not events:
+        return jsonify({"error": "events must be a non-empty list"}), 400
+    if len(events) > 500:
+        return jsonify({"error": "Windows event batch exceeds 500 events"}), 413
+    summary = ingest_windows_events(events, body.get("source") or "windows-collector")
+    return jsonify({"ok": True, **summary})
 
 
 @app.route("/api/alerts/<alert_id>/status", methods=["PATCH"])

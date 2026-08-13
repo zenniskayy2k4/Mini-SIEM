@@ -1203,7 +1203,7 @@ feat: import and normalize Windows Sysmon events
 
 ## Batch M7.2 — Windows host collector
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-13)
 
 ### Kiến trúc đề xuất
 
@@ -1215,12 +1215,20 @@ Windows collector process
 
 ### Tasks
 
-- [ ] Collector chạy trực tiếp trên Windows host.
-- [ ] Không cần privileged Linux container.
-- [ ] Batch hoặc stream events.
-- [ ] Shared secret giữa collector và Mini-SIEM.
-- [ ] Retry và local buffer.
-- [ ] Collector không gửi toàn bộ historical log mỗi lần restart.
+- [x] Collector chạy trực tiếp trên Windows host.
+- [x] Không cần privileged Linux container.
+- [x] Batch hoặc stream events.
+- [x] Shared secret giữa collector và Mini-SIEM.
+- [x] Retry và local buffer.
+- [x] Collector không gửi toàn bộ historical log mỗi lần restart.
+
+### Xác nhận hoàn tất
+
+- PowerShell collector dùng `Get-WinEvent` trực tiếp trên Windows cho Sysmon và Security Event ID ưu tiên; không thêm container đặc quyền.
+- Hỗ trợ chạy liên tục theo batch hoặc `-Once`, retry hữu hạn và buffer cục bộ tại `%ProgramData%\Mini-SIEM` khi endpoint không sẵn sàng.
+- Endpoint `POST /api/windows-events` dùng shared secret, constant-time comparison, giới hạn 500 events/2 MiB và mặc định tắt khi chưa cấu hình secret.
+- Cursor riêng theo channel được khởi tạo tại record mới nhất và lưu sau mỗi batch, nên restart không gửi lại toàn bộ historical log; dedup phía server bảo vệ khi retry.
+- Test endpoint/auth/limit/dedup, cú pháp và first-run collector trên Windows, toàn bộ regression M5–M7.2 đều pass.
 
 ### Commit gợi ý
 
@@ -1487,7 +1495,7 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M7.2 — Windows host collector
+M7.3 — Windows detection rules
 ```
 
 Lý do:
@@ -1495,7 +1503,8 @@ Lý do:
 - Milestone M6 đã hoàn tất safe action contract, simulation, manual approval và webhook notification.
 - Notifications có dedup, bounded retry, payload allowlist và audit kết quả; mặc định không gửi ra ngoài.
 - M7.1 đã hoàn tất import/chuẩn hoá Windows event offline, gồm JSON, XML và EVTX.
-- M7.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M7.2 đã hoàn tất collector native Windows, shared-secret ingest, retry/buffer và cursor chống gửi lại lịch sử.
+- M7.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 
