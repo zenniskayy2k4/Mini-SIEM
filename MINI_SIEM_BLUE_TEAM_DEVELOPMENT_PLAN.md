@@ -1158,7 +1158,7 @@ Bổ sung nguồn dữ liệu phù hợp với Blue Team Windows mà không yêu
 
 ## Batch M7.1 — Sysmon JSON/EVTX import
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-13)
 
 ### Nguồn ưu tiên
 
@@ -1168,10 +1168,18 @@ Bổ sung nguồn dữ liệu phù hợp với Blue Team Windows mà không yêu
 
 ### Tasks
 
-- [ ] Import file offline.
-- [ ] Normalize Event ID.
-- [ ] Map process, parent process, command line, user, hashes, network fields.
-- [ ] Không yêu cầu realtime ở batch đầu.
+- [x] Import file offline.
+- [x] Normalize Event ID.
+- [x] Map process, parent process, command line, user, hashes, network fields.
+- [x] Không yêu cầu realtime ở batch đầu.
+
+### Xác nhận hoàn tất
+
+- Import offline từ JSON, JSONL/NDJSON, XML và EVTX; lưu telemetry chuẩn hoá dưới dạng JSONL riêng.
+- Hỗ trợ 9 Event ID ưu tiên: Sysmon 1, 3, 7, 10, 11, 13 và Windows 4624, 4625, 4688.
+- Chuẩn hoá process, parent process, command line, user, hashes, network, file, registry và logon; chống nhập trùng bằng event UID ổn định.
+- Đọc EVTX đa nền tảng bằng `python-evtx`; batch này không thêm realtime collector và không đẩy event vào detection/AI.
+- Test importer, nhánh EVTX, CLI, dedup và regression hiện có đều pass.
 
 ### Event IDs ưu tiên
 
@@ -1479,14 +1487,15 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M7.1 — Sysmon JSON/EVTX import
+M7.2 — Windows host collector
 ```
 
 Lý do:
 
 - Milestone M6 đã hoàn tất safe action contract, simulation, manual approval và webhook notification.
 - Notifications có dedup, bounded retry, payload allowlist và audit kết quả; mặc định không gửi ra ngoài.
-- M7.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M7.1 đã hoàn tất import/chuẩn hoá Windows event offline, gồm JSON, XML và EVTX.
+- M7.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

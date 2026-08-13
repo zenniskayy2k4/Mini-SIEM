@@ -30,6 +30,9 @@ NOTIFICATION_WEBHOOK_FORMAT = os.getenv("NOTIFICATION_WEBHOOK_FORMAT", "generic"
 NOTIFICATION_TIMEOUT_SECONDS = max(1, int(os.getenv("NOTIFICATION_TIMEOUT_SECONDS", "3")))
 NOTIFICATION_MAX_ATTEMPTS = min(3, max(1, int(os.getenv("NOTIFICATION_MAX_ATTEMPTS", "2"))))
 NOTIFICATION_LOG_FILE = os.path.join(BASE_DIR, "data", "notification_audit.log")
+WINDOWS_EVENT_FILE = os.getenv(
+    "WINDOWS_EVENT_FILE", os.path.join(BASE_DIR, "data", "windows_events.jsonl")
+)
 
 # --- ENGINE SETTINGS ---
 CORRELATION_WINDOW_MINUTES = 5
