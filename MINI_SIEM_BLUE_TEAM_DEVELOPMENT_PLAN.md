@@ -83,7 +83,7 @@ Các thành phần sau **không nằm trong roadmap chính** vì giới hạn t�
 | M3 | Incident lifecycle và analyst workflow | 🟡 |
 | M4 | SQLite storage migration | ⬜ |
 | M5 | Detection engineering và rule management | ✅ |
-| M6 | Lightweight response automation | ⬜ |
+| M6 | Lightweight response automation | ✅ |
 | M7 | Windows telemetry và Sysmon | ⬜ |
 | M8 | Dashboard security, observability và reliability | ⬜ |
 | M9 | Release, documentation và portfolio demo | ⬜ |
@@ -1114,7 +1114,7 @@ feat: add analyst approval workflow for response actions
 
 ## Batch M6.4 — Notifications
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-13)
 
 ### Kênh ưu tiên
 
@@ -1124,11 +1124,19 @@ feat: add analyst approval workflow for response actions
 
 ### Tasks
 
-- [ ] Chỉ gửi HIGH/CRITICAL hoặc `REQUIRES_HUMAN_REVIEW`.
-- [ ] Deduplicate notifications.
-- [ ] Không gửi raw secret/log nhạy cảm.
-- [ ] Retry giới hạn.
-- [ ] Notification result ghi audit.
+- [x] Chỉ gửi HIGH/CRITICAL hoặc `REQUIRES_HUMAN_REVIEW`.
+- [x] Deduplicate notifications.
+- [x] Không gửi raw secret/log nhạy cảm.
+- [x] Retry giới hạn.
+- [x] Notification result ghi audit.
+
+### Xác nhận hoàn tất (2026-08-13)
+
+- Generic/Discord webhook dùng chung tại alert pipeline; mặc định tắt khi chưa cấu hình URL.
+- Chỉ gửi allowlist field của HIGH/CRITICAL hoặc human-review alert; không gửi raw log, description, AI playbook hay webhook secret.
+- Deduplicate bền vững theo incident/alert ID từ audit `SENT`; callback AI không tạo notification thứ hai.
+- Timeout ngắn, tối đa ba lần thử theo cấu hình (mặc định hai); kết quả `SENT`/`FAILED` được audit JSONL không chứa URL.
+- Regression, HTTP socket test trong image và live alert/Ollama đều pass; webhook tắt không tạo audit giả.
 
 ### Commit gợi ý
 
@@ -1471,14 +1479,14 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M6.4 — Notifications
+M7.1 — Sysmon JSON/EVTX import
 ```
 
 Lý do:
 
-- M6.3 đã hoàn tất analyst approval, expiry/error state, protected-target validation và rollback mô phỏng.
-- Action do AI đề xuất vẫn cần analyst; không có shell executor hoặc thay đổi hệ thống thật.
-- M6.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- Milestone M6 đã hoàn tất safe action contract, simulation, manual approval và webhook notification.
+- Notifications có dedup, bounded retry, payload allowlist và audit kết quả; mặc định không gửi ra ngoài.
+- M7.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 
