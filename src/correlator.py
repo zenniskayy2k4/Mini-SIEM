@@ -36,6 +36,7 @@ TACTIC_MAP: dict[str, str] = {
     "Brute Force":        "CRED_ACCESS",
     "Failed password":    "CRED_ACCESS",
     "Invalid user":       "CRED_ACCESS",
+    "LSASS":              "CRED_ACCESS",
 
     # Privilege Escalation
     "Sudo":               "PRIV_ESC",
@@ -45,6 +46,9 @@ TACTIC_MAP: dict[str, str] = {
     "AI Anomaly":         "EXECUTION",
     "Semantic Anomaly":   "EXECUTION",
     "Structural Anomaly": "EXECUTION",
+    "PowerShell":         "EXECUTION",
+    "LOLBin":             "EXECUTION",
+    "Office Child":       "EXECUTION",
 }
 
 # Ordered stages for kill-chain progression check
@@ -65,7 +69,7 @@ CAMPAIGN_THRESHOLDS: dict[str, int] = {
 # ---------------------------------------------------------------------------
 # Cross-source bonus: if IP seen in N distinct sources → multiply severity
 # ---------------------------------------------------------------------------
-SOURCE_PRIORITY = {"HONEYPOT": 3, "NIDS": 2, "HIDS_LOG": 1}
+SOURCE_PRIORITY = {"HONEYPOT": 3, "NIDS": 2, "WINDOWS_EVENT": 2, "HIDS_LOG": 1}
 
 
 def _classify_alert(alert_name: str) -> str:

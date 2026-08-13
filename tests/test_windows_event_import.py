@@ -6,7 +6,7 @@ from unittest.mock import patch
 from src.windows_events import import_windows_events
 
 
-EVENT_IDS = (1, 3, 7, 10, 11, 13, 4624, 4625, 4688)
+EVENT_IDS = (1, 3, 7, 10, 11, 13, 4624, 4625, 4688, 4698, 4720, 5007)
 
 
 def _event(event_id, record_id):
@@ -63,7 +63,7 @@ def test_windows_event_import():
         source.write_text(json.dumps([_event(event_id, index) for index, event_id in enumerate(EVENT_IDS, 1)]), encoding="utf-8")
 
         summary = import_windows_events(source, output)
-        assert summary == {"read": 9, "imported": 9, "duplicates": 0, "unsupported": 0, "errors": 0}
+        assert summary == {"read": 12, "imported": 12, "duplicates": 0, "unsupported": 0, "errors": 0}
         events = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
         assert {event["event_id"] for event in events} == set(EVENT_IDS)
         process = events[0]
@@ -78,7 +78,7 @@ def test_windows_event_import():
         assert event_4688["parent_process"]["id"] == "0x888"
 
         duplicate = import_windows_events(source, output)
-        assert duplicate["imported"] == 0 and duplicate["duplicates"] == 9
+        assert duplicate["imported"] == 0 and duplicate["duplicates"] == 12
 
         xml_source = directory / "security.xml"
         xml_source.write_text("""<Events><Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Security-Auditing"/><EventID>4625</EventID><TimeCreated SystemTime="2026-08-13T08:01:00Z"/><EventRecordID>99</EventRecordID><Channel>Security</Channel><Computer>win-lab</Computer></System><EventData><Data Name="TargetUserName">blocked-user</Data><Data Name="TargetDomainName">LAB</Data><Data Name="IpAddress">203.0.113.9</Data><Data Name="LogonType">10</Data><Data Name="Status">0xC000006D</Data></EventData></Event></Events>""", encoding="utf-8")

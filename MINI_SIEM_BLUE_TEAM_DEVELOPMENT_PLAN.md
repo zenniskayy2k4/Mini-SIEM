@@ -1240,7 +1240,7 @@ feat: add lightweight Windows event collector
 
 ## Batch M7.3 — Windows detection rules
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-13)
 
 ### Use cases
 
@@ -1255,6 +1255,14 @@ feat: add lightweight Windows event collector
 - Defender tampering.
 - Credential dumping indicators.
 - Abnormal parent-child process.
+
+### Xác nhận hoàn tất
+
+- Thêm 7 YAML rules cho encoded PowerShell, LOLBins với tham số đáng ngờ, account/task creation, Defender tampering, LSASS access và Office child process.
+- Mở rộng normalize/collector cho Security 4698, 4720 và Defender 5007; bổ sung target process, scheduled task và Defender setting fields.
+- Agent tail Windows JSONL từ cuối file, không replay historical telemetry; alert dùng chung rule engine, lifecycle, correlation, notification và một AI worker hiện có.
+- `WINDOWS_EVENT` được hỗ trợ trong schema, correlation/graph và detection coverage; telemetry sạch/LOLBin hợp lệ không tạo alert.
+- Test đủ 7 rules, negative cases, agent tail-file, importer/collector và toàn bộ regression M5–M7.3 đều pass.
 
 ### Commit gợi ý
 
@@ -1495,7 +1503,7 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M7.3 — Windows detection rules
+M8.1 — Dashboard authentication
 ```
 
 Lý do:
@@ -1504,7 +1512,8 @@ Lý do:
 - Notifications có dedup, bounded retry, payload allowlist và audit kết quả; mặc định không gửi ra ngoài.
 - M7.1 đã hoàn tất import/chuẩn hoá Windows event offline, gồm JSON, XML và EVTX.
 - M7.2 đã hoàn tất collector native Windows, shared-secret ingest, retry/buffer và cursor chống gửi lại lịch sử.
-- M7.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M7.3 đã hoàn tất Windows/Sysmon detection và nối telemetry vào agent dùng chung AI worker.
+- Milestone M7 đã hoàn tất; M8.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

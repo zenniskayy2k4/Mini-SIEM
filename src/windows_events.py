@@ -19,7 +19,11 @@ PRIORITY_EVENT_IDS = {
     4624: "Successful Logon",
     4625: "Failed Logon",
     4688: "Process Creation",
+    4698: "Scheduled Task Created",
+    4720: "User Account Created",
+    5007: "Defender Configuration Changed",
 }
+# ponytail: process-local lock fits the single-process dashboard; use DB locking if it becomes multi-worker.
 _WRITE_LOCK = threading.Lock()
 
 
@@ -205,7 +209,7 @@ def normalize_windows_event(record):
         domain = _pick(data, "UserDomain", "TargetDomainName", "SubjectDomainName")
     user = f"{domain}\\{user_name}" if domain and user_name and "\\" not in str(user_name) and "@" not in str(user_name) else user_name
     process_id = _pick(data, "NewProcessId") if event_id == 4688 else _pick(data, "ProcessId")
-    process_image = _pick(data, "NewProcessName") if event_id == 4688 else _pick(data, "Image")
+    process_image = _pick(data, "NewProcessName") if event_id == 4688 else _pick(data, "Image", "SourceImage")
     parent_id = _pick(data, "CreatorProcessId", "ParentProcessId")
     if event_id == 4688 and parent_id is None:
         parent_id = _pick(data, "ProcessId")
@@ -232,6 +236,12 @@ def normalize_windows_event(record):
             "image": _pick(data, "CreatorProcessName", "ParentImage"),
             "command_line": _pick(data, "ParentCommandLine"),
         },
+        "target_process": {
+            "id": str(_pick(data, "TargetProcessId")) if _pick(data, "TargetProcessId") is not None else None,
+            "guid": _pick(data, "TargetProcessGuid"),
+            "image": _pick(data, "TargetImage"),
+            "granted_access": _pick(data, "GrantedAccess"),
+        },
         "user": user,
         "hashes": _hashes(_pick(data, "Hashes", "Hash")),
         "network": {
@@ -252,10 +262,34 @@ def normalize_windows_event(record):
             "workstation": _pick(data, "WorkstationName"),
             "status": _pick(data, "Status", "SubStatus"),
         },
+        "task": {
+            "name": _pick(data, "TaskName"),
+            "content": _pick(data, "TaskContent"),
+        },
+        "defender": {
+            "setting": _pick(data, "New Value", "NewValue"),
+        },
     }
     canonical = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     normalized["event_uid"] = f"WINEVT-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
     return normalized
+
+
+def windows_event_text(event):
+    """Stable searchable text consumed by the existing YAML rule engine."""
+    fields = {
+        "event_id": event.get("event_id"),
+        "process_image": event.get("process", {}).get("image"),
+        "command_line": event.get("process", {}).get("command_line"),
+        "parent_image": event.get("parent_process", {}).get("image"),
+        "target_image": event.get("target_process", {}).get("image"),
+        "granted_access": event.get("target_process", {}).get("granted_access"),
+        "user": event.get("user"),
+        "task_name": event.get("task", {}).get("name"),
+        "task_content": event.get("task", {}).get("content"),
+        "defender_setting": event.get("defender", {}).get("setting"),
+    }
+    return " ".join(f"{key}={value}" for key, value in fields.items() if value not in (None, ""))
 
 
 def _read_json(path):

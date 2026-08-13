@@ -8,7 +8,7 @@ from config import config
 from src.detector import ThreatDetector
 from src.correlator import AlertCorrelator
 from src.response import IncidentResponder
-from src.handler import LogHandler
+from src.handler import LogHandler, WindowsEventHandler
 from src.network_monitor import NetworkMonitor
 from src.honeypot import MiniHoneypot
 from src.ai_analyst import AIAnalyst
@@ -47,6 +47,8 @@ def setup_environment():
         print(f"[+] Init: Creating dummy log file at {config.LOG_FILE_TO_WATCH}")
         with open(config.LOG_FILE_TO_WATCH, 'w', encoding="utf-8") as f:
             f.write("--- Log Monitor Started ---\n")
+    if not os.path.exists(config.WINDOWS_EVENT_FILE):
+        open(config.WINDOWS_EVENT_FILE, "a", encoding="utf-8").close()
 
 def main():
     setup_environment()
@@ -77,6 +79,12 @@ def main():
 
     log_dir = os.path.dirname(config.LOG_FILE_TO_WATCH) or "."
     observer.schedule(event_handler, path=log_dir, recursive=False)
+    windows_handler = WindowsEventHandler(config.WINDOWS_EVENT_FILE, detector, correlator, responder)
+    observer.schedule(
+        windows_handler,
+        path=os.path.dirname(config.WINDOWS_EVENT_FILE) or ".",
+        recursive=False,
+    )
 
     observer.start()
 

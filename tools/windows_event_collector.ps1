@@ -39,7 +39,8 @@ $ErrorActionPreference = "Stop"
 
 $Channels = [ordered]@{
     "Microsoft-Windows-Sysmon/Operational" = @(1, 3, 7, 10, 11, 13)
-    "Security" = @(4624, 4625, 4688)
+    "Security" = @(4624, 4625, 4688, 4698, 4720)
+    "Microsoft-Windows-Windows Defender/Operational" = @(5007)
 }
 $Endpoint = ([uri]::new($ServerUrl, "/api/windows-events")).AbsoluteUri
 $StateFile = Join-Path $StateDirectory "collector-state.json"

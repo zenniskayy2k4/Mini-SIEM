@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from config import config
 from src.alert_schema import build_alert
 from src.rules import match_rule, validate_rules
+from src.windows_events import windows_event_text
 
 logger = logging.getLogger(__name__)
 
@@ -310,9 +311,11 @@ class ThreatDetector:
             ml_confidence=confidence,
         )
 
-    def _rule_based_detect(self, log_line: str) -> dict | None:
+    def _rule_based_detect(self, log_line: str, source_type="HIDS_LOG") -> dict | None:
         """Iterate signatures; return structured alert on first match."""
         for sig in self.signatures:
+            if sig["source_type"] != source_type:
+                continue
             if sig.get("threshold"):
                 continue
             match = match_rule(sig["match"], log_line)
@@ -332,6 +335,28 @@ class ThreatDetector:
                     ),
                 )
         return None
+
+    def analyze_windows_event(self, event: dict) -> dict | None:
+        """Apply lightweight YAML rules; AI enrichment stays on the shared agent worker."""
+        raw_event = windows_event_text(event)
+        alert = self._rule_based_detect(raw_event, "WINDOWS_EVENT")
+        if not alert:
+            return None
+        alert.update({
+            "timestamp": event["timestamp"],
+            "first_seen": event["timestamp"],
+            "last_seen": event["timestamp"],
+            "windows_event_id": event["event_id"],
+            "windows_event_uid": event["event_uid"],
+            "computer": event.get("computer"),
+            "process": event.get("process"),
+            "parent_process": event.get("parent_process"),
+            "ip_address": (
+                event.get("network", {}).get("source_ip")
+                or event.get("network", {}).get("destination_ip")
+            ),
+        })
+        return alert
 
     def _check_ssh_bruteforce(self, log_line: str) -> tuple[bool, dict | None]:
         rule = None

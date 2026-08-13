@@ -41,12 +41,13 @@ class LogHandler(FileSystemEventHandler):
 
             alert = self.detector.analyze(line)
             if alert:
-                alert["source_type"] = alert.get("source_type") or "HIDS_LOG"
+                self._process_alert(alert)
 
-                alert = self.correlator.correlate(alert)
-                alert = self.responder.handle_incident(alert)
-                self.elk.send_alert(alert)
-                self._handle_alert(alert)
+    def _process_alert(self, alert):
+        alert = self.correlator.correlate(alert)
+        alert = self.responder.handle_incident(alert)
+        self.elk.send_alert(alert)
+        self._handle_alert(alert)
 
     def _handle_alert(self, alert):
         """
@@ -67,3 +68,21 @@ class LogHandler(FileSystemEventHandler):
         print(f" Response Action: {action or 'None'}")
 
         persist_and_enrich(alert, getattr(self.detector, "ai_analyst", None))
+
+
+class WindowsEventHandler(LogHandler):
+    """Tail normalized Windows JSONL without replaying historical telemetry."""
+
+    def on_modified(self, event):
+        src = os.path.normcase(os.path.abspath(event.src_path))
+        watched = os.path.normcase(os.path.abspath(self.file_path))
+        if src != watched:
+            return
+        for line in self.file_handle.readlines():
+            try:
+                windows_event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            alert = self.detector.analyze_windows_event(windows_event)
+            if alert:
+                self._process_alert(alert)
