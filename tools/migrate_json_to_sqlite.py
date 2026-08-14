@@ -4,12 +4,12 @@ import argparse
 import json
 import sqlite3
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 from config import config
 from src.alert_schema import SEVERITIES, SOURCE_TYPES, ensure_lifecycle
+from src.maintenance import backup_database
 from src.sqlite_store import SQLiteAlertRepository
 
 
@@ -35,14 +35,6 @@ def _normalize(alert):
     return alert
 
 
-def _backup_database(db_path):
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    backup_path = db_path.with_name(f"{db_path.stem}.backup-{stamp}{db_path.suffix}")
-    with sqlite3.connect(db_path) as source, sqlite3.connect(backup_path) as target:
-        source.backup(target)
-    return backup_path
-
-
 def migrate(json_path=None, db_path=None):
     json_path = Path(json_path or config.OUTPUT_ALERT_FILE)
     db_path = Path(db_path or config.SQLITE_ALERT_DB)
@@ -51,7 +43,7 @@ def migrate(json_path=None, db_path=None):
 
     repository = SQLiteAlertRepository(str(db_path))
     repository.ensure_schema()
-    backup_path = _backup_database(db_path)
+    backup_path = backup_database(db_path)
     report = {"imported": 0, "skipped": 0, "failed": 0, "backup": str(backup_path)}
 
     with json_path.open("r", encoding="utf-8", errors="ignore") as source:

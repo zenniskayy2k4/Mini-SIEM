@@ -85,7 +85,7 @@ Các thành phần sau **không nằm trong roadmap chính** vì giới hạn t�
 | M5 | Detection engineering và rule management | ✅ |
 | M6 | Lightweight response automation | ✅ |
 | M7 | Windows telemetry và Sysmon | ⬜ |
-| M8 | Dashboard security, observability và reliability | ⬜ |
+| M8 | Dashboard security, observability và reliability | ✅ |
 | M9 | Release, documentation và portfolio demo | ⬜ |
 
 ---
@@ -1389,16 +1389,26 @@ feat: add service health and diagnostics endpoints
 
 ## Batch M8.4 — Retention và backup
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-14)
 
 ### Tasks
 
-- [ ] Config retention days.
-- [ ] Archive old alerts.
-- [ ] SQLite backup command.
-- [ ] Không xóa incident đang mở.
-- [ ] Log rotation.
-- [ ] Document restore procedure.
+- [x] Config retention days.
+- [x] Archive old alerts.
+- [x] SQLite backup command.
+- [x] Không xóa incident đang mở.
+- [x] Log rotation.
+- [x] Document restore procedure.
+
+### Xác nhận hoàn tất
+
+- `ALERT_RETENTION_DAYS` mặc định 90 ngày; CLI maintenance nhận override theo command line hoặc `.env`.
+- Retention tạo SQLite online backup có `integrity_check`, ghi archive JSONL atomic trước khi xóa và đồng bộ JSON mirror sau khi transaction commit.
+- Incident `NEW`, `INVESTIGATING`, `CONTAINED`, alert mới và timestamp lỗi đều được bảo toàn; chỉ alert thường hoặc incident terminal cũ được archive.
+- SQLite checkpoint/VACUUM sau khi xóa; backup riêng chạy qua `python -m tools.maintenance backup`.
+- Rotation copy-truncate tối đa 5 bản cho auth, Windows events, response và notification logs; immutable analyst audit log được loại trừ.
+- `docs/RETENTION_BACKUP.md` mô tả quy trình stop service, backup, retention, rotation, full restore, WAL/SHM safety và archive restore.
+- Test archive/restore/open-incident protection/rotation và toàn bộ regression M5–M8.4 đều pass; live health và backup smoke test trên image cuối đều pass.
 
 ### Commit gợi ý
 
@@ -1531,7 +1541,7 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M8.4 — Retention và backup
+M9.1 — README synchronization
 ```
 
 Lý do:
@@ -1544,7 +1554,8 @@ Lý do:
 - Milestone M7 đã hoàn tất; M8.1 đã hoàn tất dashboard session authentication và role permissions.
 - M8.2 đã hoàn tất immutable analyst audit log cho các thao tác bảo mật và vận hành quan trọng.
 - M8.3 đã hoàn tất health endpoints, agent heartbeat và diagnostics cho storage, AI queue và sensors.
-- M8.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M8.4 đã hoàn tất retention, archive, SQLite backup, log rotation và restore procedure; Milestone M8 đã hoàn tất.
+- M9.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 
