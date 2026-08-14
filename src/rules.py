@@ -1,15 +1,60 @@
 import logging
+import os
 import re
+import tempfile
 from pathlib import Path
 
 import yaml
 
 from config import config
+from src.audit import append_audit_event
 from src.alert_schema import SEVERITIES, SOURCE_TYPES
 
 MATCH_OPERATORS = {
     "contains", "contains_any", "contains_all", "regex", "equals", "not_contains",
 }
+
+
+def set_rule_enabled(rule_id: str, enabled: bool, actor: str, directory: str | None = None) -> dict:
+    if not isinstance(enabled, bool):
+        raise ValueError("Rule enabled state must be boolean")
+    directory = directory or config.RULES_DIR
+    for path in sorted(Path(directory).glob("*.yml")):
+        try:
+            document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError) as exc:
+            raise ValueError(f"Cannot update {path.name}: {exc}") from exc
+        candidates = document if isinstance(document, list) else [document]
+        rule = next(
+            (candidate for candidate in candidates if isinstance(candidate, dict) and candidate.get("id") == rule_id),
+            None,
+        )
+        if rule is None:
+            continue
+        previous = rule.get("enabled")
+        rule["enabled"] = enabled
+        validate_rule(rule)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", dir=path.parent, delete=False, suffix=".tmp"
+            ) as file:
+                temporary = file.name
+                yaml.safe_dump(document, file, allow_unicode=True, sort_keys=False)
+            os.replace(temporary, path)
+        finally:
+            if temporary and os.path.exists(temporary):
+                os.unlink(temporary)
+        append_audit_event(
+            "RULE_ENABLED" if enabled else "RULE_DISABLED",
+            actor,
+            role="admin",
+            target_type="detection_rule",
+            target_id=rule_id,
+            details={"from": previous, "to": enabled, "file": path.name},
+        )
+        return rule
+    raise ValueError(f"Rule not found: {rule_id}")
 
 
 def match_rule(match: dict, value: str):

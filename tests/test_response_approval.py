@@ -17,11 +17,13 @@ def test_response_approval():
             config.RESPONSE_TARGET_OS,
             config.RESPONSE_PROTECTED_TARGETS,
             config.DASHBOARD_USERS_FILE,
+            config.ANALYST_AUDIT_FILE,
         )
         config.RESPONSE_LOG_FILE = str(Path(directory, "responses.jsonl"))
         config.RESPONSE_MODE = "manual"
         config.RESPONSE_TARGET_OS = "linux"
         config.RESPONSE_PROTECTED_TARGETS = {"localhost", "127.0.0.1", "192.0.2.1", "/etc", "root", "1"}
+        config.ANALYST_AUDIT_FILE = str(Path(directory, "audit.jsonl"))
         repository = SQLiteAlertRepository(str(Path(directory, "alerts.db")))
         alert = build_alert(
             alert_name="Approval test",
@@ -103,6 +105,7 @@ def test_response_approval():
                 config.RESPONSE_TARGET_OS,
                 config.RESPONSE_PROTECTED_TARGETS,
                 config.DASHBOARD_USERS_FILE,
+                config.ANALYST_AUDIT_FILE,
             ) = original
 
 

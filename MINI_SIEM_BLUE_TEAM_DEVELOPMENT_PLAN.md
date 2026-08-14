@@ -1317,7 +1317,7 @@ feat: add dashboard authentication and analyst roles
 
 ## Batch M8.2 — Audit log
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-14)
 
 ### Audit events
 
@@ -1328,6 +1328,15 @@ feat: add dashboard authentication and analyst roles
 - Response requested/approved/executed.
 - Rule enabled/disabled.
 - Runtime setting changed.
+
+### Xác nhận hoàn tất
+
+- Audit analyst được ghi JSONL theo kiểu append-only; mỗi event có ID, UTC timestamp, actor/role, target, outcome và metadata allowlist.
+- Chuỗi SHA-256 nối `previous_hash`/`entry_hash` phát hiện bản ghi bị sửa, xoá hoặc chèn giữa chuỗi; verifier từ chối chuỗi không hợp lệ.
+- Login/logout, status, note, assignment, response request/approval/execution/rollback và runtime settings đều audit sau mutation thành công; login bị từ chối/chặn cũng được ghi outcome riêng.
+- Rule YAML có công cụ enable/disable dành cho admin và ghi audit cùng actor; cập nhật file theo kiểu atomic replace.
+- Audit không lưu mật khẩu, nội dung analyst note hoặc response target nhạy cảm; details bị giới hạn 8 KiB.
+- Test chuyên biệt, tamper test và toàn bộ regression M5–M8.2 đều pass trên image cuối; live dashboard trả 401 khi chưa xác thực và audit chain hợp lệ.
 
 ### Commit gợi ý
 
@@ -1512,7 +1521,7 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M8.2 — Audit log
+M8.3 — Health and diagnostics
 ```
 
 Lý do:
@@ -1523,7 +1532,8 @@ Lý do:
 - M7.2 đã hoàn tất collector native Windows, shared-secret ingest, retry/buffer và cursor chống gửi lại lịch sử.
 - M7.3 đã hoàn tất Windows/Sysmon detection và nối telemetry vào agent dùng chung AI worker.
 - Milestone M7 đã hoàn tất; M8.1 đã hoàn tất dashboard session authentication và role permissions.
-- M8.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M8.2 đã hoàn tất immutable analyst audit log cho các thao tác bảo mật và vận hành quan trọng.
+- M8.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

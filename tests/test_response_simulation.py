@@ -23,10 +23,12 @@ def test_response_simulation():
         original = (
             config.RESPONSE_LOG_FILE, config.RESPONSE_MODE,
             config.RESPONSE_TARGET_OS, config.DASHBOARD_USERS_FILE,
+            config.ANALYST_AUDIT_FILE,
         )
         config.RESPONSE_LOG_FILE = str(Path(directory, "responses.jsonl"))
         config.RESPONSE_MODE = "simulation"
         config.RESPONSE_TARGET_OS = "linux"
+        config.ANALYST_AUDIT_FILE = str(Path(directory, "audit.jsonl"))
         repository = SQLiteAlertRepository(str(Path(directory, "alerts.db")))
         alert = build_alert(
             alert_name="Simulation test",
@@ -69,6 +71,7 @@ def test_response_simulation():
             (
                 config.RESPONSE_LOG_FILE, config.RESPONSE_MODE,
                 config.RESPONSE_TARGET_OS, config.DASHBOARD_USERS_FILE,
+                config.ANALYST_AUDIT_FILE,
             ) = original
 
 

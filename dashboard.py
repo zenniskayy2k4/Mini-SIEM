@@ -9,6 +9,7 @@ import re
 
 from config import config
 from src.alert_schema import INCIDENT_STATUSES
+from src.audit import append_audit_event
 from src.dashboard_auth import (
     authenticate,
     clear_login_failures,
@@ -170,10 +171,12 @@ def login():
         return render_template("login.html", error="Invalid login request.", next=""), 400
     key = request.remote_addr or "unknown"
     if not login_allowed(key):
+        append_audit_event("LOGIN", request.form.get("username", "unknown"), outcome="BLOCKED")
         return render_template("login.html", error="Too many attempts. Try again in one minute.", next=""), 429
     username, user = authenticate(request.form.get("username", ""), request.form.get("password", ""))
     if not user:
         record_login_failure(key)
+        append_audit_event("LOGIN", request.form.get("username", "unknown"), outcome="DENIED")
         return render_template("login.html", error="Invalid username or password.", next=request.form.get("next", "")), 401
 
     clear_login_failures(key)
@@ -183,11 +186,13 @@ def login():
     session.clear()
     session.update(username=username, role=user["role"], csrf_token=os.urandom(32).hex())
     session.permanent = True
+    append_audit_event("LOGIN", username, role=user["role"])
     return redirect(destination)
 
 
 @app.route("/logout", methods=["POST"])
 def logout():
+    append_audit_event("LOGOUT", session["username"], role=session.get("role"))
     session.clear()
     return redirect(url_for("login"))
 
@@ -223,7 +228,14 @@ def api_settings_update():
         if k not in ALLOWED_SETTINGS:
             continue
         patch[k] = v
+    previous = load_runtime_settings()
     saved = save_runtime_settings(patch)
+    if patch:
+        append_audit_event(
+            "RUNTIME_SETTING_CHANGED", session["username"], role=session.get("role"),
+            target_type="runtime_settings",
+            details={key: {"from": previous.get(key), "to": value} for key, value in patch.items()},
+        )
     return jsonify({"ok": True, "saved": saved, "effective": _effective_settings()})
 
 @app.route('/api/stats')
@@ -280,6 +292,12 @@ def api_alert_status(alert_id):
         return jsonify({"error": str(exc)}), 400
     if alert is None:
         return jsonify({"error": "Alert not found"}), 404
+    event = alert["timeline"][-1]
+    append_audit_event(
+        "STATUS_CHANGED", session["username"], role=session.get("role"),
+        target_type="incident", target_id=alert["incident_id"],
+        details={"from": event["from_status"], "to": event["to_status"]},
+    )
     return jsonify(alert)
 
 
@@ -293,6 +311,11 @@ def api_alert_note(alert_id):
         return jsonify({"error": str(exc)}), 400
     if alert is None:
         return jsonify({"error": "Alert not found"}), 404
+    append_audit_event(
+        "NOTE_ADDED", session["username"], role=session.get("role"),
+        target_type="incident", target_id=alert["incident_id"],
+        details={"note_length": len(str(body.get("note", "")).strip())},
+    )
     return jsonify(alert)
 
 
@@ -308,6 +331,12 @@ def api_alert_assignee(alert_id):
         return jsonify({"error": str(exc)}), 400
     if alert is None:
         return jsonify({"error": "Alert not found"}), 404
+    event = alert["timeline"][-1]
+    append_audit_event(
+        "ASSIGNMENT_CHANGED", session["username"], role=session.get("role"),
+        target_type="incident", target_id=alert["incident_id"],
+        details={"from": event.get("from_assignee"), "to": event.get("to_assignee")},
+    )
     return jsonify(alert)
 
 
@@ -321,6 +350,20 @@ def api_alert_response_action(alert_id):
         return jsonify({"error": str(exc)}), 400
     if alert is None:
         return jsonify({"error": "Alert not found"}), 404
+    action = alert["response_actions"][-1]
+    audit_common = {
+        "actor": session["username"], "role": session.get("role"),
+        "target_type": "response_action", "target_id": action["action_id"],
+    }
+    append_audit_event(
+        "RESPONSE_REQUESTED", **audit_common,
+        details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+    )
+    if action["status"] == "SIMULATED":
+        append_audit_event(
+            "RESPONSE_EXECUTED", **audit_common, outcome="SIMULATED",
+            details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+        )
     return jsonify(alert), 201
 
 
@@ -333,6 +376,21 @@ def api_alert_response_action_approve(alert_id, action_id):
         return jsonify({"error": str(exc)}), 400
     if alert is None:
         return jsonify({"error": "Alert not found"}), 404
+    action = next(item for item in alert["response_actions"] if item["action_id"] == action_id)
+    audit_common = {
+        "actor": session["username"], "role": session.get("role"),
+        "target_type": "response_action", "target_id": action_id,
+    }
+    approved = action.get("approved_by") == session["username"]
+    append_audit_event(
+        "RESPONSE_APPROVED", **audit_common, outcome="SUCCESS" if approved else "FAILED",
+        details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+    )
+    if approved:
+        append_audit_event(
+            "RESPONSE_EXECUTED", **audit_common, outcome=action["status"],
+            details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+        )
     return jsonify(alert)
 
 
@@ -345,6 +403,12 @@ def api_alert_response_action_rollback(alert_id, action_id):
         return jsonify({"error": str(exc)}), 400
     if alert is None:
         return jsonify({"error": "Alert not found"}), 404
+    action = next(item for item in alert["response_actions"] if item["action_id"] == action_id)
+    append_audit_event(
+        "RESPONSE_ROLLED_BACK", session["username"], role=session.get("role"),
+        target_type="response_action", target_id=action_id,
+        details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+    )
     return jsonify(alert)
 
 @app.route("/api/alerts/search")

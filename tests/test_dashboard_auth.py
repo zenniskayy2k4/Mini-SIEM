@@ -20,7 +20,9 @@ def test_dashboard_auth():
     with tempfile.TemporaryDirectory() as directory:
         directory = Path(directory)
         original_users_file = config.DASHBOARD_USERS_FILE
+        original_audit_file = config.ANALYST_AUDIT_FILE
         config.DASHBOARD_USERS_FILE = str(directory / "users.json")
+        config.ANALYST_AUDIT_FILE = str(directory / "audit.jsonl")
         save_user("viewer", "viewer-password-123", "viewer")
         save_user("analyst", "analyst-password-123", "analyst")
         save_user("admin", "admin-password-12345", "admin")
@@ -97,6 +99,7 @@ def test_dashboard_auth():
             assert admin.get("/api/alerts").status_code == 401
         finally:
             config.DASHBOARD_USERS_FILE = original_users_file
+            config.ANALYST_AUDIT_FILE = original_audit_file
 
 
 if __name__ == "__main__":
