@@ -13,6 +13,7 @@ from src.network_monitor import NetworkMonitor
 from src.honeypot import MiniHoneypot
 from src.ai_analyst import AIAnalyst
 from src.rules import load_rules
+from src.health import write_agent_heartbeat
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
 
@@ -164,6 +165,16 @@ def main():
             time.sleep(1.0)
 
     threading.Thread(target=settings_watcher, daemon=True).start()
+
+    def heartbeat_writer():
+        while not stop_event.is_set():
+            try:
+                write_agent_heartbeat(ai_analyst.health_status(), nids is not None, hp is not None)
+            except OSError as exc:
+                logging.warning("[-] Agent heartbeat write failed: %s", exc)
+            stop_event.wait(5)
+
+    threading.Thread(target=heartbeat_writer, daemon=True).start()
 
     try:
         while True:

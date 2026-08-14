@@ -208,6 +208,9 @@ class AIAnalyst:
             thread_name_prefix="ollama_analyst",
         )
         self._single_flight = threading.Lock()
+        self._available = None
+        self._last_success_at = None
+        self._last_failure_at = None
 
         self._cache = _TTLCache(
             maxsize=200,
@@ -255,6 +258,18 @@ class AIAnalyst:
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)
 
+    def health_status(self) -> dict:
+        return {
+            "enabled": self._enabled,
+            "provider": self._provider,
+            "model": self._model,
+            "available": self._available,
+            "last_successful_enrichment": self._last_success_at,
+            "last_failure": self._last_failure_at,
+            "busy": self._single_flight.locked(),
+            "backlog": 0,
+        }
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
@@ -294,8 +309,15 @@ class AIAnalyst:
 
     def _safe_enrich(self, alert: dict) -> dict:
         try:
-            return self._enrich(alert)
+            result = self._enrich(alert)
+            analysis = result.get("ai_analysis") or {}
+            if analysis.get("analysed_at") and not analysis.get("cached"):
+                self._available = True
+                self._last_success_at = analysis["analysed_at"]
+            return result
         except Exception as exc:
+            self._available = False
+            self._last_failure_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             logger.warning(f"[AIAnalyst] Enrichment failed: {exc}")
             alert["ai_analyst_error"] = str(exc)
             alert["ai_analysis"] = {

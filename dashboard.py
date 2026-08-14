@@ -10,6 +10,7 @@ import re
 from config import config
 from src.alert_schema import INCIDENT_STATUSES
 from src.audit import append_audit_event
+from src.health import build_system_status
 from src.dashboard_auth import (
     authenticate,
     clear_login_failures,
@@ -128,7 +129,7 @@ def _auth_error():
 
 @app.before_request
 def require_dashboard_authentication():
-    if request.endpoint in {"login", "static", "api_windows_events"}:
+    if request.endpoint in {"login", "static", "api_windows_events", "health"}:
         return None
     username = session.get("username")
     user = get_user(username) if username else None
@@ -199,6 +200,27 @@ def logout():
 @app.route('/')
 def dashboard():
     return render_template('dashboard.html', page='dashboard')
+
+
+@app.route("/health")
+def health():
+    status = build_system_status(_effective_settings())
+    public = {
+        "status": status["status"],
+        "timestamp": status["timestamp"],
+        "dashboard": status["dashboard"]["status"],
+        "agent": status["agent"]["status"],
+        "alert_store": status["alert_store"]["status"],
+        "database": status["database"]["status"],
+    }
+    return jsonify(public), 503 if status["status"] == "unhealthy" else 200
+
+
+@app.route("/api/system/status")
+@role_required("admin")
+def api_system_status():
+    status = build_system_status(_effective_settings())
+    return jsonify(status), 503 if status["status"] == "unhealthy" else 200
 
 @app.route('/logs')
 def logs():

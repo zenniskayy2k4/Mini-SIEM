@@ -1348,7 +1348,7 @@ feat: add immutable analyst audit log
 
 ## Batch M8.3 — Health and diagnostics
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-14)
 
 ### Endpoints đề xuất
 
@@ -1368,6 +1368,16 @@ GET /api/system/status
 - NIDS enabled/disabled.
 - Honeypot enabled/disabled.
 - Database health.
+
+### Xác nhận hoàn tất
+
+- `GET /health` công khai metadata tối thiểu cho health check; trả `503` khi database hoặc alert store unhealthy, và `200` cho healthy/degraded.
+- `GET /api/system/status` chỉ dành cho admin, trả chi tiết dashboard, agent, alert store, SQLite, AI, queue và sensors.
+- Agent ghi heartbeat atomic mỗi 5 giây; dashboard đánh dấu stale sau 15 giây và hiển thị tuổi heartbeat.
+- SQLite dùng `PRAGMA quick_check(1)`; alert store được kiểm tra độc lập và trả tổng số alert.
+- AI diagnostics hiển thị provider/model, trạng thái enabled/available, lần thành công/thất bại gần nhất, worker busy và backlog; không probe Ollama nên không chiếm call AI duy nhất.
+- NIDS/honeypot hiển thị cả trạng thái cấu hình và trạng thái thực tế từ agent.
+- Test healthy/degraded/unhealthy, role permissions, heartbeat stale, AI telemetry và toàn bộ regression M5–M8.3 đều pass; live `/health` trả healthy.
 
 ### Commit gợi ý
 
@@ -1521,7 +1531,7 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M8.3 — Health and diagnostics
+M8.4 — Retention và backup
 ```
 
 Lý do:
@@ -1533,7 +1543,8 @@ Lý do:
 - M7.3 đã hoàn tất Windows/Sysmon detection và nối telemetry vào agent dùng chung AI worker.
 - Milestone M7 đã hoàn tất; M8.1 đã hoàn tất dashboard session authentication và role permissions.
 - M8.2 đã hoàn tất immutable analyst audit log cho các thao tác bảo mật và vận hành quan trọng.
-- M8.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M8.3 đã hoàn tất health endpoints, agent heartbeat và diagnostics cho storage, AI queue và sensors.
+- M8.4 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 
