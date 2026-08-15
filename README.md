@@ -167,6 +167,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - `GET /health` provides an unauthenticated liveness/readiness summary; authenticated admins can use `/api/system/status` for richer diagnostics.
 - Retention, backup, restore verification, and log rotation are documented in [Retention and backup](docs/RETENTION_BACKUP.md).
 - Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
+- The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
 - The development history and batch plan are in [Blue-team development plan](MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md).
 
 Useful commands:

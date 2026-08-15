@@ -1454,7 +1454,7 @@ docs: update architecture and Ollama Cloud setup
 
 ## Batch M9.2 — Demo scenario
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-15)
 
 ### Demo end-to-end đề xuất
 
@@ -1475,13 +1475,21 @@ docs: update architecture and Ollama Cloud setup
 
 ### Artifacts
 
-- Screenshot dashboard.
-- Sample alert JSON.
-- Sample AI analysis.
-- Incident timeline.
-- Response audit.
-- Kiến trúc diagram.
-- Demo commands.
+- [x] Screenshot dashboard.
+- [x] Sample alert JSON.
+- [x] Sample AI analysis.
+- [x] Incident timeline.
+- [x] Response audit.
+- [x] Kiến trúc diagram.
+- [x] Demo commands.
+
+### Xác nhận hoàn tất
+
+- `docs/DEMO_SCENARIO.md` gom toàn bộ hướng dẫn và artifact vào một tài liệu, tái sử dụng simulator, dashboard và audit tooling hiện có.
+- Live campaign `192.0.2.240` tạo `DET-SSH-001` với `event_count=5`, system severity `HIGH`; Ollama hoàn tất một lượt và đề xuất `CRITICAL` + `REQUIRES_HUMAN_REVIEW`.
+- Analyst workflow thực tế đã đi qua note → `INVESTIGATING` → `BLOCK_IP` `SIMULATED` → `RESOLVED`.
+- Alert cuối khớp giữa SQLite và JSON; response log có kết quả simulation và chuỗi analyst audit hợp lệ.
+- Tài khoản demo tạm đã được xoá sau khi xác minh; không thêm script hoặc dependency mới.
 
 ### Commit gợi ý
 
@@ -1550,7 +1558,7 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M9.2 — Demo scenario
+M9.3 — Versioned release
 ```
 
 Lý do:
@@ -1565,7 +1573,8 @@ Lý do:
 - M8.3 đã hoàn tất health endpoints, agent heartbeat và diagnostics cho storage, AI queue và sensors.
 - M8.4 đã hoàn tất retention, archive, SQLite backup, log rotation và restore procedure; Milestone M8 đã hoàn tất.
 - M9.1 đã hoàn tất đồng bộ README, cấu hình mẫu, screenshot và các giới hạn vận hành.
-- M9.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M9.2 đã hoàn tất demo end-to-end cùng alert, AI, timeline, response và audit evidence thực tế.
+- M9.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 
