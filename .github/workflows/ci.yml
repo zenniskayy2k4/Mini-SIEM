@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OLLAMA_API_KEY: ""
+      NOTIFICATION_WEBHOOK_URL: ""
+      RESPONSE_MODE: simulation
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Check Python syntax
+        run: python -m compileall -q config src tools tests dashboard.py main.py
+
+      - name: Check JavaScript syntax
+        run: node --check static/js/app.js
+
+      - name: Validate Docker Compose
+        run: |
+          cp .env.example .env
+          docker compose --profile train config --quiet
+
+      - name: Run regression modules
+        shell: bash
+        run: |
+          for test_file in tests/test_*.py; do
+            test_module="${test_file%.py}"
+            python -m "${test_module//\//.}"
+          done
