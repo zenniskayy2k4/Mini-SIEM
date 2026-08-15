@@ -1422,18 +1422,27 @@ feat: add alert retention and database backup workflow
 
 ## Batch M9.1 — README synchronization
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-15)
 
 ### Cần cập nhật
 
-- [ ] Thay tài liệu Groq cũ bằng Ollama Cloud.
-- [ ] Cập nhật `.env.example`.
-- [ ] Cập nhật architecture diagram.
-- [ ] Cập nhật AI output fields.
-- [ ] Cập nhật severity decision model.
-- [ ] Cập nhật screenshot.
-- [ ] Ghi rõ Windows/Docker NIDS limitations.
-- [ ] Ghi rõ response mặc định là simulation.
+- [x] Thay tài liệu Groq cũ bằng Ollama Cloud.
+- [x] Cập nhật `.env.example`.
+- [x] Cập nhật architecture diagram.
+- [x] Cập nhật AI output fields.
+- [x] Cập nhật severity decision model.
+- [x] Cập nhật screenshot.
+- [x] Ghi rõ Windows/Docker NIDS limitations.
+- [x] Ghi rõ response mặc định là simulation.
+
+### Xác nhận hoàn tất
+
+- README phản ánh đúng Ollama Cloud, kiến trúc hiện tại, AI contract và mô hình quyết định severity.
+- Quick start, authentication/RBAC, SQLite/JSON, health, maintenance và safe response đã được đồng bộ với mã nguồn.
+- Giới hạn Windows collector và packet capture trên Windows/Docker Desktop đã được nêu rõ.
+- `.env.example` chỉ còn các biến cấu hình đang được sử dụng; các biến provider cũ đã được loại bỏ.
+- Screenshot dashboard thật đã được cập nhật từ phiên viewer có xác thực.
+- Kiểm tra liên kết nội bộ, cấu hình mẫu và định dạng tài liệu đều pass.
 
 ### Commit gợi ý
 
@@ -1541,7 +1550,7 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M9.1 — README synchronization
+M9.2 — Demo scenario
 ```
 
 Lý do:
@@ -1555,7 +1564,8 @@ Lý do:
 - M8.2 đã hoàn tất immutable analyst audit log cho các thao tác bảo mật và vận hành quan trọng.
 - M8.3 đã hoàn tất health endpoints, agent heartbeat và diagnostics cho storage, AI queue và sensors.
 - M8.4 đã hoàn tất retention, archive, SQLite backup, log rotation và restore procedure; Milestone M8 đã hoàn tất.
-- M9.1 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M9.1 đã hoàn tất đồng bộ README, cấu hình mẫu, screenshot và các giới hạn vận hành.
+- M9.2 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
 
 ---
 

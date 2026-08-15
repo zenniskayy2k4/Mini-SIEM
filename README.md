@@ -1,324 +1,213 @@
-# 🛡️ Mini-SIEM Pro — AI-Powered Blue Team Agent
+# Mini-SIEM Pro — AI-Assisted Blue Team Lab
 
-![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python)
-![Flask](https://img.shields.io/badge/Flask-Dashboard-green?style=for-the-badge&logo=flask)
-![AI](https://img.shields.io/badge/AI-4--Layer%20Detection-orange?style=for-the-badge&logo=openai)
-![Groq](https://img.shields.io/badge/Groq-LLM%20Analyst-purple?style=for-the-badge)
-![Docker](https://img.shields.io/badge/Docker-Supported-2496ED?style=for-the-badge&logo=docker)
-![Security](https://img.shields.io/badge/Cybersecurity-Blue%20Team-red?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python)
+![Flask](https://img.shields.io/badge/Flask-Dashboard-black?style=flat-square&logo=flask)
+![Ollama](https://img.shields.io/badge/Ollama-Cloud_AI-white?style=flat-square)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
+![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=flat-square)
 
-A lightweight, modular, **AI-powered SIEM** agent for real-time threat detection, correlation, and automated incident triage. Built for SOC Analyst portfolios and educational cybersecurity labs.
+A compact, explainable SIEM lab for learning blue-team workflows. It combines YAML signatures, local anomaly models, event correlation, an optional Ollama Cloud analyst, an authenticated incident dashboard, and safe response simulation.
 
-> ⚠️ **Educational purposes only.** Do not deploy on production systems you do not own.
+> **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
 
----
+## What is implemented
 
-## ✨ Feature Highlights
+- YAML detection rules with MITRE ATT&CK mappings and reloadable rule state.
+- HIDS log monitoring, Linux-oriented packet capture, honeypot events, and multi-event correlation.
+- Offline Windows/Sysmon import plus authenticated collector ingestion.
+- TF-IDF/Isolation Forest and autoencoder anomaly signals alongside deterministic rules.
+- Ollama Cloud triage through one shared worker; detection continues while the worker is busy or AI is unavailable.
+- SQLite as the primary alert store, with JSON dual-write/fallback during migration.
+- Incident lifecycle, notes, assignee, timeline, audit trail, role-based access, and CSRF protection.
+- Proposed response actions, approvals, simulation, rollback metadata, and optional webhook notifications.
+- Health/status diagnostics, retention, SQLite backup, and log rotation tooling.
 
-| Area | v1 | v2 |
-|---|---|---|
-| ML feature vector | 3 features | **15 features** (cmd chains, hex sequences, attack keywords…) |
-| AI Analyst | None | **Groq LLM** (async triage, FP scoring, auto playbook) |
-| Correlation | Brute-force only | **3 types** — campaign, kill chain, cross-sensor |
-| AE training | All data (including attacks) | **Normal-only** (drastically reduces false positives) |
-| TF-IDF vocab | 500 unigrams | **1000 bigrams** with sublinear TF |
+## Architecture
 
----
+```mermaid
+flowchart LR
+    Linux[Linux logs] --> Agent[Mini-SIEM agent]
+    Windows[Windows/Sysmon collector] -->|shared-secret ingest| Ingest[Windows ingest API]
+    Ingest --> WinFile[(windows_events.jsonl)]
+    WinFile --> Agent
+    NIDS[NIDS packet capture] --> Agent
+    Honey[Honeypot events] --> Agent
 
-## 🚀 Key Features
+    Agent --> Rules[YAML rules]
+    Agent --> NLP[TF-IDF + Isolation Forest]
+    Agent --> AE[Autoencoder]
+    Rules --> Pipeline[Alert pipeline]
+    NLP --> Pipeline
+    AE --> Pipeline
 
-### 🧠 4-Layer Detection Engine
+    Pipeline --> Correlation[Correlation + incident lifecycle]
+    Correlation --> SQLite[(SQLite)]
+    Correlation --> JSON[(JSON fallback)]
+    Correlation --> AI["Ollama Cloud<br/>shared 1-worker analyst"]
+    Correlation --> Response[Safe response workflow]
+    Correlation --> Webhook[Optional webhook]
 
+    SQLite --> UI[Authenticated Flask dashboard]
+    Agent -->|heartbeat| Health[Health diagnostics]
+    Dashboard --> Health
 ```
-Layer 0  Rule-based signatures    < 1ms    Zero false positives on known attacks
-Layer 1  NLP (TF-IDF + IsoForest) ~ 2ms    Semantic anomaly detection
-Layer 2  Autoencoder (15-feat)    ~ 3ms    Structural / byte-level anomalies
-Layer 3  Groq LLM Analyst         async    False-positive triage + playbook gen
-```
 
-**Layer 3 — Groq AI Analyst** enriches every HIGH/CRITICAL alert in the background without blocking the detection pipeline. Output includes:
-- False-positive probability (0–100%)
-- Recommended response playbook (step-by-step)
-- MITRE tactic/technique mapping
-- IOC extraction (IPs, hashes, domains)
-- Auto-downgrade to INFO if FP confidence ≥ 80%
+The dashboard and agent share mounted `data/`, `logs/`, `models/`, and read-only rule files when run with Docker Compose.
 
-### ⚡ Correlation Engine
+## Detection and severity model
 
-Three distinct correlation mechanisms run on every alert:
+The local detector remains authoritative. AI enrichment never silently rewrites the alert's `severity`.
 
-1. **Volume Campaign** — N events of the same type from one IP within a sliding window (configurable threshold per tactic category)
-2. **Kill Chain Detection** — Recognises multi-stage progressions: `RECON → CRED_ACCESS → PRIV_ESC → EXECUTION`
-3. **Cross-Sensor Correlation** — Same IP detected across HIDS + NIDS + Honeypot simultaneously → instant CRITICAL
-
-### 🎯 Rule-Based Detection (MITRE ATT&CK)
-
-| Technique | Description |
+| Local evidence | System decision |
 |---|---|
-| T1110 | Brute Force / Password Guessing |
-| T1548 | Abuse Elevation Control (Sudo) |
-| T1046 | Network Service Scanning |
-| T1557.002 | ARP Cache Poisoning |
-| T1136 | Create Account |
+| YAML rule plus both local ML signals | `CRITICAL` |
+| YAML rule plus one local ML signal | Keep the rule severity and annotate the supporting signal |
+| No rule, both local ML signals, confidence at least 40 | `CRITICAL` |
+| No rule, one local ML signal | `HIGH` |
 
-### 🌐 HIDS + NIDS + Honeypot
+Ollama adds separate decision-support fields:
 
-- **HIDS** — Watchdog-based real-time log file monitor (auth.log, syslog, custom)
-- **NIDS** — Scapy packet sniffer: TCP SYN flood heuristic + ARP spoofing detection
-- **Honeypot** — TCP trap on port 2222; any connection is a CRITICAL, high-fidelity alert
+- `ai_recommended_severity` and `ai_disposition`, without changing `severity`.
+- `escalate_to_human=true` recommends `CRITICAL` and human review.
+- A high-confidence false-positive assessment (`fp_confidence >= 80`) recommends `LOW` with `FALSE_POSITIVE_SUSPECTED`; an analyst still makes the final decision.
 
-### 💻 SOC Dashboard
+## Quick start with Docker
 
-- Dark-mode, glassmorphism UI (Flask + Chart.js + Cytoscape)
-- Paginated live event table with filtering (severity, IP, MITRE ID, time range)
-- Interactive attack context graph (IP → MITRE → Campaign nodes)
-- Runtime settings hot-reload (no restart needed)
-- ELK/Elasticsearch forwarding support
+Requirements: Docker Desktop with Compose, Git, and enough resources to run the local models. Ollama Cloud is optional.
 
-### ⚔️ Red Team Simulator
-
-Built-in attack simulator for testing detection coverage:
-
-| Mode | Description |
-|---|---|
-| 1 | SSH Brute Force (log injection) |
-| 2 | Sudo Privilege Escalation |
-| 3 | High-entropy anomaly payload |
-| 4 | Mixed attack chain |
-| 5 | Real TCP SYN scan (requires root) |
-
----
-
-## 📂 Project Structure
-
-```
-Mini-SIEM/
-├── config/
-│   └── config.py           # All settings — ports, thresholds, signatures
-├── data/                   # Runtime data (hot-reload settings, alerts)
-├── logs/                   # Monitored log file (auth.log)
-├── models/                 # Trained ML artifacts (.pkl, .pth)
-├── src/
-│   ├── detector.py         # 4-layer detection engine
-│   ├── ai_analyst.py       # Groq LLM Layer 3 (async)
-│   ├── correlator.py       # Campaign + kill chain + cross-sensor correlation
-│   ├── handler.py          # Watchdog HIDS handler
-│   ├── network_monitor.py  # Scapy NIDS
-│   ├── honeypot.py         # TCP honeypot trap
-│   ├── response.py         # Incident responder & mitigation
-│   ├── alert_store.py      # Thread-safe JSON lines writer
-│   └── elk_forwarder.py    # Elasticsearch forwarder
-├── static/                 # Frontend assets (CSS, JS)
-├── templates/              # Jinja2 HTML templates
-├── tools/
-│   ├── train_ml.py         # ML training pipeline
-│   └── attack_sim.py       # Red team simulator
-├── main.py                 # SIEM agent entry point
-├── dashboard.py            # Web dashboard entry point
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
-```
-
----
-
-## 🐳 Quick Start with Docker (Recommended)
-
-Docker is the easiest way to run the full stack — no manual dependency installation required.
-
-### Prerequisites
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) or Docker Engine (Linux)
-- A free [Groq API key](https://console.groq.com) for AI Analyst (optional but recommended)
-
-### Step 1 — Clone the repository
 ```bash
-git clone https://github.com/zenniskayy2k4/Mini-SIEM.git
+git clone <repository-url>
 cd Mini-SIEM
-```
-
-### Step 2 — Configure environment
-```bash
 cp .env.example .env
-# Edit .env and add your GROQ_API_KEY (optional — Layer 3 AI Analyst)
-```
-
-### Step 3 — Train ML models (one-time, ~2–3 min)
-```bash
 docker compose --profile train run --rm train
-```
-> Models are saved to `./models/` on your host machine and reused on subsequent runs.
-
-### Step 4 — Start the full stack
-```bash
 docker compose up -d
 ```
 
-| Service | URL |
+Create the first dashboard administrator. The command prompts securely when `DASHBOARD_USER_PASSWORD` is not set:
+
+```bash
+docker compose exec dashboard python tools/manage_dashboard_user.py admin admin
+```
+
+Open <http://localhost:5000>, then sign in. Check service state with:
+
+```bash
+docker compose ps
+curl http://localhost:5000/health
+```
+
+The local rule/ML pipeline works without an Ollama key. Training only needs to be rerun when models or training data change.
+
+## Ollama Cloud setup
+
+Copy `.env.example` to `.env` and set:
+
+```dotenv
+AI_PROVIDER=ollama_cloud
+OLLAMA_API_KEY=your_ollama_cloud_key
+OLLAMA_BASE_URL=https://ollama.com/api
+OLLAMA_MODEL=gemma4:cloud
+```
+
+The analyst uses one shared worker because the configured Ollama service accepts one request at a time. If it is occupied, new eligible alerts are marked `busy` instead of building an unbounded queue. AI failures do not block alert creation.
+
+The validated AI payload contains:
+
+```text
+is_false_positive, fp_confidence, threat_confidence,
+mitre_tactic, mitre_technique, threat_summary,
+observed_facts, analyst_inferences, recommended_playbook,
+ioc_tags, escalate_to_human
+```
+
+Provider, model, analysis time, cache state, and the separate severity recommendation are added by the application. The dashboard system-status view reports AI availability and recent outcomes without making a probe call that would occupy the worker.
+
+## Dashboard roles
+
+| Role | Access |
 |---|---|
-| Dashboard | http://localhost:5000 |
+| `viewer` | View alerts, incidents, graphs, logs, and diagnostics |
+| `analyst` | Viewer access plus incident status, assignee, notes, and response workflow |
+| `admin` | Analyst access plus user/rule administration and maintenance-sensitive controls |
 
-### Step 5 (Optional) — Run the attack simulator
-```bash
-docker compose run --rm agent python tools/attack_sim.py
-```
+Sessions use HTTP-only cookies, server-side role checks, CSRF protection for mutations, and an append-only analyst audit log. Set `DASHBOARD_SESSION_SECRET` explicitly for stable deployments and enable `DASHBOARD_COOKIE_SECURE=true` only behind HTTPS.
 
-### Stop all services
-```bash
-docker compose down
-```
+## Response safety
 
----
+`RESPONSE_MODE=simulation` is the default. Actions such as `BLOCK_IP`, `ISOLATE_HOST`, and `DISABLE_USER` are proposed and audited but do not alter the host. Protected targets, approval expiry, execution records, and rollback metadata remain enforced by the workflow.
 
-## 💻 Manual Installation (No Docker)
+This repository does not execute arbitrary AI-generated commands. Treat manual or automatic modes as workflow labels for the lab until a separately reviewed, least-privilege executor is integrated.
 
-### Prerequisites
-- Python **3.12+**
-- Windows: [Npcap](https://npcap.com/) required for NIDS packet capture
-- Linux/macOS: run with `sudo` for NIDS raw socket access
+Optional high-risk notifications can be sent to a generic or Discord webhook. Leave `NOTIFICATION_WEBHOOK_URL` empty to disable them.
 
-### Step 1 — Install dependencies
-```bash
-git clone https://github.com/zenniskayy2k4/Mini-SIEM.git
-cd Mini-SIEM
-pip install -r requirements.txt
-```
+## Windows and Sysmon collection
 
-### Step 2 — Set environment variables
-```bash
-# Linux/macOS
-export GROQ_API_KEY="gsk_your_key_here"
-
-# Windows (PowerShell)
-$env:GROQ_API_KEY = "gsk_your_key_here"
-```
-
-### Step 3 — Train ML models 🧠
-```bash
-python tools/train_ml.py
-```
-Training output shows detection rate and false-positive rate — aim for FP rate < 5%.
-
-### Step 4 — Start SIEM agent (Terminal 1)
-```bash
-python main.py
-```
-
-### Step 5 — Start dashboard (Terminal 2)
-```bash
-python tools/manage_dashboard_user.py admin admin
-python dashboard.py
-```
-> Open **http://localhost:5000**
-
-The user command prompts for a password and stores only its Werkzeug hash in
-`data/dashboard_users.json`. Run it again with role `viewer`, `analyst`, or
-`admin` to create or update an account. With Docker Compose, use:
+Offline exports (`.json`, `.jsonl`, `.ndjson`, `.xml`, or `.evtx`) can be normalized with:
 
 ```bash
-docker compose run --rm dashboard python tools/manage_dashboard_user.py admin admin
+python tools/import_windows_events.py evidence.evtx --output data/windows_events.jsonl
 ```
 
-### Step 6 (Optional) — Attack simulator (Terminal 3)
+For continuous collection, run `tools/windows_event_collector.ps1` on the Windows host and configure the same random `WINDOWS_COLLECTOR_SECRET` on the collector and dashboard. The current mappings focus on selected Sysmon process, network, image-load, access, file, and registry events plus selected Security/Defender events.
+
+Limitations:
+
+- The collector is polling-based and intentionally covers a blue-team lab subset, not every Windows event channel or Sysmon event ID.
+- Event access depends on Windows privileges, channel availability, and the local Sysmon configuration.
+- Transport should be placed behind HTTPS before it crosses an untrusted network; a shared secret alone does not encrypt traffic.
+
+## NIDS limitations on Windows and Docker Desktop
+
+The Compose agent uses host networking and privileged packet capture, which is primarily a Linux configuration. On native Windows, packet capture generally requires Npcap and an elevated process. Under Docker Desktop, the agent normally observes networking visible inside its Linux VM/container environment, not every packet on the physical Windows host.
+
+For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected interface or feed mirrored traffic to a dedicated sensor. Keep HIDS and Windows event collection enabled when full host packet visibility is unavailable.
+
+## Operations and testing
+
+- `GET /health` provides an unauthenticated liveness/readiness summary; authenticated admins can use `/api/system/status` for richer diagnostics.
+- Retention, backup, restore verification, and log rotation are documented in [Retention and backup](docs/RETENTION_BACKUP.md).
+- Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
+- The development history and batch plan are in [Blue-team development plan](MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md).
+
+Useful commands:
+
 ```bash
-python tools/attack_sim.py
+# Run the automated test suite in the existing image
+docker compose run --rm -v "${PWD}:/app" dashboard python -m unittest discover -s tests
+
+# Generate authorized lab traffic/events
+docker compose exec agent python tools/attack_sim.py
+
+# Back up SQLite or apply retention offline
+docker compose run --rm dashboard python -m tools.maintenance backup
+docker compose run --rm dashboard python -m tools.maintenance retention --days 90
 ```
 
----
+## Project layout
 
-## ⚙️ Configuration
-
-Edit `config/config.py` to customise behaviour:
-
-| Key | Default | Description |
-|---|---|---|
-| `DASHBOARD_PORT` | `5000` | Web dashboard port |
-| `NIDS_ENABLED` | `False` | Enable Scapy packet sniffer |
-| `HONEYPOT_ENABLED` | `False` | Enable TCP honeypot trap |
-| `HONEYPOT_PORT` | `2222` | Honeypot listener port |
-| `CORRELATION_WINDOW_MINUTES` | `5` | Sliding window for campaign detection |
-| `NIDS_SYN_THRESHOLD` | `20` | SYN packets/window to trigger alert |
-| `ELK_ENABLED` | `False` | Forward alerts to Elasticsearch |
-| `ELK_URL` | `http://localhost:9200/...` | Elasticsearch endpoint |
-
-Runtime settings (NIDS, Honeypot toggles) can also be changed live from the **Settings** page without restarting.
-
----
-
-## 🤖 Groq AI Analyst — Setup
-
-The AI Analyst (Layer 3) uses **Llama 3.3 70B** via Groq's free API for real-time alert triage.
-
-1. Create a free account at [console.groq.com](https://console.groq.com)
-2. Generate an API key
-3. Set `GROQ_API_KEY` in your environment or `.env` file
-
-When active, every HIGH/CRITICAL alert is automatically enriched with:
-```json
-{
-  "is_false_positive": false,
-  "threat_confidence": 92,
-  "mitre_technique": "T1110.001 - Password Guessing",
-  "threat_summary": "Sustained SSH brute-force from external IP targeting root account.",
-  "recommended_playbook": [
-    "Block source IP: iptables -A INPUT -s 45.33.22.11 -j DROP",
-    "Check for successful logins from this IP in the last 24h",
-    "Enable fail2ban if not already active",
-    "Disable PasswordAuthentication in /etc/ssh/sshd_config"
-  ],
-  "escalate_to_human": true
-}
+```text
+Mini-SIEM/
+├── config/rules/                 # YAML detections and MITRE metadata
+├── docs/                         # Operational runbooks
+├── models/                       # Trained local anomaly models
+├── src/                          # Detection, storage, AI, response, and health modules
+├── static/ and templates/        # Authenticated Flask dashboard
+├── tests/                        # Regression and workflow tests
+├── tools/                        # Training, import, users, rules, maintenance, simulation
+├── dashboard.py                  # Dashboard/API entry point
+├── main.py                       # Sensor/agent entry point
+└── docker-compose.yml
 ```
 
-> **Without a Groq API key**, Layers 0–2 (rules + ML) continue working normally. Layer 3 is silently skipped.
+## Dashboard
 
----
+![Authenticated dashboard overview](assets/Dashboard.jpeg)
 
-## 🏗️ How Detection Works
+## Near-term roadmap
 
-```
-Log line arrives
-       │
-       ▼
-┌─────────────────────┐
-│  Layer 0: Signatures│ ──hit──► Alert (rule-matched)
-└──────────┬──────────┘
-           │ no match
-           ▼
-┌─────────────────────┐
-│  Layer 1: NLP       │
-│  Layer 2: AE (15f)  │ ──both flag──► CRITICAL AI Anomaly
-└──────────┬──────────┘ ──one flags──► HIGH Anomaly
-           │ no anomaly
-           ▼
-          None (clean log)
-           
-       [Async, non-blocking]
-┌─────────────────────┐
-│  Layer 3: Groq LLM  │ ──enriches HIGH/CRITICAL alerts in background
-└─────────────────────┘
-```
+- A repeatable end-to-end demo scenario and release checklist.
+- TLS/reverse-proxy deployment guidance and stronger secret management.
+- Shared coordination state for multi-process or multi-node deployments.
+- Production-grade response integrations, after explicit approval and least-privilege design.
 
----
-
-## 📸 Screenshots
-
-![Dashboard Overview](/assets/Dashboard.jpeg)
-
----
-
-## 🔮 Roadmap
-
-- [ ] Slack / PagerDuty / email webhook alerts  
-- [ ] SQLite backend for efficient log querying  
-- [ ] JWT authentication for dashboard  
-- [ ] Windows Event Log support (via `pywin32`)  
-- [ ] Fine-tuned small LLM on SOC playbooks  
-- [ ] Auto-block via firewall API (not just command suggestion)  
-
----
-
-## ⚠️ Disclaimer
-
-This project is for **educational purposes only**.  
-The attack simulator must only be used on systems you own or have explicit written permission to test.  
-The author is not responsible for any misuse.
+Contributions should keep detections explainable, failure modes observable, and response actions safe by default.
