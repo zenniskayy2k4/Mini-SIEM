@@ -2,10 +2,10 @@
 
 > **Repository:** `zenniskayy2k4/Mini-SIEM`
 > **Plan type:** Milestone / batch execution plan
-> **Last updated:** 2026-08-06
+> **Last updated:** 2026-08-15
 > **Primary environment:** Windows + Docker Desktop
 > **Primary AI provider:** Ollama Cloud (`gemma4:cloud`)
-> **Storage hiện tại:** `data/siem_alerts.json`
+> **Storage hiện tại:** SQLite primary + JSON dual-write/fallback
 
 ---
 
@@ -80,13 +80,13 @@ Các thành phần sau **không nằm trong roadmap chính** vì giới hạn t�
 | M0 | Baseline Docker và pipeline gốc | ✅ |
 | M1 | Ollama Cloud AI Analyst | ✅ |
 | M2 | Detection correctness và alert contract | ✅ |
-| M3 | Incident lifecycle và analyst workflow | 🟡 |
-| M4 | SQLite storage migration | ⬜ |
+| M3 | Incident lifecycle và analyst workflow | ✅ |
+| M4 | SQLite storage migration | ✅ |
 | M5 | Detection engineering và rule management | ✅ |
 | M6 | Lightweight response automation | ✅ |
-| M7 | Windows telemetry và Sysmon | ⬜ |
+| M7 | Windows telemetry và Sysmon | ✅ |
 | M8 | Dashboard security, observability và reliability | ✅ |
-| M9 | Release, documentation và portfolio demo | ⬜ |
+| M9 | Release, documentation và portfolio demo | ✅ |
 
 ---
 
@@ -1501,16 +1501,25 @@ docs: add end-to-end Blue Team demo scenario
 
 ## Batch M9.3 — Versioned release
 
-**Trạng thái:** ⬜
+**Trạng thái:** ✅ Hoàn tất (2026-08-15)
 
 ### Tasks
 
-- [ ] Chọn semantic version.
-- [ ] Tạo `CHANGELOG.md`.
-- [ ] Tag release.
-- [ ] Ghi known limitations.
-- [ ] Ghi setup from clean clone.
-- [ ] Xác nhận không có secret trong Git history gần nhất.
+- [x] Chọn semantic version.
+- [x] Tạo `CHANGELOG.md`.
+- [x] Tag release.
+- [x] Ghi known limitations.
+- [x] Ghi setup from clean clone.
+- [x] Xác nhận không có secret trong Git history gần nhất.
+
+### Xác nhận hoàn tất
+
+- Chọn `v0.3.0` cho bản Blue Team portfolio đầu tiên; repository chưa có tag trước đó.
+- `CHANGELOG.md` và `docs/RELEASE_v0.3.0.md` ghi release scope, clean-clone setup, verification record và known limitations.
+- 14/14 executable regression modules pass trên image hiện có; live stack và `/health` healthy.
+- Local clone tạm có đủ file, worktree sạch và `docker compose --profile train config --quiet` pass mà không rebuild image.
+- Quét 30 commit gần nhất không phát hiện token/private key pattern; `.env`, `data/`, `logs/` không bị track.
+- Annotated tag `v0.3.0` trỏ vào release commit; push branch/tag là thao tác riêng của repository owner.
 
 ### Release goal đề xuất
 
@@ -1524,7 +1533,7 @@ v0.3.0 — Ollama Cloud + Incident Workflow + SQLite
 
 Các mục này không chặn roadmap chính:
 
-- [ ] Automated unit tests.
+- [x] Automated regression tests.
 - [ ] GitHub Actions CI.
 - [ ] Sigma import.
 - [ ] STIX/TAXII threat intelligence.
@@ -1558,7 +1567,7 @@ M3 Incident Lifecycle
 ## Batch nên bắt đầu ngay
 
 ```text
-M9.3 — Versioned release
+Không còn batch bắt buộc — Milestone M9 hoàn tất
 ```
 
 Lý do:
@@ -1574,7 +1583,8 @@ Lý do:
 - M8.4 đã hoàn tất retention, archive, SQLite backup, log rotation và restore procedure; Milestone M8 đã hoàn tất.
 - M9.1 đã hoàn tất đồng bộ README, cấu hình mẫu, screenshot và các giới hạn vận hành.
 - M9.2 đã hoàn tất demo end-to-end cùng alert, AI, timeline, response và audit evidence thực tế.
-- M9.3 là batch kế tiếp nhưng chưa bắt đầu theo nguyên tắc dừng sau mỗi batch.
+- M9.3 đã hoàn tất versioned release, changelog, clean-clone guidance, known limitations và secret review.
+- Toàn bộ roadmap M0–M9 đã hoàn tất; các mục còn lại là backlog tùy chọn và chưa được tự động bắt đầu.
 
 ---
 
@@ -1703,7 +1713,7 @@ nothing to commit, working tree clean
 | 2026-08 | Dùng Ollama Cloud | Không tải local model, không phụ thuộc Groq |
 | 2026-08 | Model `gemma4:cloud` | Đã xác nhận API trả HTTP 200 |
 | 2026-08 | AI không sửa system severity | Detection/risk engine giữ quyền quyết định |
-| 2026-08 | Manual smoke checks trước | Phù hợp workflow hiện tại; automated tests để backlog |
+| 2026-08 | Manual smoke + executable regression | Giữ kiểm tra thực tế đồng thời bảo vệ các contract M5–M8 |
 | 2026-08 | SQLite triển khai sau incident schema | Tránh migration khi data contract chưa ổn định |
 
 ---
@@ -1712,17 +1722,17 @@ nothing to commit, working tree clean
 
 Project được xem là đạt một phiên bản Blue Team portfolio hoàn chỉnh khi:
 
-- [ ] HIDS/NIDS/Honeypot tạo alert theo schema chung.
-- [ ] Correlation giảm alert trùng và tổng hợp campaign.
-- [ ] AI triage hoạt động nhưng không tự thay đổi quyết định hệ thống.
+- [x] HIDS/NIDS/Honeypot tạo alert theo schema chung.
+- [x] Correlation giảm alert trùng và tổng hợp campaign.
+- [x] AI triage hoạt động nhưng không tự thay đổi quyết định hệ thống.
 - [x] Analyst có thể quản lý lifecycle incident.
 - [x] Analyst có thể ghi notes và assignment.
-- [ ] Storage dùng SQLite và có migration.
-- [ ] Detection rules có ID, MITRE mapping và enable/disable.
-- [ ] Response action mặc định simulation và có audit.
-- [ ] Có ít nhất một Windows/Sysmon ingestion path.
-- [ ] Dashboard có authentication.
-- [ ] Có health/diagnostics.
-- [ ] Có demo end-to-end tái tạo được từ clean clone.
-- [ ] README và `.env.example` phản ánh đúng implementation.
-- [ ] Không có secret trong repository.
+- [x] Storage dùng SQLite và có migration.
+- [x] Detection rules có ID, MITRE mapping và enable/disable.
+- [x] Response action mặc định simulation và có audit.
+- [x] Có ít nhất một Windows/Sysmon ingestion path.
+- [x] Dashboard có authentication.
+- [x] Có health/diagnostics.
+- [x] Có demo end-to-end tái tạo được từ clean clone.
+- [x] README và `.env.example` phản ánh đúng implementation.
+- [x] Không có secret trong repository.

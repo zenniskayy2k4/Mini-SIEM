@@ -5,10 +5,13 @@
 ![Ollama](https://img.shields.io/badge/Ollama-Cloud_AI-white?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=flat-square)
+![Release](https://img.shields.io/badge/release-v0.3.0-2ea44f?style=flat-square)
 
 A compact, explainable SIEM lab for learning blue-team workflows. It combines YAML signatures, local anomaly models, event correlation, an optional Ollama Cloud analyst, an authenticated incident dashboard, and safe response simulation.
 
 > **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
+
+Current release: **v0.3.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.3.0.md).
 
 ## What is implemented
 
@@ -49,7 +52,7 @@ flowchart LR
 
     SQLite --> UI[Authenticated Flask dashboard]
     Agent -->|heartbeat| Health[Health diagnostics]
-    Dashboard --> Health
+    UI --> Health
 ```
 
 The dashboard and agent share mounted `data/`, `logs/`, `models/`, and read-only rule files when run with Docker Compose.
@@ -128,13 +131,13 @@ Provider, model, analysis time, cache state, and the separate severity recommend
 |---|---|
 | `viewer` | View alerts, incidents, graphs, logs, and diagnostics |
 | `analyst` | Viewer access plus incident status, assignee, notes, and response workflow |
-| `admin` | Analyst access plus user/rule administration and maintenance-sensitive controls |
+| `admin` | Analyst access plus settings, rule administration, diagnostics, and maintenance-sensitive controls |
 
 Sessions use HTTP-only cookies, server-side role checks, CSRF protection for mutations, and an append-only analyst audit log. Set `DASHBOARD_SESSION_SECRET` explicitly for stable deployments and enable `DASHBOARD_COOKIE_SECURE=true` only behind HTTPS.
 
 ## Response safety
 
-`RESPONSE_MODE=simulation` is the default. Actions such as `BLOCK_IP`, `ISOLATE_HOST`, and `DISABLE_USER` are proposed and audited but do not alter the host. Protected targets, approval expiry, execution records, and rollback metadata remain enforced by the workflow.
+`RESPONSE_MODE=simulation` is the default. Actions such as `BLOCK_IP`, `DISABLE_USER`, and `QUARANTINE_FILE` are proposed and audited but do not alter the host. Protected targets, approval expiry, execution records, and rollback metadata remain enforced by the workflow.
 
 This repository does not execute arbitrary AI-generated commands. Treat manual or automatic modes as workflow labels for the lab until a separately reviewed, least-privilege executor is integrated.
 
@@ -168,13 +171,15 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - Retention, backup, restore verification, and log rotation are documented in [Retention and backup](docs/RETENTION_BACKUP.md).
 - Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
+- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.3.0 checklist](docs/RELEASE_v0.3.0.md).
 - The development history and batch plan are in [Blue-team development plan](MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md).
 
 Useful commands:
 
 ```bash
-# Run the automated test suite in the existing image
-docker compose run --rm -v "${PWD}:/app" dashboard python -m unittest discover -s tests
+# Run every executable regression module in the existing image
+docker compose run --rm -v "${PWD}:/app" dashboard sh -c \
+  'for test in tests/test_*.py; do module=$(printf "%s" "${test%.py}" | tr "/" "."); python -m "$module" || exit 1; done'
 
 # Generate authorized lab traffic/events
 docker compose exec agent python tools/attack_sim.py
@@ -206,7 +211,7 @@ Mini-SIEM/
 
 ## Near-term roadmap
 
-- A repeatable end-to-end demo scenario and release checklist.
+- Automated CI for the executable regression modules.
 - TLS/reverse-proxy deployment guidance and stronger secret management.
 - Shared coordination state for multi-process or multi-node deployments.
 - Production-grade response integrations, after explicit approval and least-privilege design.
