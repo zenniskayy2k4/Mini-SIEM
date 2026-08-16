@@ -223,15 +223,15 @@ ci: add Docker service smoke checks
 
 ## M10.3 — Security checks
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local security checks passed, GitHub run pending
 
 ### Tasks
 
-- [ ] Secret scanning.
-- [ ] Python dependency vulnerability scan.
-- [ ] Kiểm tra `.env` không bị track.
-- [ ] Kiểm tra runtime data không bị track.
-- [ ] Có allowlist rõ cho false positive.
+- [x] Secret scanning.
+- [x] Python dependency vulnerability scan.
+- [x] Kiểm tra `.env` không bị track.
+- [x] Kiểm tra runtime data không bị track.
+- [x] Có allowlist rõ cho false positive.
 
 ### Tool candidates
 
@@ -242,9 +242,22 @@ pip-audit
 
 ### DoD
 
-- [ ] Dummy secret bị phát hiện.
-- [ ] Repo sạch pass.
-- [ ] Dependency issue được report rõ.
+- [x] Dummy secret bị phát hiện.
+- [x] Repo sạch pass.
+- [x] Dependency issue được report rõ.
+
+### Local verification — 2026-08-16
+
+```text
+GitHub Actions YAML/security contract validation            PASS
+Gitleaks full Git history (40 commits)                      PASS — no leaks
+Gitleaks documented dummy-secret fixture                    PASS — detected
+pip-audit requirements.txt                                  PASS — no known vulnerabilities
+.env, data/** and logs/** tracking guard                    PASS
+.gitleaksignore reviewed-fingerprint policy                 PASS — 0 exceptions
+```
+
+GitHub-hosted security job vẫn chờ workflow được commit và push.
 
 ### Commit
 

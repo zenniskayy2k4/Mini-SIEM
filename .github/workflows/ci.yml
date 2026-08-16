@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -61,7 +61,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Prepare CI-safe runtime
         run: |
@@ -106,7 +106,7 @@ jobs:
 
       - name: Upload Docker logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: docker-smoke-logs
           path: ci-logs/
@@ -116,3 +116,35 @@ jobs:
       - name: Stop Docker services
         if: always()
         run: docker compose down --volumes --remove-orphans
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Reject tracked runtime files
+        shell: bash
+        run: |
+          tracked="$(git ls-files -- .env 'data/**' 'logs/**')"
+          if [[ -n "$tracked" ]]; then
+            echo "Runtime files must not be tracked:" >&2
+            echo "$tracked" >&2
+            exit 1
+          fi
+
+      - name: Scan repository secrets
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+      - name: Audit Python dependencies
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          inputs: requirements.txt
