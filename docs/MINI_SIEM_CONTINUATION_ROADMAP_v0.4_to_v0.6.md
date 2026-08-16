@@ -385,7 +385,7 @@ feat: add Sigma rule parser and metadata adapter
 
 ## M11.2 — Sigma selection mapping
 
-**Status:** 🟠 In Progress — local Sigma selection mapping passed, GitHub run pending
+**Status:** ✅ Complete — GitHub Actions passed
 
 ### Supported subset phase 1
 
@@ -426,7 +426,9 @@ Windows/native rule compatibility                            PASS
 Docker Compose validation                                    PASS
 ```
 
-Unsupported fields, modifiers, wildcards and complex conditions remain disabled with an explicit `skip_reason`. M11.3 has not started.
+Unsupported fields, modifiers, wildcards and complex conditions remain disabled with an explicit `skip_reason`.
+
+GitHub Actions [run 31928551948](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31928551948) passed for commit `3e60298`.
 
 ### Commit
 
@@ -438,17 +440,31 @@ feat: translate supported Sigma selections into Mini-SIEM rules
 
 ## M11.3 — Sigma lifecycle
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local Sigma lifecycle regression passed, GitHub run pending
 
 ### Tasks
 
-- [ ] Enable/disable Sigma rule.
-- [ ] Admin UI hiển thị source Native/Sigma.
-- [ ] Validation status.
-- [ ] Last loaded time.
-- [ ] Hit count.
-- [ ] Never-hit state.
-- [ ] Audit enable/disable.
+- [x] Enable/disable Sigma rule.
+- [x] Admin UI hiển thị source Native/Sigma.
+- [x] Validation status.
+- [x] Last loaded time.
+- [x] Hit count.
+- [x] Never-hit state.
+- [x] Audit enable/disable.
+
+### Local verification — 2026-08-16
+
+```text
+Admin lifecycle API and CSRF/RBAC path                       PASS
+Persistent enable/disable override and agent reload          PASS
+Source, validation, loaded time, hit/never-hit metadata      PASS
+Immutable enable/disable audit events                        PASS
+JavaScript syntax and Python compile                         PASS
+17 executable regression modules                            PASS
+Docker Compose validation                                    PASS
+```
+
+Sigma YAML remains read-only; runtime overrides are stored atomically under `data/`. M11.4 has not started.
 
 ### Commit
 
@@ -1320,10 +1336,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M11.2 — Commit/push and verify Sigma selection mapping regression
+M11.3 — Commit/push and verify Sigma lifecycle regression
 ```
 
-Không bắt đầu M11.3 lifecycle trước khi selection mapping CI pass.
+Không bắt đầu M11.4 corpus trước khi lifecycle CI pass.
 
 ### Success condition
 
@@ -1502,11 +1518,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M11.2 — Commit/push and verify the Sigma selection mapping GitHub Actions run
+M11.3 — Commit/push and verify the Sigma lifecycle GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M11.2 thành `✅` và ghi GitHub Actions run.
-2. Đổi M11.3 thành batch tiếp theo.
-3. Không bắt đầu lifecycle trước khi selection mapping CI pass.
+1. Đổi M11.3 thành `✅` và ghi GitHub Actions run.
+2. Đổi M11.4 thành batch tiếp theo.
+3. Không bắt đầu regression corpus trước khi lifecycle CI pass.

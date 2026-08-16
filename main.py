@@ -140,15 +140,16 @@ def main():
 
     # Watch runtime settings changes
     stop_event = threading.Event()
-    last_mtime = 0.0
+    last_settings_mtime = 0.0
+    last_sigma_mtime = 0.0
 
     def settings_watcher():
-        nonlocal last_mtime
+        nonlocal last_settings_mtime, last_sigma_mtime
         while not stop_event.is_set():
             try:
                 mtime = os.path.getmtime(RUNTIME_SETTINGS_FILE) if os.path.exists(RUNTIME_SETTINGS_FILE) else 0.0
-                if mtime != last_mtime:
-                    last_mtime = mtime
+                if mtime != last_settings_mtime:
+                    last_settings_mtime = mtime
                     _apply_runtime_settings()
 
                     if getattr(config, "NIDS_ENABLED", False):
@@ -160,6 +161,16 @@ def main():
                         start_honeypot()
                     else:
                         stop_honeypot()
+                sigma_mtime = (
+                    os.path.getmtime(config.SIGMA_RULE_STATE_FILE)
+                    if os.path.exists(config.SIGMA_RULE_STATE_FILE) else 0.0
+                )
+                if sigma_mtime != last_sigma_mtime:
+                    last_sigma_mtime = sigma_mtime
+                    detector.signatures = load_detection_rules(
+                        config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
+                    )
+                    logging.info("[+] Detection rules reloaded after Sigma lifecycle change")
             except Exception:
                 pass
             time.sleep(1.0)

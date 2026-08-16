@@ -6,6 +6,7 @@ const API_DETECTION_COVERAGE = "/api/detection-coverage";
 const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
+const API_DETECTION_RULES = "/api/detection-rules";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
 const CURRENT_ROLE = document.querySelector('meta[name="current-role"]')?.content || "";
 
@@ -92,6 +93,49 @@ function initSettings() {
       bindNumber(elGraphMaxAlerts, "GRAPH_MAX_ALERTS", (v) => Math.max(50, v));
     })
     .catch(() => setStatus("Failed to load settings."));
+
+  const ruleStatus = document.getElementById("rule-lifecycle-status");
+  const ruleBody = document.getElementById("rule-lifecycle-body");
+
+  function loadRules() {
+    fetch(API_DETECTION_RULES, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        const rules = data.rules || [];
+        ruleStatus.textContent = `${rules.length} rules loaded`;
+        ruleBody.innerHTML = rules.map((rule) => `
+          <tr title="${escapeAttr(rule.skip_reason || "")}">
+            <td><span class="font-mono">${escapeHTML(rule.rule_id)}</span><br>${escapeHTML(rule.title)}</td>
+            <td>${escapeHTML(rule.rule_source.toUpperCase())}</td>
+            <td>${escapeHTML(rule.validation_status)}</td>
+            <td>${escapeHTML(rule.last_loaded_at || "-")}</td>
+            <td>${rule.hit_count} · ${rule.never_hit ? "NEVER HIT" : "HIT"}</td>
+            <td>${rule.enabled ? "ENABLED" : "DISABLED"}</td>
+            <td>${rule.rule_source === "sigma" && rule.supported
+              ? `<button class="btn btn-ghost sigma-rule-toggle" data-rule-id="${escapeAttr(rule.rule_id)}" data-enabled="${!rule.enabled}">${rule.enabled ? "Disable" : "Enable"}</button>`
+              : "-"}</td>
+          </tr>`).join("");
+      })
+      .catch(() => { ruleStatus.textContent = "Failed to load rules."; });
+  }
+
+  ruleBody?.addEventListener("click", (event) => {
+    const button = event.target.closest(".sigma-rule-toggle");
+    if (!button) return;
+    button.disabled = true;
+    fetch(`${API_DETECTION_RULES}/${encodeURIComponent(button.dataset.ruleId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify({ enabled: button.dataset.enabled === "true" }),
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Update failed");
+        loadRules();
+      })
+      .catch((error) => { ruleStatus.textContent = error.message; button.disabled = false; });
+  });
+  loadRules();
 }
 
 // --- DASHBOARD LOGIC ---
@@ -473,6 +517,7 @@ function initDashboard() {
             <tr>
               <td class="font-mono">${escapeHTML(rule.rule_id)}</td>
               <td>${escapeHTML(rule.title)}</td>
+              <td>${escapeHTML(rule.rule_source.toUpperCase())}</td>
               <td class="font-mono">${escapeHTML(rule.mitre_technique)}</td>
               <td>${rule.hit_count}</td>
               <td style="color:${rule.triggered ? "#22c55e" : "#ef4444"}">

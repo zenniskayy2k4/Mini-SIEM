@@ -96,5 +96,24 @@
         </div>
     </div>
 
+    <div class="settings-card" style="grid-column:1 / -1;">
+        <h3><i class="fa-solid fa-shield-halved"></i> Detection Rules</h3>
+        <div class="muted" id="rule-lifecycle-status">Loading rules...</div>
+        <table class="mini-table" style="margin-top:10px;">
+            <thead>
+                <tr>
+                    <th>Rule</th>
+                    <th>Source</th>
+                    <th>Validation</th>
+                    <th>Last loaded</th>
+                    <th>Hits</th>
+                    <th>State</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="rule-lifecycle-body"></tbody>
+        </table>
+    </div>
+
 </div>
 {% endblock %}

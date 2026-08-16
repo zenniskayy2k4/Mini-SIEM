@@ -155,10 +155,14 @@ def build_detection_coverage(rules: list, hit_counts: dict) -> dict:
             "rule_id": rule["id"],
             "title": rule["title"],
             "severity": rule["severity"],
+            "rule_source": rule.get("rule_source", "native"),
+            "validation_status": rule.get("validation_status", "valid"),
+            "last_loaded_at": rule.get("last_loaded_at"),
             "mitre_tactic": rule["mitre"]["tactic"],
             "mitre_technique": technique,
             "hit_count": hits,
             "triggered": hits > 0,
+            "never_hit": hits == 0,
         })
         item = mitre.setdefault(technique, {
             "technique": technique,

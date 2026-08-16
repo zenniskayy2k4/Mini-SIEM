@@ -8,7 +8,7 @@ import hashlib
 import re
 
 from config import config
-from src.alert_schema import INCIDENT_STATUSES
+from src.alert_schema import INCIDENT_STATUSES, utc_iso
 from src.audit import append_audit_event
 from src.health import build_system_status
 from src.dashboard_auth import (
@@ -31,6 +31,7 @@ from src.alert_store import (
     update_incident_status,
 )
 from src.rules import build_detection_coverage, load_detection_rules
+from src.sigma import load_sigma_rules, set_sigma_rule_enabled
 from src.storage import alert_repository
 from src.windows_events import ingest_windows_events
 
@@ -41,6 +42,8 @@ RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.
 DETECTION_RULES = load_detection_rules(
     config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
 )
+SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
+RULES_LOADED_AT = utc_iso()
 
 ALLOWED_SETTINGS = {
     "NIDS_ENABLED",
@@ -97,6 +100,34 @@ def _effective_settings() -> dict:
 # Helper to read logs (reverse to get newest first)
 def load_alerts(limit=100):
     return alert_repository.list_alerts(limit=limit)
+
+
+def _reload_detection_rules():
+    global DETECTION_RULES, SIGMA_RULES, RULES_LOADED_AT
+    DETECTION_RULES = load_detection_rules(
+        config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
+    )
+    SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
+    RULES_LOADED_AT = utc_iso()
+
+
+def _detection_rule_records() -> list[dict]:
+    rules = [
+        rule for rule in DETECTION_RULES if rule.get("rule_source", "native") == "native"
+    ] + SIGMA_RULES
+    counts = alert_repository.rule_hit_counts([rule["id"] for rule in rules])
+    return [{
+        "rule_id": rule["id"],
+        "title": rule["title"],
+        "rule_source": rule.get("rule_source", "native"),
+        "enabled": rule["enabled"],
+        "supported": rule.get("supported", True),
+        "validation_status": rule.get("validation_status", "valid"),
+        "last_loaded_at": rule.get("last_loaded_at", RULES_LOADED_AT),
+        "hit_count": int(counts.get(rule["id"], 0)),
+        "never_hit": int(counts.get(rule["id"], 0)) == 0,
+        "skip_reason": rule.get("skip_reason"),
+    } for rule in rules]
 
 def _parse_ts_maybe(value: str):
     """
@@ -275,6 +306,27 @@ def api_detection_coverage():
         DETECTION_RULES,
         alert_repository.rule_hit_counts(rule_ids),
     ))
+
+
+@app.route("/api/detection-rules")
+@role_required("admin")
+def api_detection_rules():
+    return jsonify({"rules": _detection_rule_records()})
+
+
+@app.route("/api/detection-rules/<rule_id>", methods=["PATCH"])
+@role_required("admin")
+def api_detection_rule_update(rule_id):
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body.get("enabled"), bool):
+        return jsonify({"error": "enabled must be boolean"}), 400
+    try:
+        set_sigma_rule_enabled(rule_id, body["enabled"], session["username"])
+        _reload_detection_rules()
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    rule = next(item for item in _detection_rule_records() if item["rule_id"] == rule_id)
+    return jsonify(rule)
 
 @app.route('/api/alerts')
 def api_alerts():
