@@ -305,7 +305,7 @@ docs: add CI-backed release gate
 
 ## M11.1 — Sigma parser và metadata
 
-**Status:** 🟠 In Progress — local Sigma metadata verification passed, GitHub run pending
+**Status:** ✅ Complete — GitHub Actions passed
 
 ### Architecture
 
@@ -373,7 +373,7 @@ Native/Sigma alert provenance contract                      PASS
 15 executable regression modules                            PASS
 ```
 
-Sigma detection translation vẫn disabled rõ ràng cho tới M11.2. GitHub-hosted regression chờ commit được push.
+GitHub Actions [run 31926912963](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31926912963) passed for commit `b29c39e`.
 
 ### Commit
 
@@ -385,7 +385,7 @@ feat: add Sigma rule parser and metadata adapter
 
 ## M11.2 — Sigma selection mapping
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local Sigma selection mapping passed, GitHub run pending
 
 ### Supported subset phase 1
 
@@ -403,19 +403,30 @@ selection1 or selection2
 
 ### Tasks
 
-- [ ] Define supported operators.
-- [ ] Define unsupported operators.
-- [ ] Map field aliases.
-- [ ] Normalize Windows fields.
-- [ ] Preserve raw Sigma detection.
-- [ ] Unsupported syntax → skip + reason.
+- [x] Define supported operators.
+- [x] Define unsupported operators.
+- [x] Map field aliases.
+- [x] Normalize Windows fields.
+- [x] Preserve raw Sigma detection.
+- [x] Unsupported syntax → skip + reason.
 
 ### DoD
 
-- [ ] Process creation rule match được Sysmon normalized event.
-- [ ] PowerShell rule hoạt động.
-- [ ] Exclusion/filter hoạt động.
-- [ ] Unsupported syntax không tạo false match.
+- [x] Process creation rule match được Sysmon normalized event.
+- [x] PowerShell rule hoạt động.
+- [x] Exclusion/filter hoạt động.
+- [x] Unsupported syntax không tạo false match.
+
+### Local verification — 2026-08-16
+
+```text
+Sigma loader and selection mapping regression                PASS
+Windows/native rule compatibility                            PASS
+16 executable regression modules                            PASS
+Docker Compose validation                                    PASS
+```
+
+Unsupported fields, modifiers, wildcards and complex conditions remain disabled with an explicit `skip_reason`. M11.3 has not started.
 
 ### Commit
 
@@ -1309,10 +1320,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M11.1 — Commit/push and verify Sigma metadata regression
+M11.2 — Commit/push and verify Sigma selection mapping regression
 ```
 
-Không bắt đầu Sigma trước CI vì feature Sigma/TI sẽ mở rộng đáng kể số code path cần bảo vệ.
+Không bắt đầu M11.3 lifecycle trước khi selection mapping CI pass.
 
 ### Success condition
 
@@ -1491,11 +1502,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M11.1 — Commit/push and verify the Sigma metadata GitHub Actions run
+M11.2 — Commit/push and verify the Sigma selection mapping GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M11.1 thành `✅` và ghi GitHub Actions run.
-2. Đổi M11.2 thành batch tiếp theo.
-3. Không enable Sigma detection trước khi selection mapping pass.
+1. Đổi M11.2 thành `✅` và ghi GitHub Actions run.
+2. Đổi M11.3 thành batch tiếp theo.
+3. Không bắt đầu lifecycle trước khi selection mapping CI pass.

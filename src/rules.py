@@ -9,6 +9,7 @@ import yaml
 from config import config
 from src.audit import append_audit_event
 from src.alert_schema import SEVERITIES, SOURCE_TYPES
+from src.sigma import load_sigma_rules
 
 MATCH_OPERATORS = {
     "contains", "contains_any", "contains_all", "regex", "equals", "not_contains",
@@ -215,3 +216,9 @@ def load_rules(directory: str, fallback: list) -> list:
         return loaded
     logging.warning("[-] No valid YAML rules found; using legacy signatures")
     return validate_rules(fallback)
+
+
+def load_detection_rules(directory: str, fallback: list, sigma_directory: str) -> list:
+    native = load_rules(directory, fallback)
+    sigma, _ = load_sigma_rules(sigma_directory)
+    return validate_rules(native + [rule for rule in sigma if rule["enabled"]])

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from src.sigma.adapter import adapt_sigma_rule
+from src.sigma.adapter import adapt_sigma_rule, translate_sigma_rule
 from src.sigma.schema import validate_sigma_rule
 
 
@@ -31,8 +31,14 @@ def load_sigma_rules(directory: str) -> tuple[list[dict], list[dict]]:
                         f"Duplicate Sigma id {rule['id']} (already loaded from {previous})"
                     )
                 seen_ids[rule["id"]] = path.name
-                rules.append(adapt_sigma_rule(rule, path.name))
-                logging.info("[+] Sigma metadata loaded (disabled): %s", rule["id"])
+                adapted = adapt_sigma_rule(rule, path.name)
+                try:
+                    adapted = translate_sigma_rule(adapted)
+                    logging.info("[+] Sigma rule translated: %s", rule["id"])
+                except ValueError as exc:
+                    adapted["skip_reason"] = str(exc)
+                    logging.warning("[-] Sigma rule disabled: %s", exc)
+                rules.append(adapted)
             except (KeyError, ValueError) as exc:
                 errors.append({"source_filename": path.name, "reason": str(exc)})
                 logging.warning("[-] Sigma rule skipped from %s: %s", path.name, exc)

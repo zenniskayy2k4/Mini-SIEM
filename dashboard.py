@@ -30,7 +30,7 @@ from src.alert_store import (
     update_assignee,
     update_incident_status,
 )
-from src.rules import build_detection_coverage, load_rules
+from src.rules import build_detection_coverage, load_detection_rules
 from src.storage import alert_repository
 from src.windows_events import ingest_windows_events
 
@@ -38,7 +38,9 @@ app = Flask(__name__)
 init_auth(app)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
-DETECTION_RULES = load_rules(config.RULES_DIR, config.SIGNATURES)
+DETECTION_RULES = load_detection_rules(
+    config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
+)
 
 ALLOWED_SETTINGS = {
     "NIDS_ENABLED",

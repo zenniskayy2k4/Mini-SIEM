@@ -21,6 +21,7 @@ services:
       - ./data:/app/data
       - ./models:/app/models
       - ./config/rules:/app/config/rules:ro
+      - ./config/sigma:/app/config/sigma:ro
     # NIDS requires host network + privileged for raw packet capture
     network_mode: host
     privileged: true
@@ -47,4 +48,5 @@ services:
       - ./models:/app/models
       - ./logs:/app/logs
       - ./config/rules:/app/config/rules:ro
+      - ./config/sigma:/app/config/sigma:ro
     restart: unless-stopped

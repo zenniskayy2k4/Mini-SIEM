@@ -22,8 +22,10 @@ def test_sigma_loader():
     assert sigma["mitre_techniques"] == ["T1059.001"]
     assert sigma["source_filename"] == "suspicious_powershell.yml"
     assert sigma["detection"]["condition"] == "selection"
-    assert sigma["enabled"] is False
-    assert sigma["validation_status"] == "unsupported"
+    assert sigma["enabled"] is True
+    assert sigma["supported"] is True
+    assert sigma["validation_status"] == "valid"
+    assert sigma["detection"]["selection"]["Image|endswith"] == r"\powershell.exe"
 
     with tempfile.TemporaryDirectory() as directory:
         Path(directory, "valid.yml").write_text(
