@@ -1,11 +1,11 @@
 import time
 import threading
 from collections import defaultdict, deque
-from datetime import datetime, timezone
 
 from config import config
 from src.elk_forwarder import ELKForwarder
-from src.alert_store import append_alert
+from src.alert_pipeline import persist_and_enrich
+from src.alert_schema import build_alert
 
 # Import scapy lazily to avoid import-time issues when not enabled
 from scapy.layers.inet import IP, TCP
@@ -18,9 +18,10 @@ class NetworkMonitor:
       - ARP spoof heuristic (MAC changes for same IP)
     Emits alerts using the same JSON-lines file as HIDS.
     """
-    def __init__(self, correlator=None, responder=None):
+    def __init__(self, correlator=None, responder=None, ai_analyst=None):
         self.correlator = correlator
         self.responder = responder
+        self.ai_analyst = ai_analyst
         self.elk = ELKForwarder()
 
         self._lock = threading.Lock()
@@ -37,12 +38,7 @@ class NetworkMonitor:
     def stop(self):
         self._stop.set()
 
-    def _utc_now_iso(self) -> str:
-        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
     def _emit(self, alert: dict) -> None:
-        alert["source_type"] = "NETWORK_SENSOR"
-
         # Optional: reuse responder/correlator pipeline if injected from main
         if self.correlator:
             alert = self.correlator.correlate(alert)
@@ -50,7 +46,7 @@ class NetworkMonitor:
             alert = self.responder.handle_incident(alert)
 
         self.elk.send_alert(alert)
-        append_alert(alert)
+        persist_and_enrich(alert, self.ai_analyst)
 
         print(f"\n[!] NETWORK ALERT: {alert['alert_name']} [{alert['severity']}] src={alert.get('ip_address')}")
 
@@ -69,16 +65,18 @@ class NetworkMonitor:
             count = len(dq)
 
         if count >= threshold:
-            alert = {
-                "timestamp": self._utc_now_iso(),
-                "alert_name": "Network Port Scanning (SYN flood heuristic)",
-                "severity": "HIGH",
-                "mitre_attck_id": "T1046",
-                "description": f"High volume of TCP SYNs detected: {count}/{window}s (possible port scan).",
-                "raw_log": f"NETWORK_TRAFFIC src={src_ip} proto=TCP flags=SYN dport={dst_port} count={count}/{window}s",
-                "ip_address": src_ip,
-                "mitigation_command": f"iptables -A INPUT -s {src_ip} -j DROP",
-            }
+            alert = build_alert(
+                alert_name="Network Port Scanning (SYN flood heuristic)",
+                severity="HIGH",
+                source_type="NIDS",
+                mitre_attck_id="T1046",
+                description=f"High volume of TCP SYNs detected: {count}/{window}s (possible port scan).",
+                raw_log=f"NETWORK_TRAFFIC src={src_ip} proto=TCP flags=SYN dport={dst_port} count={count}/{window}s",
+                ip_address=src_ip,
+                event_count=count,
+                window_seconds=window,
+                correlation_key=f"Network Port Scanning|{src_ip}",
+            )
             # Reset to reduce alert spam
             with self._lock:
                 self._syn_times[src_ip].clear()
@@ -105,16 +103,18 @@ class NetworkMonitor:
                     dq.popleft()
 
                 if len(dq) >= changes_threshold:
-                    alert = {
-                        "timestamp": self._utc_now_iso(),
-                        "alert_name": "ARP Spoofing Suspected (MAC flapping)",
-                        "severity": "CRITICAL",
-                        "mitre_attck_id": "T1557.002",
-                        "description": f"Multiple MAC changes for IP {psrc_ip} within {window}s. Possible ARP cache poisoning.",
-                        "raw_log": f"NETWORK_TRAFFIC proto=ARP op=reply psrc={psrc_ip} hwsrc={hwsrc}",
-                        "ip_address": psrc_ip,
-                        "mitigation_command": "Manual Investigation Required",
-                    }
+                    alert = build_alert(
+                        alert_name="ARP Spoofing Suspected (MAC flapping)",
+                        severity="CRITICAL",
+                        source_type="NIDS",
+                        mitre_attck_id="T1557.002",
+                        description=f"Multiple MAC changes for IP {psrc_ip} within {window}s. Possible ARP cache poisoning.",
+                        raw_log=f"NETWORK_TRAFFIC proto=ARP op=reply psrc={psrc_ip} hwsrc={hwsrc}",
+                        ip_address=psrc_ip,
+                        event_count=len(dq),
+                        window_seconds=window,
+                        correlation_key=f"ARP Spoofing Suspected|{psrc_ip}",
+                    )
                     dq.clear()
                     self._emit(alert)
 

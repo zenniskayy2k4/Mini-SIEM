@@ -5,7 +5,7 @@ Detection layers:
   Layer 0 (< 1 ms)  : Rule-based signature matching
   Layer 1 (~ 2 ms)  : NLP Isolation Forest on TF-IDF semantic features
   Layer 2 (~ 3 ms)  : Deep Autoencoder on 15 statistical/structural features
-  Layer 3 (async)   : Groq LLM analyst — enriches HIGH/CRITICAL alerts in background
+  Layer 3 (async)   : optional LLM analyst attached by the alert handler
 
 Feature highlights:
   - Feature vector expanded from 3 → 15 dimensions (reduces false positives significantly)
@@ -16,14 +16,19 @@ Feature highlights:
 
 import re
 import math
+import threading
 import numpy as np
 import joblib
 import os
 import logging
 import torch
 import torch.nn as nn
-from datetime import datetime, timezone
+from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
 from config import config
+from src.alert_schema import build_alert
+from src.rules import match_rule, validate_rules
+from src.windows_events import windows_event_text
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +174,7 @@ class ThreatDetector:
     FEATURE_DIM = 15
 
     def __init__(self, signatures: list, ai_analyst=None):
-        self.signatures  = signatures
+        self.signatures  = validate_rules(signatures)
         self.ai_analyst  = ai_analyst   # optional async LLM analyst
 
         self.vectorizer  = None
@@ -177,6 +182,9 @@ class ThreatDetector:
         self.ae_model    = None
         self.scaler      = None
         self.ae_threshold = 1.0
+        self._ssh_failures = defaultdict(deque)
+        self._ssh_alerts = {}
+        self._ssh_lock = threading.Lock()
 
         self._load_all_models()
 
@@ -288,44 +296,135 @@ class ThreatDetector:
         confidence: int,
     ) -> dict:
         """Build a structured alert from AI detection layers."""
-        return {
-            "timestamp":       datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "alert_name":      title,
-            "severity":        severity,
-            "mitre_attck_id":  "T1204 (Zero-day Anomaly)",
-            "description": (
+        return build_alert(
+            alert_name=title,
+            severity=severity,
+            source_type="HIDS_LOG",
+            mitre_attck_id="T1204 (Zero-day Anomaly)",
+            description=(
                 f"AI anomaly — NLP score={nlp_score:.3f}, "
                 f"AE loss={ae_loss:.5f} (thresh={self.ae_threshold:.5f}), "
                 f"confidence={confidence}%"
             ),
-            "raw_log":             log_line.strip(),
-            "ml_anomaly_score":    round(ae_loss, 5),
-            "ml_confidence":       confidence,
-            "ip_address":          "N/A",
-            "mitigation_command":  "Manual Investigation Required",
-            "status":              "AI_DETECTED",
-        }
+            raw_log=log_line.strip(),
+            ml_anomaly_score=round(ae_loss, 5),
+            ml_confidence=confidence,
+        )
 
-    def _rule_based_detect(self, log_line: str) -> dict | None:
+    def _rule_based_detect(self, log_line: str, source_type="HIDS_LOG") -> dict | None:
         """Iterate signatures; return structured alert on first match."""
         for sig in self.signatures:
-            match = re.search(sig["pattern"], log_line, re.IGNORECASE)
+            if sig["source_type"] != source_type:
+                continue
+            if sig.get("threshold"):
+                continue
+            match = match_rule(sig["match"], log_line)
             if match:
-                return {
-                    "timestamp":      datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                    "alert_name":     sig["name"],
-                    "severity":       sig["severity"],
-                    "mitre_attck_id": sig["mitre_id"],
-                    "description":    sig["description"],
-                    "raw_log":        log_line.strip(),
-                    "status":         "DETECTED",
-                    "ip_address": (
+                return build_alert(
+                    rule_id=sig["id"],
+                    rule_source=sig.get("rule_source", "native"),
+                    sigma_rule_id=sig.get("sigma_rule_id"),
+                    alert_name=sig["title"],
+                    severity=sig["severity"],
+                    source_type=sig["source_type"],
+                    mitre_attck_id=sig["mitre"]["technique"],
+                    description=sig["description"],
+                    raw_log=log_line.strip(),
+                    ip_address=(
                         match.group(1)
-                        if sig.get("extract_ip") and match.lastindex
-                        else "N/A"
+                        if sig.get("extract_ip") and getattr(match, "lastindex", None)
+                        else None
                     ),
-                }
+                )
         return None
+
+    def analyze_windows_event(self, event: dict) -> dict | None:
+        """Apply lightweight YAML rules; AI enrichment stays on the shared agent worker."""
+        raw_event = windows_event_text(event)
+        alert = self._rule_based_detect(raw_event, "WINDOWS_EVENT")
+        if not alert:
+            return None
+        alert.update({
+            "timestamp": event["timestamp"],
+            "first_seen": event["timestamp"],
+            "last_seen": event["timestamp"],
+            "windows_event_id": event["event_id"],
+            "windows_event_uid": event["event_uid"],
+            "computer": event.get("computer"),
+            "process": event.get("process"),
+            "parent_process": event.get("parent_process"),
+            "ip_address": (
+                event.get("network", {}).get("source_ip")
+                or event.get("network", {}).get("destination_ip")
+            ),
+        })
+        return alert
+
+    def _check_ssh_bruteforce(self, log_line: str) -> tuple[bool, dict | None]:
+        rule = None
+        match = None
+        for candidate in self.signatures:
+            if candidate.get("threshold"):
+                candidate_match = match_rule(candidate["match"], log_line)
+                groups = candidate_match.groupdict() if hasattr(candidate_match, "groupdict") else {}
+                if groups.get("ip") and groups.get("user"):
+                    rule, match = candidate, candidate_match
+                    break
+        if rule is None:
+            return False, None
+
+        now = datetime.now(timezone.utc)
+        window = int(getattr(config, rule["threshold"]["window_seconds"]))
+        threshold = int(getattr(config, rule["threshold"]["count"]))
+        ip = match.group("ip")
+
+        with self._ssh_lock:
+            failures = self._ssh_failures[ip]
+            cutoff = now - timedelta(seconds=window)
+            while failures and failures[0][0] < cutoff:
+                failures.popleft()
+            if not failures:
+                self._ssh_alerts.pop(ip, None)
+
+            failures.append((now, match.group("user"), log_line.strip()))
+
+            active = self._ssh_alerts.get(ip)
+            if active:
+                active["event_count"] += 1
+                active["last_seen"] = now.isoformat().replace("+00:00", "Z")
+                active["raw_log"] = log_line.strip()
+                active["target_users"] = sorted(set(active["target_users"]) | {match.group("user")})
+                active["suppressed_count"] = active["event_count"] - threshold
+                active["description"] = (
+                    f"{active['event_count']} failed SSH logins from {ip} within an active {window}s campaign."
+                )
+                return True, active
+
+            if len(failures) < threshold:
+                return True, None
+
+            events = list(failures)
+            alert = build_alert(
+                rule_id=rule["id"],
+                rule_source=rule.get("rule_source", "native"),
+                sigma_rule_id=rule.get("sigma_rule_id"),
+                alert_name=rule["title"],
+                severity=rule["severity"],
+                source_type=rule["source_type"],
+                mitre_attck_id=rule["mitre"]["technique"],
+                description=f"{len(events)} failed SSH logins from {ip} within {window}s.",
+                raw_log=log_line.strip(),
+                ip_address=ip,
+                event_count=len(events),
+                window_seconds=window,
+                first_seen=events[0][0],
+                last_seen=events[-1][0],
+                target_users=sorted({user for _, user, _ in events}),
+                correlation_key=f"{rule['title']}|{ip}",
+                suppressed_count=0,
+            )
+            self._ssh_alerts[ip] = alert
+            return True, alert
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -347,9 +446,13 @@ class ThreatDetector:
         │ No       │ None     │ None (clean)                              │
         └──────────┴──────────┴───────────────────────────────────────────┘
 
-        The optional AI Analyst (Layer 3) is dispatched asynchronously for
-        HIGH/CRITICAL alerts so it never blocks the hot path.
+        The optional AI Analyst (Layer 3) is dispatched by the alert handler
+        after the alert is persisted.
         """
+        ssh_handled, alert = self._check_ssh_bruteforce(log_line)
+        if ssh_handled:
+            return alert
+
         # Layer 0 — Rules
         alert = self._rule_based_detect(log_line)
 
@@ -390,9 +493,5 @@ class ThreatDetector:
                     "Structural Anomaly (AE)", "HIGH",
                     log_line, nlp_score, ae_loss, confidence,
                 )
-
-        # Layer 3 — async LLM enrichment (non-blocking)
-        if alert and self.ai_analyst and alert.get("severity") in ("HIGH", "CRITICAL"):
-            self.ai_analyst.enrich_async(alert)
 
         return alert

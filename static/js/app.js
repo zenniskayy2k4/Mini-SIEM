@@ -2,9 +2,13 @@
 const API_STATS = "/api/stats";
 const API_ALERTS = "/api/alerts";
 const API_ALERTS_SEARCH = "/api/alerts/search";
+const API_DETECTION_COVERAGE = "/api/detection-coverage";
 const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
+const API_DETECTION_RULES = "/api/detection-rules";
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
+const CURRENT_ROLE = document.querySelector('meta[name="current-role"]')?.content || "";
 
 document.addEventListener("DOMContentLoaded", () => {
   const path = window.location.pathname;
@@ -38,7 +42,7 @@ function initSettings() {
     setStatus("Saving...");
     return fetch(API_SETTINGS_UPDATE, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
       body: JSON.stringify(patch),
     })
       .then((r) => r.json())
@@ -89,6 +93,49 @@ function initSettings() {
       bindNumber(elGraphMaxAlerts, "GRAPH_MAX_ALERTS", (v) => Math.max(50, v));
     })
     .catch(() => setStatus("Failed to load settings."));
+
+  const ruleStatus = document.getElementById("rule-lifecycle-status");
+  const ruleBody = document.getElementById("rule-lifecycle-body");
+
+  function loadRules() {
+    fetch(API_DETECTION_RULES, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        const rules = data.rules || [];
+        ruleStatus.textContent = `${rules.length} rules loaded`;
+        ruleBody.innerHTML = rules.map((rule) => `
+          <tr title="${escapeAttr(rule.skip_reason || "")}">
+            <td><span class="font-mono">${escapeHTML(rule.rule_id)}</span><br>${escapeHTML(rule.title)}</td>
+            <td>${escapeHTML(rule.rule_source.toUpperCase())}</td>
+            <td>${escapeHTML(rule.validation_status)}</td>
+            <td>${escapeHTML(rule.last_loaded_at || "-")}</td>
+            <td>${rule.hit_count} · ${rule.never_hit ? "NEVER HIT" : "HIT"}</td>
+            <td>${rule.enabled ? "ENABLED" : "DISABLED"}</td>
+            <td>${rule.rule_source === "sigma" && rule.supported
+              ? `<button class="btn btn-ghost sigma-rule-toggle" data-rule-id="${escapeAttr(rule.rule_id)}" data-enabled="${!rule.enabled}">${rule.enabled ? "Disable" : "Enable"}</button>`
+              : "-"}</td>
+          </tr>`).join("");
+      })
+      .catch(() => { ruleStatus.textContent = "Failed to load rules."; });
+  }
+
+  ruleBody?.addEventListener("click", (event) => {
+    const button = event.target.closest(".sigma-rule-toggle");
+    if (!button) return;
+    button.disabled = true;
+    fetch(`${API_DETECTION_RULES}/${encodeURIComponent(button.dataset.ruleId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify({ enabled: button.dataset.enabled === "true" }),
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Update failed");
+        loadRules();
+      })
+      .catch((error) => { ruleStatus.textContent = error.message; button.disabled = false; });
+  });
+  loadRules();
 }
 
 // --- DASHBOARD LOGIC ---
@@ -105,7 +152,7 @@ function initDashboard() {
   severityChart = new Chart(ctx1, {
     type: "doughnut",
     data: {
-      labels: ["CRITICAL", "HIGH", "MEDIUM", "INFO"],
+      labels: ["CRITICAL", "HIGH", "MEDIUM", "LOW / INFO"],
       datasets: [
         {
           data: [0, 0, 0, 0],
@@ -440,6 +487,7 @@ function initDashboard() {
               <tr>
                 <td>${new Date(alert.timestamp).toLocaleTimeString()}</td>
                 <td style="font-weight:bold">${alert.alert_name}</td>
+                <td class="font-mono">${escapeHTML(alert.rule_id || "-")}</td>
                 <td><span style="color:${getColor(alert.severity)}">${alert.severity}</span></td>
                 <td>${alert.ip_address || "N/A"}</td>
               </tr>`;
@@ -455,6 +503,28 @@ function initDashboard() {
         sourceChart.data.labels = Object.keys(ipCounts).slice(0, 5);
         sourceChart.data.datasets[0].data = Object.values(ipCounts).slice(0, 5);
         sourceChart.update();
+      });
+
+    fetch(API_DETECTION_COVERAGE)
+      .then((res) => res.json())
+      .then((data) => {
+        const summary = data.summary || {};
+        document.getElementById("coverage-summary").innerText =
+          `${summary.rules_hit || 0}/${summary.rules_total || 0} rules hit · ` +
+          `${summary.mitre_techniques_hit || 0}/${summary.mitre_techniques_total || 0} MITRE techniques`;
+        document.getElementById("coverage-table-body").innerHTML = (data.rules || [])
+          .map((rule) => `
+            <tr>
+              <td class="font-mono">${escapeHTML(rule.rule_id)}</td>
+              <td>${escapeHTML(rule.title)}</td>
+              <td>${escapeHTML(rule.rule_source.toUpperCase())}</td>
+              <td class="font-mono">${escapeHTML(rule.mitre_technique)}</td>
+              <td>${rule.hit_count}</td>
+              <td style="color:${rule.triggered ? "#22c55e" : "#ef4444"}">
+                ${rule.triggered ? "HIT" : "NEVER HIT"}
+              </td>
+            </tr>`)
+          .join("");
       });
   }
 
@@ -494,6 +564,8 @@ function initLogs() {
   const inpFrom = document.getElementById("filter-from");
   const inpTo = document.getElementById("filter-to");
   const inpSeverity = document.getElementById("filter-severity");
+  const inpIncidentStatus = document.getElementById("filter-incident-status");
+  const inpAiDisposition = document.getElementById("filter-ai-disposition");
   const inpIp = document.getElementById("filter-ip");
   const inpMitre = document.getElementById("filter-mitre");
   const inpQ = document.getElementById("filter-q");
@@ -512,6 +584,8 @@ function initLogs() {
     from: "",
     to: "",
     severity: "",
+    incidentStatus: "",
+    aiDisposition: "",
     ip: "",
     mitre: "",
     q: "",
@@ -549,6 +623,8 @@ function initLogs() {
     state.to = toIsoOrEmpty(inpTo?.value);
 
     state.severity = (inpSeverity?.value || "").trim();
+    state.incidentStatus = (inpIncidentStatus?.value || "").trim();
+    state.aiDisposition = (inpAiDisposition?.value || "").trim();
     state.ip = (inpIp?.value || "").trim();
     state.mitre = (inpMitre?.value || "").trim();
     state.q = (inpQ?.value || "").trim();
@@ -564,6 +640,8 @@ function initLogs() {
     if (state.to) params.set("to", state.to);
 
     if (state.severity) params.set("severity", state.severity);
+    if (state.incidentStatus) params.set("incident_status", state.incidentStatus);
+    if (state.aiDisposition) params.set("ai_disposition", state.aiDisposition);
     if (state.ip) params.set("ip", state.ip);
     if (state.mitre) params.set("mitre", state.mitre);
     if (state.q) params.set("q", state.q);
@@ -615,6 +693,8 @@ function initLogs() {
     if (inpFrom) inpFrom.value = "";
     if (inpTo) inpTo.value = "";
     if (inpSeverity) inpSeverity.value = "";
+    if (inpIncidentStatus) inpIncidentStatus.value = "";
+    if (inpAiDisposition) inpAiDisposition.value = "";
     if (inpIp) inpIp.value = "";
     if (inpMitre) inpMitre.value = "";
     if (inpQ) inpQ.value = "";
@@ -645,6 +725,8 @@ function initLogs() {
     if (!state.live) fetchPage(1);
   });
 
+  tableBody.addEventListener("focusin", () => setLive(false));
+
   readFiltersFromUI();
   setLive(true);
 }
@@ -655,32 +737,236 @@ function createRow(alert) {
 
   const time = new Date(alert.timestamp).toLocaleTimeString();
 
-  const mitigationCmd = alert.mitigation_command || alert.mitigation || "";
-  let mitigationHTML = '<span style="color:#64748b; font-size:11px;">No Action</span>';
-  if (mitigationCmd) {
-    mitigationHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ${mitigationCmd}</div>`;
+  const responseActions = alert.response_actions || [];
+  const responseAction = responseActions[responseActions.length - 1];
+  let responseHTML = '<span style="color:#64748b; font-size:11px;">No Action</span>';
+  if (responseAction) {
+    responseHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ` +
+      `${escapeHTML(responseAction.action_type)} ${escapeHTML(responseAction.target)} ` +
+      `[${escapeHTML(responseAction.status)} · ${escapeHTML(responseAction.mode)}]` +
+      `${responseAction.result || responseAction.error ? `<br><small>${escapeHTML(responseAction.result || responseAction.error)}</small>` : ""}</div>`;
   }
 
   const src = alert.source_type || "HIDS_LOG";
-  let detailsHTML = `<div class="log-details">${alert.description || ""}</div>`;
-  detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Source: ${src}</div>`;
+  let detailsHTML = `<div class="log-details">${escapeHTML(alert.description || "")}</div>`;
+  detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Source: ${escapeHTML(src)}</div>`;
+  if (alert.rule_id) {
+    detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Rule: ${escapeHTML(alert.rule_id)}</div>`;
+  }
+  if (alert.assigned_to) {
+    detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Assigned to: ${escapeHTML(alert.assigned_to)}</div>`;
+  }
 
   if (alert.ml_anomaly_score) {
     detailsHTML += `<div style="margin-top:4px; color:#c084fc; font-weight:700; font-size:11px">
-                            <i class="fa-solid fa-brain"></i> AI Score: ${alert.ml_anomaly_score}
+                            <i class="fa-solid fa-brain"></i> AI Score: ${escapeHTML(alert.ml_anomaly_score)}
                         </div>`;
   }
-  detailsHTML += `<div class="log-raw" title="${String(alert.raw_log || "").replaceAll('"', "&quot;")}">${alert.raw_log || ""}</div>`;
+  detailsHTML += renderAIAnalysis(alert);
+  detailsHTML += `<div class="log-raw" title="${escapeAttr(alert.raw_log || "")}">${escapeHTML(alert.raw_log || "")}</div>`;
+  detailsHTML += renderIncidentPanel(alert);
 
   tr.innerHTML = `
         <td class="font-mono">${time}</td>
-        <td class="log-name">${alert.alert_name || ""}</td>
-        <td><span class="severity-badge severity-${alert.severity}">${alert.severity || ""}</span></td>
-        <td class="font-mono">${alert.mitre_attck_id || "-"}</td>
+        <td class="log-name">${escapeHTML(alert.alert_name || "")}</td>
+        <td><span class="severity-badge severity-${escapeHTML(alert.severity || "")}">${escapeHTML(alert.severity || "")}</span></td>
+        <td class="font-mono">${escapeHTML(alert.mitre_attck_id || "-")}</td>
         <td>${detailsHTML}</td>
-        <td>${mitigationHTML}</td>
+        <td>${responseHTML}</td>
     `;
+  bindIncidentActions(tr, alert);
   return tr;
+}
+
+function renderIncidentPanel(alert) {
+  if (!alert.incident_id) return "";
+  const canMutate = ["analyst", "admin"].includes(CURRENT_ROLE);
+
+  const statuses = ["NEW", "INVESTIGATING", "CONTAINED", "RESOLVED", "FALSE_POSITIVE"];
+  const statusButtons = canMutate ? statuses.map((status) => `
+    <button class="btn btn-ghost incident-status-btn" type="button" data-status="${status}"
+      ${status === alert.incident_status ? "disabled" : ""}>${status}</button>`).join("") : "";
+  const notes = (alert.analyst_notes || []).slice(-5).reverse().map((note) => `
+    <li><strong>${escapeHTML(note.author || "analyst")}</strong>: ${escapeHTML(note.text || "")}</li>`).join("");
+  const timelineEvents = [
+    { event_type: "CREATED", timestamp: alert.created_at || alert.timestamp },
+    ...(alert.timeline || []),
+  ];
+  const timeline = timelineEvents.slice(-8).reverse().map((event) => `
+    <li>${escapeHTML(event.timestamp || "")} · ${escapeHTML(event.event_type || "UPDATED")}` +
+      `${event.action_type ? ` · ${escapeHTML(event.action_type)} ${escapeHTML(event.target || "")} [${escapeHTML(event.status || "")}]` : ""}</li>`).join("");
+  const responseActionOptions = [
+    "BLOCK_IP", "UNBLOCK_IP", "DISABLE_USER", "KILL_PROCESS", "QUARANTINE_FILE", "NOTIFY_ANALYST",
+  ].map((type) => `<option value="${type}">${type}</option>`).join("");
+  const pendingAction = [...(alert.response_actions || [])].reverse().find(
+    (action) => ["PROPOSED", "REQUIRES_APPROVAL"].includes(action.status),
+  );
+  const simulatedAction = [...(alert.response_actions || [])].reverse().find(
+    (action) => action.status === "SIMULATED",
+  );
+  const responseWorkflow = !canMutate ? "" : pendingAction
+    ? `<button class="btn btn-primary incident-approve-btn" type="button" data-action-id="${escapeAttr(pendingAction.action_id)}">Approve action</button>`
+    : simulatedAction
+      ? `<button class="btn btn-ghost incident-rollback-btn" type="button" data-action-id="${escapeAttr(simulatedAction.action_id)}">Roll back simulation</button>`
+      : "";
+
+  return `
+    <section class="incident-panel" aria-label="Incident ${escapeAttr(alert.incident_id)}">
+      <div class="incident-heading">
+        <strong>${escapeHTML(alert.incident_id)}</strong>
+        <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
+      </div>
+      ${canMutate ? `<div class="incident-actions">${statusButtons}</div>
+      <div class="incident-form-row">
+        <input class="styled-input incident-assignee" maxlength="100" aria-label="Assignee"
+          value="${escapeAttr(alert.assigned_to || "")}" placeholder="Assignee">
+        <button class="btn btn-primary incident-assign-btn" type="button">Assign</button>
+      </div>
+      <div class="incident-form-row">
+        <textarea class="styled-input incident-note" maxlength="2000" aria-label="Analyst note"
+          placeholder="Add analyst note"></textarea>
+        <button class="btn btn-primary incident-note-btn" type="button">Add note</button>
+      </div>
+      <div class="incident-form-row">
+        <select class="styled-input incident-action-type" aria-label="Response action">${responseActionOptions}</select>
+        <input class="styled-input incident-action-target" maxlength="500" aria-label="Response target"
+          value="${escapeAttr(alert.ip_address || alert.incident_id)}" placeholder="Target">
+        <button class="btn btn-primary incident-response-btn" type="button">Request action</button>
+      </div>` : ""}
+      ${responseWorkflow ? `<div class="incident-actions">${responseWorkflow}</div>` : ""}
+      ${notes ? `<div class="incident-history"><strong>Notes</strong><ul>${notes}</ul></div>` : ""}
+      ${timeline ? `<div class="incident-history"><strong>Timeline</strong><ul>${timeline}</ul></div>` : ""}
+      <div class="incident-error" role="alert"></div>
+    </section>`;
+}
+
+function bindIncidentActions(row, alert) {
+  if (!alert.incident_id) return;
+  const url = `/api/alerts/${encodeURIComponent(alert.alert_id)}`;
+  row.querySelectorAll(".incident-status-btn").forEach((button) => {
+    button.addEventListener("click", () => mutateIncident(
+      row, button, `${url}/status`, "PATCH", { status: button.dataset.status },
+    ));
+  });
+  row.querySelector(".incident-assign-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/assignee`,
+    "PATCH",
+    { assigned_to: row.querySelector(".incident-assignee").value },
+  ));
+  row.querySelector(".incident-note-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/notes`,
+    "POST",
+    { note: row.querySelector(".incident-note").value },
+  ));
+  row.querySelector(".incident-response-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/response-actions`,
+    "POST",
+    {
+      action_type: row.querySelector(".incident-action-type").value,
+      target: row.querySelector(".incident-action-target").value,
+    },
+  ));
+  row.querySelector(".incident-approve-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/response-actions/${encodeURIComponent(event.currentTarget.dataset.actionId)}/approve`,
+    "POST",
+    { analyst: "analyst" },
+  ));
+  row.querySelector(".incident-rollback-btn")?.addEventListener("click", (event) => mutateIncident(
+    row,
+    event.currentTarget,
+    `${url}/response-actions/${encodeURIComponent(event.currentTarget.dataset.actionId)}/rollback`,
+    "POST",
+    { analyst: "analyst" },
+  ));
+}
+
+async function mutateIncident(row, button, url, method, body) {
+  const error = row.querySelector(".incident-error");
+  error.textContent = "";
+  button.disabled = true;
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify(body),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+    row.replaceWith(createRow(result));
+  } catch (requestError) {
+    error.textContent = requestError.message || "Incident update failed";
+    button.disabled = false;
+  }
+}
+
+function renderAIAnalysis(alert) {
+  const ai = alert.ai_analysis;
+  if (!ai) {
+    return ["HIGH", "CRITICAL"].includes(alert.severity)
+      ? '<div class="ai-pending"><i class="fa-solid fa-clock"></i> AI analysis pending...</div>'
+      : "";
+  }
+  if (ai.skipped) {
+    return `<div class="ai-pending"><i class="fa-solid fa-forward"></i> AI analysis skipped: ${escapeHTML(ai.skipped)}</div>`;
+  }
+  if (ai.error) {
+    return `<div class="incident-error"><i class="fa-solid fa-triangle-exclamation"></i> AI analysis failed: ${escapeHTML(ai.error)}</div>`;
+  }
+
+  const playbook = Array.isArray(ai.recommended_playbook)
+    ? ai.recommended_playbook.map((step) => `<li>${escapeHTML(step)}</li>`).join("")
+    : "";
+  const iocs = Array.isArray(ai.ioc_tags)
+    ? ai.ioc_tags.map((tag) => `<span class="ai-tag">${escapeHTML(tag)}</span>`).join("")
+    : "";
+  const aiRecommendation = alert.ai_recommended_severity || alert.severity || "UNKNOWN";
+  const aiDecision = alert.ai_disposition === "FALSE_POSITIVE_SUSPECTED"
+    ? "False positive suspected"
+    : ai.escalate_to_human
+      ? "Human review required"
+      : "No AI escalation";
+
+  return `
+    <div class="ai-analysis">
+      <div class="ai-title"><i class="fa-solid fa-brain"></i> AI Analyst</div>
+      <div class="ai-severity-row">
+        <span>System severity <strong>${escapeHTML(alert.severity || "UNKNOWN")}</strong></span>
+        <span>AI recommendation <strong>${escapeHTML(aiRecommendation)}</strong></span>
+        <span>Decision <strong>${escapeHTML(aiDecision)}</strong></span>
+      </div>
+      <div class="ai-metrics">
+        <span>Threat <strong>${escapeHTML(ai.threat_confidence ?? 0)}%</strong></span>
+        <span>FP <strong>${escapeHTML(ai.fp_confidence ?? 0)}%</strong></span>
+        <span>Human review <strong>${ai.escalate_to_human ? "Required" : "Not required"}</strong></span>
+      </div>
+      <div class="ai-field"><strong>Tactic:</strong> ${escapeHTML(ai.mitre_tactic || "N/A")}</div>
+      <div class="ai-field"><strong>Technique:</strong> ${escapeHTML(ai.mitre_technique || "N/A")}</div>
+      <div class="ai-field"><strong>Summary:</strong> ${escapeHTML(ai.threat_summary || "No summary")}</div>
+      ${playbook ? `<ol class="ai-playbook">${playbook}</ol>` : ""}
+      ${iocs ? `<div class="ai-iocs"><strong>IOCs:</strong> ${iocs}</div>` : ""}
+      <div class="ai-provider">${escapeHTML(ai.provider || "unknown")} / ${escapeHTML(ai.model || "unknown")}</div>
+    </div>`;
+}
+
+function escapeHTML(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(value) {
+  return escapeHTML(value).replaceAll("\n", " ");
 }
 
 // Helper function

@@ -1,30 +1,34 @@
 """
-ai_analyst.py — Groq LLM Analyst (Layer 3)
+ai_analyst.py - Ollama Cloud LLM Analyst (Layer 3)
 
 Responsibilities:
-  - Async triage of HIGH/CRITICAL alerts via Groq API (Llama-3 70B)
+  - Async triage of HIGH/CRITICAL alerts via Ollama Cloud API
   - False-positive assessment with confidence score
   - MITRE tactic/technique mapping suggestion
   - Automated playbook generation tailored to the alert type
-  - Alert deduplication: same alert_name is not re-analysed within TTL window
+  - Alert deduplication within a TTL window
 
 Setup:
-  pip install groq
-  export GROQ_API_KEY="gsk_..."
+  export AI_PROVIDER="ollama_cloud"
+  export OLLAMA_API_KEY="..."
+  export OLLAMA_BASE_URL="https://ollama.com/api"
+  export OLLAMA_MODEL="gemma4:cloud"
 
-The analyst runs in a background thread pool so it never blocks the main
-detection pipeline. Results are written back into the alert dict in-place
-and also appended to the alert store.
+The analyst runs in a background thread pool so it does not block the
+detection pipeline. Results are written back into the alert dictionary.
 """
 
 import os
 import json
 import logging
+import re
 import threading
 import time
+import requests
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +40,10 @@ You receive a structured SIEM alert and must return a JSON analysis.
 
 Return ONLY valid JSON. No markdown, no explanation outside the JSON.
 
+Use only evidence explicitly present in the alert. Separate observed facts from
+analyst inference, say when evidence is insufficient, and never claim successful
+authentication, compromise, or attack progression unless the alert proves it.
+
 Required JSON schema:
 {
   "is_false_positive": bool,
@@ -44,6 +52,8 @@ Required JSON schema:
   "mitre_tactic": string,        // e.g. "Initial Access", "Credential Access"
   "mitre_technique": string,     // e.g. "T1110.001 - Password Guessing"
   "threat_summary": string,      // 1-2 sentences, plain English
+  "observed_facts": [string],    // facts directly present in the alert
+  "analyst_inferences": [string],// cautious conclusions, empty if unsupported
   "recommended_playbook": [      // ordered list of response steps
     "Step 1: ...",
     "Step 2: ...",
@@ -63,6 +73,11 @@ Source Type   : {source_type}
 Description   : {description}
 Raw Log       : {raw_log}
 Timestamp     : {timestamp}
+Event Count   : {event_count}
+Window Seconds: {window_seconds}
+First Seen    : {first_seen}
+Last Seen     : {last_seen}
+Target Users  : {target_users}
 """
 
 
@@ -131,80 +146,185 @@ class _RateLimiter:
 # ---------------------------------------------------------------------------
 class AIAnalyst:
     """
-    Enriches SIEM alerts with Groq LLM analysis in a background thread pool.
+    Enriches SIEM alerts with Ollama Cloud analysis
+    in a background thread pool.
 
     Usage:
-        analyst = AIAnalyst()                     # reads GROQ_API_KEY from env
-        analyst = AIAnalyst(api_key="gsk_...")    # explicit key
-
-        # Inject into detector
-        detector = ThreatDetector(signatures, ai_analyst=analyst)
-
-        # Or call manually
-        analyst.enrich_async(alert)    # non-blocking, writes back into alert
-        result = analyst.enrich_sync(alert)  # blocking, returns enriched alert
+        analyst = AIAnalyst()
+        detector = ThreatDetector(
+            signatures,
+            ai_analyst=analyst,
+        )
     """
 
-    MODEL       = "llama-3.3-70b-versatile"   # fast + accurate for SecOps
     MAX_TOKENS  = 800
     TEMPERATURE = 0.1   # near-deterministic for structured analysis
 
     def __init__(
         self,
-        api_key:      str | None = None,
-        max_workers:  int        = 3,
-        cache_ttl:    int        = 120,   # seconds before re-analysing same alert type
-        rate_per_min: int        = 10,    # Groq free tier safe limit
+        api_key: str | None = None,
+        cache_ttl: int = 120,
+        rate_per_min: int = 10,
     ):
-        self._api_key = api_key or os.environ.get("GROQ_API_KEY", "")
-        if not self._api_key:
+        self._provider = os.environ.get(
+            "AI_PROVIDER",
+            "ollama_cloud",
+        ).strip().lower()
+
+        self._api_key = (
+            api_key
+            or os.environ.get("OLLAMA_API_KEY", "")
+        ).strip()
+
+        self._base_url = os.environ.get(
+            "OLLAMA_BASE_URL",
+            "https://ollama.com/api",
+        ).rstrip("/")
+
+        self._model = os.environ.get(
+            "OLLAMA_MODEL",
+            "gemma4:cloud",
+        ).strip()
+
+        self._enabled = (
+            self._provider == "ollama_cloud"
+            and bool(self._api_key)
+        )
+
+        if not self._enabled:
             logger.warning(
-                "[AIAnalyst] GROQ_API_KEY not set. "
-                "Layer 3 analysis disabled. Set env var to enable."
+                "[AIAnalyst] Ollama Cloud configuration missing. "
+                "Layer 3 analysis disabled. "
+                "Set AI_PROVIDER=ollama_cloud and OLLAMA_API_KEY."
+            )
+        else:
+            logger.info(
+                "[AIAnalyst] Ollama Cloud enabled "
+                f"with model={self._model}"
             )
 
-        self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="groq_analyst")
-        self._cache    = _TTLCache(maxsize=200, ttl_seconds=cache_ttl)
-        self._limiter  = _RateLimiter(rate=rate_per_min, period=60.0)
+        self._executor = ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="ollama_analyst",
+        )
+        self._single_flight = threading.Lock()
+        self._available = None
+        self._last_success_at = None
+        self._last_failure_at = None
+
+        self._cache = _TTLCache(
+            maxsize=200,
+            ttl_seconds=cache_ttl,
+        )
+
+        self._limiter = _RateLimiter(
+            rate=rate_per_min,
+            period=60.0,
+        )
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def enrich_async(self, alert: dict) -> None:
+    def enrich_async(self, alert: dict, on_complete=None) -> None:
         """
         Submit alert for analysis in a background thread.
         The result is written back into `alert` dict in-place
         and also logged. Never raises.
         """
-        if not self._api_key:
+        if not self._enabled:
             return
-        self._executor.submit(self._safe_enrich, alert)
+        if not self._single_flight.acquire(blocking=False):
+            self._mark_skipped(alert, "busy")
+            logger.info("[AIAnalyst] Busy; skipped %s", alert.get("alert_name"))
+            if on_complete:
+                try:
+                    on_complete(alert)
+                except Exception as exc:
+                    logger.warning(f"[AIAnalyst] Completion callback failed: {exc}")
+            return
+        future = self._executor.submit(self._safe_enrich, alert)
+        future.add_done_callback(self._completion(on_complete))
 
     def enrich_sync(self, alert: dict) -> dict:
         """
         Blocking version — useful for testing or forced triage.
         Returns the enriched alert dict.
         """
-        if not self._api_key:
+        if not self._enabled:
             return alert
-        return self._safe_enrich(alert)
+        with self._single_flight:
+            return self._safe_enrich(alert)
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)
 
+    def health_status(self) -> dict:
+        return {
+            "enabled": self._enabled,
+            "provider": self._provider,
+            "model": self._model,
+            "available": self._available,
+            "last_successful_enrichment": self._last_success_at,
+            "last_failure": self._last_failure_at,
+            "busy": self._single_flight.locked(),
+            "backlog": 0,
+        }
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
+    def _completion(self, on_complete):
+        def run(done):
+            try:
+                result = done.result()
+                if on_complete:
+                    on_complete(result)
+            except Exception as exc:
+                logger.warning(f"[AIAnalyst] Completion callback failed: {exc}")
+            finally:
+                self._single_flight.release()
+
+        return run
+
+    def _mark_skipped(self, alert, reason):
+        alert["ai_analysis"] = {
+            "skipped": reason,
+            "provider": self._provider,
+            "model": self._model,
+        }
+
     def _cache_key(self, alert: dict) -> str:
-        """Deduplicate by alert_name + severity + source_type (not per raw_log)."""
-        return f"{alert.get('alert_name','')}|{alert.get('severity','')}|{alert.get('source_type','')}"
+        """Deduplicate similar alerts without merging different sources."""
+        return "|".join(
+            [
+                str(alert.get("alert_name", "")),
+                str(alert.get("severity", "")),
+                str(alert.get("source_type", "")),
+                str(alert.get("ip_address", "")),
+                str(alert.get("mitre_attck_id", "")),
+                str(alert.get("event_count", "")),
+                str(alert.get("last_seen", "")),
+            ]
+        )
 
     def _safe_enrich(self, alert: dict) -> dict:
         try:
-            return self._enrich(alert)
+            result = self._enrich(alert)
+            analysis = result.get("ai_analysis") or {}
+            if analysis.get("analysed_at") and not analysis.get("cached"):
+                self._available = True
+                self._last_success_at = analysis["analysed_at"]
+            return result
         except Exception as exc:
+            self._available = False
+            self._last_failure_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             logger.warning(f"[AIAnalyst] Enrichment failed: {exc}")
             alert["ai_analyst_error"] = str(exc)
+            alert["ai_analysis"] = {
+                "error": str(exc),
+                "provider": self._provider,
+                "model": self._model,
+            }
             return alert
 
     def _enrich(self, alert: dict) -> dict:
@@ -213,14 +333,15 @@ class AIAnalyst:
         # Return cached result if available (attaches to current alert)
         cached = self._cache.get(key)
         if cached:
-            alert["ai_analysis"] = cached
-            alert["ai_analysis"]["cached"] = True
+            cached_analysis = dict(cached)
+            cached_analysis["cached"] = True
+            self._apply_ai_recommendation(alert, cached_analysis)
             return alert
 
         # Rate-limit check
         if not self._limiter.acquire():
             logger.debug("[AIAnalyst] Rate limit hit, skipping analysis.")
-            alert["ai_analysis"] = {"skipped": "rate_limited"}
+            self._mark_skipped(alert, "rate_limited")
             return alert
 
         # Build prompt
@@ -233,44 +354,68 @@ class AIAnalyst:
             description   = alert.get("description",   ""),
             raw_log       = (alert.get("raw_log", "") or "")[:300],  # trim long logs
             timestamp     = alert.get("timestamp",     ""),
+            event_count   = alert.get("event_count"),
+            window_seconds= alert.get("window_seconds"),
+            first_seen    = alert.get("first_seen"),
+            last_seen     = alert.get("last_seen"),
+            target_users  = json.dumps(alert.get("target_users"), ensure_ascii=False),
         )
 
-        # Call Groq API (openai-compatible)
-        try:
-            from groq import Groq
-            client   = Groq(api_key=self._api_key)
-            response = client.chat.completions.create(
-                model       = self.MODEL,
-                max_tokens  = self.MAX_TOKENS,
-                temperature = self.TEMPERATURE,
-                messages    = [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user",   "content": user_msg},
+        # Call Ollama Cloud API
+        response = requests.post(
+            f"{self._base_url}/chat",
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": self._model,
+                "stream": False,
+                "format": "json",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": _SYSTEM_PROMPT,
+                    },
+                    {
+                        "role": "user",
+                        "content": user_msg,
+                    },
                 ],
+                "options": {
+                    "temperature": self.TEMPERATURE,
+                    "num_predict": self.MAX_TOKENS,
+                },
+            },
+            timeout=120,
+        )
+
+        response.raise_for_status()
+
+        payload = response.json()
+        raw_text = (
+            payload.get("message", {})
+            .get("content", "")
+            .strip()
+        )
+
+        if not raw_text:
+            raise RuntimeError(
+                "Ollama Cloud returned an empty response"
             )
-            raw_text = response.choices[0].message.content.strip()
-        except ImportError:
-            raise RuntimeError("groq package not installed. Run: pip install groq")
 
         # Parse JSON response
         analysis = self._parse_response(raw_text)
-        analysis["model"]       = self.MODEL
+        analysis.setdefault("observed_facts", [])
+        analysis.setdefault("analyst_inferences", [])
+        analysis["provider"] = self._provider
+        analysis["model"] = self._model
         analysis["analysed_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         analysis["cached"]      = False
 
         # Cache + write back
         self._cache.set(key, analysis)
-        alert["ai_analysis"] = analysis
-
-        # Upgrade severity if LLM says escalate
-        if analysis.get("escalate_to_human") and alert.get("severity") != "CRITICAL":
-            alert["severity"]     = "CRITICAL"
-            alert["description"] += " [LLM: Escalated to CRITICAL]"
-
-        # Downgrade to INFO if high FP confidence (≥ 80%)
-        if analysis.get("is_false_positive") and analysis.get("fp_confidence", 0) >= 80:
-            alert["severity"] = "INFO"
-            alert["status"]   = "FALSE_POSITIVE_SUSPECTED"
+        self._apply_ai_recommendation(alert, analysis)
 
         logger.info(
             f"[AIAnalyst] {alert.get('alert_name')} → "
@@ -279,6 +424,19 @@ class AIAnalyst:
             f"threat_conf={analysis.get('threat_confidence')}%"
         )
         return alert
+
+    @staticmethod
+    def _apply_ai_recommendation(alert: dict, analysis: dict) -> None:
+        alert["ai_analysis"] = analysis
+        alert["ai_recommended_severity"] = alert.get("severity", "UNKNOWN")
+
+        if analysis.get("escalate_to_human"):
+            alert["ai_recommended_severity"] = "CRITICAL"
+            alert["ai_disposition"] = "REQUIRES_HUMAN_REVIEW"
+
+        if analysis.get("is_false_positive") and analysis.get("fp_confidence", 0) >= 80:
+            alert["ai_recommended_severity"] = "LOW"
+            alert["ai_disposition"] = "FALSE_POSITIVE_SUSPECTED"
 
     @staticmethod
     def _parse_response(text: str) -> dict:
@@ -300,6 +458,3 @@ class AIAnalyst:
                 except json.JSONDecodeError:
                     pass
         return {"parse_error": "Could not decode LLM response", "raw": text[:200]}
-
-
-import re  # needed by _parse_response

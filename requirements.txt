@@ -8,3 +8,5 @@ joblib
 requests
 torch
 scapy
+PyYAML
+python-evtx==0.8.1

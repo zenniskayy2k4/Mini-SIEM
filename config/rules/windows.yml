@@ -1,0 +1,90 @@
+- id: DET-WIN-001
+  title: Encoded PowerShell Execution
+  enabled: true
+  severity: HIGH
+  source_type: WINDOWS_EVENT
+  mitre:
+    tactic: Execution
+    technique: T1059.001
+  match:
+    regex: '^(?=.*event_id=(?:1|4688)\b)(?=.*process_image=.*powershell(?:\.exe)?)(?=.*command_line=.*-(?:e|en|enc|enco|encod|encode|encodedcommand)\b)'
+  description: PowerShell launched with an encoded-command option.
+  extract_ip: false
+
+- id: DET-WIN-002
+  title: Suspicious Windows LOLBin Execution
+  enabled: true
+  severity: HIGH
+  source_type: WINDOWS_EVENT
+  mitre:
+    tactic: Defense Evasion
+    technique: T1218
+  match:
+    regex: '^(?=.*event_id=(?:1|4688)\b)(?:(?=.*process_image=.*certutil\.exe)(?=.*command_line=.*(?:-urlcache|-decode|-encode))|(?=.*process_image=.*rundll32\.exe)(?=.*command_line=.*(?:javascript:|https?://|shell32.*,Control_RunDLL))|(?=.*process_image=.*regsvr32\.exe)(?=.*command_line=.*(?:/i:https?://|scrobj\.dll))|(?=.*process_image=.*mshta\.exe)(?=.*command_line=.*(?:https?://|javascript:|vbscript:)))'
+  description: A commonly abused Windows signed binary was executed.
+  extract_ip: false
+
+- id: DET-WIN-003
+  title: Windows Account Creation
+  enabled: true
+  severity: MEDIUM
+  source_type: WINDOWS_EVENT
+  mitre:
+    tactic: Persistence
+    technique: T1136.001
+  match:
+    contains: event_id=4720
+  description: A local or domain Windows account was created.
+  extract_ip: false
+
+- id: DET-WIN-004
+  title: Scheduled Task Creation
+  enabled: true
+  severity: HIGH
+  source_type: WINDOWS_EVENT
+  mitre:
+    tactic: Persistence
+    technique: T1053.005
+  match:
+    contains: event_id=4698
+  description: A Windows scheduled task was created.
+  extract_ip: false
+
+- id: DET-WIN-005
+  title: Microsoft Defender Tampering
+  enabled: true
+  severity: HIGH
+  source_type: WINDOWS_EVENT
+  mitre:
+    tactic: Defense Evasion
+    technique: T1562.001
+  match:
+    regex: '^(?:(?=.*event_id=5007\b)(?=.*defender_setting=.*(?:DisableAntiSpyware|DisableRealtimeMonitoring|DisableBehaviorMonitoring|DisableIOAVProtection).*(?:0x1|true))|(?=.*event_id=(?:1|4688)\b)(?=.*command_line=.*Set-MpPreference.*-Disable(?:RealtimeMonitoring|BehaviorMonitoring|IOAVProtection)\s+\$?true))'
+  description: Microsoft Defender protection appears to have been disabled.
+  extract_ip: false
+
+- id: DET-WIN-006
+  title: Suspicious LSASS Process Access
+  enabled: true
+  severity: CRITICAL
+  source_type: WINDOWS_EVENT
+  mitre:
+    tactic: Credential Access
+    technique: T1003.001
+  match:
+    regex: '^(?=.*event_id=10\b)(?=.*target_image=.*\\lsass\.exe)(?=.*granted_access=(?:0x1fffff|0x1010|0x1410|0x1438|0x143a)\b)'
+  description: A process requested credential-dumping access rights to LSASS.
+  extract_ip: false
+
+- id: DET-WIN-007
+  title: Suspicious Office Child Process
+  enabled: true
+  severity: HIGH
+  source_type: WINDOWS_EVENT
+  mitre:
+    tactic: Execution
+    technique: T1204.002
+  match:
+    regex: '^(?=.*event_id=(?:1|4688)\b)(?=.*process_image=.*(?:powershell|cmd|mshta|rundll32|regsvr32)\.exe)(?=.*parent_image=.*(?:winword|excel|powerpnt|outlook)\.exe)'
+  description: A Microsoft Office application spawned a suspicious command interpreter or LOLBin.
+  extract_ip: false

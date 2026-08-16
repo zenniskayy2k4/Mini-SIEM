@@ -1,4 +1,5 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, redirect, request, session, url_for
+import hmac
 import json
 import os
 from datetime import datetime, timezone
@@ -7,10 +8,42 @@ import hashlib
 import re
 
 from config import config
+from src.alert_schema import INCIDENT_STATUSES, utc_iso
+from src.audit import append_audit_event
+from src.health import build_system_status
+from src.dashboard_auth import (
+    authenticate,
+    clear_login_failures,
+    csrf_token,
+    csrf_valid,
+    get_user,
+    init_auth,
+    login_allowed,
+    record_login_failure,
+    role_required,
+)
+from src.alert_store import (
+    add_analyst_note,
+    approve_response_action,
+    request_response_action,
+    rollback_response_action,
+    update_assignee,
+    update_incident_status,
+)
+from src.rules import build_detection_coverage, load_detection_rules
+from src.sigma import load_sigma_rules, set_sigma_rule_enabled
+from src.storage import alert_repository
+from src.windows_events import ingest_windows_events
 
 app = Flask(__name__)
+init_auth(app)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
+DETECTION_RULES = load_detection_rules(
+    config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
+)
+SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
+RULES_LOADED_AT = utc_iso()
 
 ALLOWED_SETTINGS = {
     "NIDS_ENABLED",
@@ -66,36 +99,35 @@ def _effective_settings() -> dict:
 
 # Helper to read logs (reverse to get newest first)
 def load_alerts(limit=100):
-    alerts = []
-    if os.path.exists(config.OUTPUT_ALERT_FILE):
-        with open(config.OUTPUT_ALERT_FILE, 'r') as f:
-            lines = f.readlines()
-            # Get last 100 lines and reverse
-            for line in reversed(lines[-limit:]):
-                if line.strip():
-                    try:
-                        alerts.append(json.loads(line))
-                    except:
-                        pass
-    return alerts
+    return alert_repository.list_alerts(limit=limit)
 
-def _read_all_alerts_newest_first():
-    alerts = []
-    if not os.path.exists(config.OUTPUT_ALERT_FILE):
-        return alerts
 
-    with open(config.OUTPUT_ALERT_FILE, "r", encoding="utf-8", errors="ignore") as f:
-        lines = f.readlines()
+def _reload_detection_rules():
+    global DETECTION_RULES, SIGMA_RULES, RULES_LOADED_AT
+    DETECTION_RULES = load_detection_rules(
+        config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
+    )
+    SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
+    RULES_LOADED_AT = utc_iso()
 
-    for line in reversed(lines):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            alerts.append(json.loads(line))
-        except:
-            pass
-    return alerts
+
+def _detection_rule_records() -> list[dict]:
+    rules = [
+        rule for rule in DETECTION_RULES if rule.get("rule_source", "native") == "native"
+    ] + SIGMA_RULES
+    counts = alert_repository.rule_hit_counts([rule["id"] for rule in rules])
+    return [{
+        "rule_id": rule["id"],
+        "title": rule["title"],
+        "rule_source": rule.get("rule_source", "native"),
+        "enabled": rule["enabled"],
+        "supported": rule.get("supported", True),
+        "validation_status": rule.get("validation_status", "valid"),
+        "last_loaded_at": rule.get("last_loaded_at", RULES_LOADED_AT),
+        "hit_count": int(counts.get(rule["id"], 0)),
+        "never_hit": int(counts.get(rule["id"], 0)) == 0,
+        "skip_reason": rule.get("skip_reason"),
+    } for rule in rules]
 
 def _parse_ts_maybe(value: str):
     """
@@ -121,55 +153,114 @@ def _parse_ts_maybe(value: str):
     except Exception:
         return None
 
-def _matches_filters(alert, severity=None, q=None, ip=None, mitre=None, from_ts=None, to_ts=None):
-    # Time range
-    if from_ts or to_ts:
-        a_ts = _parse_ts_maybe(alert.get("timestamp"))
-        if a_ts is None:
-            return False
-        if from_ts and a_ts < from_ts:
-            return False
-        if to_ts and a_ts > to_ts:
-            return False
 
-    # Severity
-    if severity and str(alert.get("severity", "")).upper() != severity.upper():
-        return False
+def _auth_error():
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Authentication required"}), 401
+    return redirect(url_for("login", next=request.full_path.rstrip("?")))
 
-    # IP
-    if ip:
-        a_ip = str(alert.get("ip_address", "") or "")
-        if ip not in a_ip:
-            return False
 
-    # MITRE
-    if mitre:
-        a_mitre = str(alert.get("mitre_attck_id", "") or "")
-        if mitre.upper() not in a_mitre.upper():
-            return False
+@app.before_request
+def require_dashboard_authentication():
+    if request.endpoint in {"login", "static", "api_windows_events", "health"}:
+        return None
+    username = session.get("username")
+    user = get_user(username) if username else None
+    if not user:
+        session.clear()
+        return _auth_error()
+    session["role"] = user["role"]
+    if request.method not in {"GET", "HEAD", "OPTIONS"} and not csrf_valid():
+        return jsonify({"error": "Invalid CSRF token"}), 400
+    return None
 
-    # Free text
-    if q:
-        needle = q.lower()
-        hay = " ".join([
-            str(alert.get("alert_name", "") or ""),
-            str(alert.get("description", "") or ""),
-            str(alert.get("raw_log", "") or ""),
-        ]).lower()
-        if needle not in hay:
-            return False
 
-    return True
+@app.context_processor
+def authentication_context():
+    return {
+        "csrf_token": csrf_token,
+        "current_username": session.get("username"),
+        "current_role": session.get("role"),
+    }
+
+
+@app.after_request
+def dashboard_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    if request.endpoint != "static":
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        if session.get("username") and get_user(session["username"]):
+            return redirect(url_for("dashboard"))
+        return render_template("login.html", error=None, next=request.args.get("next", ""))
+
+    if not csrf_valid():
+        return render_template("login.html", error="Invalid login request.", next=""), 400
+    key = request.remote_addr or "unknown"
+    if not login_allowed(key):
+        append_audit_event("LOGIN", request.form.get("username", "unknown"), outcome="BLOCKED")
+        return render_template("login.html", error="Too many attempts. Try again in one minute.", next=""), 429
+    username, user = authenticate(request.form.get("username", ""), request.form.get("password", ""))
+    if not user:
+        record_login_failure(key)
+        append_audit_event("LOGIN", request.form.get("username", "unknown"), outcome="DENIED")
+        return render_template("login.html", error="Invalid username or password.", next=request.form.get("next", "")), 401
+
+    clear_login_failures(key)
+    destination = request.form.get("next", "")
+    if not destination.startswith("/") or destination.startswith("//"):
+        destination = url_for("dashboard")
+    session.clear()
+    session.update(username=username, role=user["role"], csrf_token=os.urandom(32).hex())
+    session.permanent = True
+    append_audit_event("LOGIN", username, role=user["role"])
+    return redirect(destination)
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    append_audit_event("LOGOUT", session["username"], role=session.get("role"))
+    session.clear()
+    return redirect(url_for("login"))
 
 @app.route('/')
 def dashboard():
     return render_template('dashboard.html', page='dashboard')
+
+
+@app.route("/health")
+def health():
+    status = build_system_status(_effective_settings())
+    public = {
+        "status": status["status"],
+        "timestamp": status["timestamp"],
+        "dashboard": status["dashboard"]["status"],
+        "agent": status["agent"]["status"],
+        "alert_store": status["alert_store"]["status"],
+        "database": status["database"]["status"],
+    }
+    return jsonify(public), 503 if status["status"] == "unhealthy" else 200
+
+
+@app.route("/api/system/status")
+@role_required("admin")
+def api_system_status():
+    status = build_system_status(_effective_settings())
+    return jsonify(status), 503 if status["status"] == "unhealthy" else 200
 
 @app.route('/logs')
 def logs():
     return render_template('logs.html', page='logs')
 
 @app.route('/settings')
+@role_required("admin")
 def settings():
     return render_template(
         'settings.html',
@@ -179,10 +270,12 @@ def settings():
     )
 
 @app.route("/api/settings")
+@role_required("admin")
 def api_settings_get():
     return jsonify(_effective_settings())
 
 @app.route("/api/settings/update", methods=["POST"])
+@role_required("admin")
 def api_settings_update():
     body = request.get_json(silent=True) or {}
     patch = {}
@@ -190,31 +283,209 @@ def api_settings_update():
         if k not in ALLOWED_SETTINGS:
             continue
         patch[k] = v
+    previous = load_runtime_settings()
     saved = save_runtime_settings(patch)
+    if patch:
+        append_audit_event(
+            "RUNTIME_SETTING_CHANGED", session["username"], role=session.get("role"),
+            target_type="runtime_settings",
+            details={key: {"from": previous.get(key), "to": value} for key, value in patch.items()},
+        )
     return jsonify({"ok": True, "saved": saved, "effective": _effective_settings()})
 
 @app.route('/api/stats')
 def api_stats():
     """API return basic stats for dashboard (real data)"""
-    alerts = _read_all_alerts_newest_first()
+    return jsonify(alert_repository.stats())
 
-    def count(sev):
-        return sum(1 for a in alerts if str(a.get("severity", "")).upper() == sev)
 
-    stats = {
-        "critical": count("CRITICAL"),
-        "high": count("HIGH"),
-        "medium": count("MEDIUM"),
-        "info": count("INFO"),
-        "anomalies": sum(1 for a in alerts if "ml_anomaly_score" in a),
-        "total": len(alerts),
-    }
-    return jsonify(stats)
+@app.route('/api/detection-coverage')
+def api_detection_coverage():
+    rule_ids = [rule["id"] for rule in DETECTION_RULES]
+    return jsonify(build_detection_coverage(
+        DETECTION_RULES,
+        alert_repository.rule_hit_counts(rule_ids),
+    ))
+
+
+@app.route("/api/detection-rules")
+@role_required("admin")
+def api_detection_rules():
+    return jsonify({"rules": _detection_rule_records()})
+
+
+@app.route("/api/detection-rules/<rule_id>", methods=["PATCH"])
+@role_required("admin")
+def api_detection_rule_update(rule_id):
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body.get("enabled"), bool):
+        return jsonify({"error": "enabled must be boolean"}), 400
+    try:
+        set_sigma_rule_enabled(rule_id, body["enabled"], session["username"])
+        _reload_detection_rules()
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    rule = next(item for item in _detection_rule_records() if item["rule_id"] == rule_id)
+    return jsonify(rule)
 
 @app.route('/api/alerts')
 def api_alerts():
     """API return latest log list (for dashboard + live snippets)"""
     return jsonify(load_alerts(50))
+
+
+@app.route("/api/windows-events", methods=["POST"])
+def api_windows_events():
+    expected = config.WINDOWS_COLLECTOR_SECRET
+    if not expected:
+        return jsonify({"error": "Windows collector ingestion is disabled"}), 503
+    supplied = request.headers.get("X-Mini-SIEM-Secret", "")
+    if not hmac.compare_digest(supplied, expected):
+        return jsonify({"error": "Unauthorized"}), 401
+    if request.content_length and request.content_length > 2 * 1024 * 1024:
+        return jsonify({"error": "Windows event batch is too large"}), 413
+
+    body = request.get_json(silent=True) or {}
+    events = body.get("events")
+    if not isinstance(events, list) or not events:
+        return jsonify({"error": "events must be a non-empty list"}), 400
+    if len(events) > 500:
+        return jsonify({"error": "Windows event batch exceeds 500 events"}), 413
+    summary = ingest_windows_events(events, body.get("source") or "windows-collector")
+    return jsonify({"ok": True, **summary})
+
+
+@app.route("/api/alerts/<alert_id>/status", methods=["PATCH"])
+@role_required("analyst")
+def api_alert_status(alert_id):
+    body = request.get_json(silent=True) or {}
+    status = body.get("status")
+    if not isinstance(status, str) or status.upper() not in INCIDENT_STATUSES:
+        return jsonify({"error": "Invalid incident status"}), 400
+    try:
+        alert = update_incident_status(alert_id, status.upper())
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    event = alert["timeline"][-1]
+    append_audit_event(
+        "STATUS_CHANGED", session["username"], role=session.get("role"),
+        target_type="incident", target_id=alert["incident_id"],
+        details={"from": event["from_status"], "to": event["to_status"]},
+    )
+    return jsonify(alert)
+
+
+@app.route("/api/alerts/<alert_id>/notes", methods=["POST"])
+@role_required("analyst")
+def api_alert_note(alert_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        alert = add_analyst_note(alert_id, body.get("note"), session["username"])
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    append_audit_event(
+        "NOTE_ADDED", session["username"], role=session.get("role"),
+        target_type="incident", target_id=alert["incident_id"],
+        details={"note_length": len(str(body.get("note", "")).strip())},
+    )
+    return jsonify(alert)
+
+
+@app.route("/api/alerts/<alert_id>/assignee", methods=["PATCH"])
+@role_required("analyst")
+def api_alert_assignee(alert_id):
+    body = request.get_json(silent=True) or {}
+    if "assigned_to" not in body:
+        return jsonify({"error": "assigned_to is required"}), 400
+    try:
+        alert = update_assignee(alert_id, body["assigned_to"])
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    event = alert["timeline"][-1]
+    append_audit_event(
+        "ASSIGNMENT_CHANGED", session["username"], role=session.get("role"),
+        target_type="incident", target_id=alert["incident_id"],
+        details={"from": event.get("from_assignee"), "to": event.get("to_assignee")},
+    )
+    return jsonify(alert)
+
+
+@app.route("/api/alerts/<alert_id>/response-actions", methods=["POST"])
+@role_required("analyst")
+def api_alert_response_action(alert_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        alert = request_response_action(alert_id, body.get("action_type"), body.get("target"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    action = alert["response_actions"][-1]
+    audit_common = {
+        "actor": session["username"], "role": session.get("role"),
+        "target_type": "response_action", "target_id": action["action_id"],
+    }
+    append_audit_event(
+        "RESPONSE_REQUESTED", **audit_common,
+        details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+    )
+    if action["status"] == "SIMULATED":
+        append_audit_event(
+            "RESPONSE_EXECUTED", **audit_common, outcome="SIMULATED",
+            details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+        )
+    return jsonify(alert), 201
+
+
+@app.route("/api/alerts/<alert_id>/response-actions/<action_id>/approve", methods=["POST"])
+@role_required("analyst")
+def api_alert_response_action_approve(alert_id, action_id):
+    try:
+        alert = approve_response_action(alert_id, action_id, session["username"])
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    action = next(item for item in alert["response_actions"] if item["action_id"] == action_id)
+    audit_common = {
+        "actor": session["username"], "role": session.get("role"),
+        "target_type": "response_action", "target_id": action_id,
+    }
+    approved = action.get("approved_by") == session["username"]
+    append_audit_event(
+        "RESPONSE_APPROVED", **audit_common, outcome="SUCCESS" if approved else "FAILED",
+        details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+    )
+    if approved:
+        append_audit_event(
+            "RESPONSE_EXECUTED", **audit_common, outcome=action["status"],
+            details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+        )
+    return jsonify(alert)
+
+
+@app.route("/api/alerts/<alert_id>/response-actions/<action_id>/rollback", methods=["POST"])
+@role_required("analyst")
+def api_alert_response_action_rollback(alert_id, action_id):
+    try:
+        alert = rollback_response_action(alert_id, action_id, session["username"])
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    action = next(item for item in alert["response_actions"] if item["action_id"] == action_id)
+    append_audit_event(
+        "RESPONSE_ROLLED_BACK", session["username"], role=session.get("role"),
+        target_type="response_action", target_id=action_id,
+        details={"incident_id": alert["incident_id"], "action_type": action["action_type"]},
+    )
+    return jsonify(alert)
 
 @app.route("/api/alerts/search")
 def api_alerts_search():
@@ -223,10 +494,12 @@ def api_alerts_search():
     Query params:
       - page (default 1)
       - page_size (default 50, max 200)
-      - severity (CRITICAL/HIGH/MEDIUM/INFO)
+      - severity (CRITICAL/HIGH/MEDIUM/LOW; legacy INFO is still readable)
       - q (free text: alert_name/description/raw_log)
       - ip (substring match)
       - mitre (substring match)
+      - incident_status
+      - human_review (true/false)
     """
     try:
         page = int(request.args.get("page", 1))
@@ -244,23 +517,32 @@ def api_alerts_search():
     q = (request.args.get("q") or "").strip() or None
     ip = (request.args.get("ip") or "").strip() or None
     mitre = (request.args.get("mitre") or "").strip() or None
+    incident_status = (request.args.get("incident_status") or "").strip() or None
+    ai_disposition = (request.args.get("ai_disposition") or "").strip() or None
+    if not ai_disposition and (request.args.get("human_review") or "").lower() in {"1", "true", "yes"}:
+        ai_disposition = "REQUIRES_HUMAN_REVIEW"
 
     from_ts = _parse_ts_maybe(request.args.get("from"))
     to_ts = _parse_ts_maybe(request.args.get("to"))
-
-    alerts = _read_all_alerts_newest_first()
-    filtered = [
-        a for a in alerts
-        if _matches_filters(a, severity=severity, q=q, ip=ip, mitre=mitre, from_ts=from_ts, to_ts=to_ts)
-    ]
-
-    total = len(filtered)
     start = (page - 1) * page_size
-    end = start + page_size
-    items = filtered[start:end]
+    result = alert_repository.search_alerts(
+        filters={
+            "severity": severity,
+            "q": q,
+            "ip": ip,
+            "mitre": mitre,
+            "incident_status": incident_status,
+            "ai_disposition": ai_disposition,
+            "from": from_ts.isoformat() if from_ts else None,
+            "to": to_ts.isoformat() if to_ts else None,
+        },
+        limit=page_size,
+        offset=start,
+    )
+    total = result["total"]
 
     return jsonify({
-        "items": items,
+        "items": result["items"],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -286,7 +568,7 @@ def api_graph():
     MAX_EVENT_NODES_TOTAL = 100
     MAX_EVENTS_PER_CAMPAIGN = 5
 
-    alerts = _read_all_alerts_newest_first()[:max_alerts]
+    alerts = load_alerts(max_alerts)
 
     # Node counters
     ip_count = defaultdict(int)
@@ -548,4 +830,4 @@ def graph_page():
     return render_template("graph.html", page="graph")
 
 if __name__ == "__main__":
-    app.run(host=config.DASHBOARD_HOST, port=config.DASHBOARD_PORT, debug=True)
+    app.run(host=config.DASHBOARD_HOST, port=config.DASHBOARD_PORT, debug=False)

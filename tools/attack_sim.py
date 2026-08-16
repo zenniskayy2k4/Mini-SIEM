@@ -19,6 +19,13 @@ console = Console()
 # Fake IPs for Log Injection
 IPS = ["192.168.1.10", "10.0.0.5", "172.16.0.99", "45.33.22.11", "185.200.11.2"]
 USERS = ["admin", "root", "user", "test", "oracle", "postgres"]
+ATTACK_MODE_EXPECTED_RULES = {
+    "1": ["DET-SSH-001"],
+    "2": ["DET-LNX-001"],
+    "3": [],
+    "4": ["DET-SSH-001", "DET-LNX-001"],
+    "5": [],
+}
 
 
 def write_log(message: str) -> None:
@@ -49,41 +56,49 @@ def print_menu() -> None:
     table = Table(title="Attack Modes", title_style="bold magenta", show_lines=True)
     table.add_column("Key", justify="center", style="bold")
     table.add_column("Mode", style="bold")
+    table.add_column("Expected Rule ID", style="cyan")
     table.add_column("Description", overflow="fold")
 
     table.add_row(
         "1",
         "SSH Brute Force (Log)",
+        ", ".join(ATTACK_MODE_EXPECTED_RULES["1"]),
         "Simulates multiple failed SSH logins from one IP (Trigger: Correlation/Threshold).",
     )
     table.add_row(
         "2",
         "Sudo Privilege Escalation (Log)",
+        ", ".join(ATTACK_MODE_EXPECTED_RULES["2"]),
         "Simulates a user attempting to gain root via sudo (Trigger: Signature).",
     )
     table.add_row(
         "3",
         "ML/NLP Anomaly Payload (Log)",
+        "No YAML rule",
         "Injects a long, high-entropy string (Trigger: Machine Learning Anomaly).",
     )
     table.add_row(
         "4",
         "Mixed Attack Chain (Log)",
+        ", ".join(ATTACK_MODE_EXPECTED_RULES["4"]),
         "Combines Brute Force + Sudo Escalation.",
     )
     table.add_row(
         "5",
         "Network TCP SYN Scan (Real Packet)",
+        "No YAML rule",
         "Sends 50 real TCP SYN packets to localhost (Trigger: NIDS Traffic Analysis).",
     )
     table.add_row(
         "h",
         "Help",
+        "-",
         "Show this menu again.",
     )
     table.add_row(
         "q",
         "Quit",
+        "-",
         "Exit the simulator.",
     )
 

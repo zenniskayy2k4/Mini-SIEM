@@ -1,17 +1,23 @@
 import time, os
 import threading
 import json
+import logging
 
 from watchdog.observers.polling import PollingObserver as Observer
 from config import config
 from src.detector import ThreatDetector
 from src.correlator import AlertCorrelator
 from src.response import IncidentResponder
-from src.handler import LogHandler
+from src.handler import LogHandler, WindowsEventHandler
 from src.network_monitor import NetworkMonitor
 from src.honeypot import MiniHoneypot
+from src.ai_analyst import AIAnalyst
+from src.rules import load_detection_rules
+from src.health import write_agent_heartbeat
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 def _load_runtime_settings() -> dict:
     try:
@@ -42,6 +48,8 @@ def setup_environment():
         print(f"[+] Init: Creating dummy log file at {config.LOG_FILE_TO_WATCH}")
         with open(config.LOG_FILE_TO_WATCH, 'w', encoding="utf-8") as f:
             f.write("--- Log Monitor Started ---\n")
+    if not os.path.exists(config.WINDOWS_EVENT_FILE):
+        open(config.WINDOWS_EVENT_FILE, "a", encoding="utf-8").close()
 
 def main():
     setup_environment()
@@ -56,7 +64,13 @@ def main():
     print("---------------------------------------------------------")
 
     # Initialize modules
-    detector = ThreatDetector(config.SIGNATURES)
+    ai_analyst = AIAnalyst()
+
+    detector = ThreatDetector(
+        load_detection_rules(config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR),
+        ai_analyst=ai_analyst,
+    )
+    
     correlator = AlertCorrelator(config.CORRELATION_WINDOW_MINUTES)
     responder = IncidentResponder()
 
@@ -66,6 +80,12 @@ def main():
 
     log_dir = os.path.dirname(config.LOG_FILE_TO_WATCH) or "."
     observer.schedule(event_handler, path=log_dir, recursive=False)
+    windows_handler = WindowsEventHandler(config.WINDOWS_EVENT_FILE, detector, correlator, responder)
+    observer.schedule(
+        windows_handler,
+        path=os.path.dirname(config.WINDOWS_EVENT_FILE) or ".",
+        recursive=False,
+    )
 
     observer.start()
 
@@ -77,7 +97,9 @@ def main():
         nonlocal nids
         if nids is not None:
             return
-        nids = NetworkMonitor(correlator=correlator, responder=responder)
+        nids = NetworkMonitor(
+            correlator=correlator, responder=responder, ai_analyst=ai_analyst,
+        )
         threading.Thread(target=nids.start, daemon=True).start()
         print("[+] NIDS enabled.")
 
@@ -96,6 +118,8 @@ def main():
         hp = MiniHoneypot(
             port=getattr(config, "HONEYPOT_PORT", 2222),
             bind_ip=getattr(config, "HONEYPOT_BIND_IP", "0.0.0.0"),
+            ai_analyst=ai_analyst,
+            responder=responder,
         )
         threading.Thread(target=hp.start, daemon=True).start()
         print("[+] Honeypot enabled.")
@@ -116,15 +140,16 @@ def main():
 
     # Watch runtime settings changes
     stop_event = threading.Event()
-    last_mtime = 0.0
+    last_settings_mtime = 0.0
+    last_sigma_mtime = 0.0
 
     def settings_watcher():
-        nonlocal last_mtime
+        nonlocal last_settings_mtime, last_sigma_mtime
         while not stop_event.is_set():
             try:
                 mtime = os.path.getmtime(RUNTIME_SETTINGS_FILE) if os.path.exists(RUNTIME_SETTINGS_FILE) else 0.0
-                if mtime != last_mtime:
-                    last_mtime = mtime
+                if mtime != last_settings_mtime:
+                    last_settings_mtime = mtime
                     _apply_runtime_settings()
 
                     if getattr(config, "NIDS_ENABLED", False):
@@ -136,11 +161,31 @@ def main():
                         start_honeypot()
                     else:
                         stop_honeypot()
+                sigma_mtime = (
+                    os.path.getmtime(config.SIGMA_RULE_STATE_FILE)
+                    if os.path.exists(config.SIGMA_RULE_STATE_FILE) else 0.0
+                )
+                if sigma_mtime != last_sigma_mtime:
+                    last_sigma_mtime = sigma_mtime
+                    detector.signatures = load_detection_rules(
+                        config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
+                    )
+                    logging.info("[+] Detection rules reloaded after Sigma lifecycle change")
             except Exception:
                 pass
             time.sleep(1.0)
 
     threading.Thread(target=settings_watcher, daemon=True).start()
+
+    def heartbeat_writer():
+        while not stop_event.is_set():
+            try:
+                write_agent_heartbeat(ai_analyst.health_status(), nids is not None, hp is not None)
+            except OSError as exc:
+                logging.warning("[-] Agent heartbeat write failed: %s", exc)
+            stop_event.wait(5)
+
+    threading.Thread(target=heartbeat_writer, daemon=True).start()
 
     try:
         while True:

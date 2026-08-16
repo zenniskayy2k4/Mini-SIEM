@@ -64,6 +64,7 @@
             <tr>
                 <th>Time</th>
                 <th>Alert Name</th>
+                <th>Rule ID</th>
                 <th>Severity</th>
                 <th>Source IP</th>
             </tr>
@@ -74,7 +75,26 @@
     </table>
 </div>
 
-<!-- 4. Context Graph -->
+<!-- 4. Detection Coverage -->
+<div class="card recent-alerts" style="margin-top:20px;">
+    <h3><i class="fa-solid fa-bullseye"></i> Detection Coverage</h3>
+    <div class="muted" id="coverage-summary">Loading coverage...</div>
+    <table class="mini-table" style="margin-top:10px;">
+        <thead>
+            <tr>
+                <th>Rule ID</th>
+                <th>Title</th>
+                <th>Source</th>
+                <th>MITRE</th>
+                <th>Hits</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="coverage-table-body"></tbody>
+    </table>
+</div>
+
+<!-- 5. Context Graph -->
 <div class="card recent-alerts" style="margin-top:20px;">
   <h3><i class="fa-solid fa-diagram-project"></i> Context Graph</h3>
   <div class="muted">Moved to the dedicated Graph tab for better readability.</div>

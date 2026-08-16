@@ -1,0 +1,14 @@
+id: DET-LNX-001
+title: Sudo Privilege Escalation
+enabled: true
+severity: MEDIUM
+source_type: HIDS_LOG
+mitre:
+  tactic: Privilege Escalation
+  technique: T1548.003
+match:
+  contains_any:
+    - COMMAND=/usr/bin/su
+    - COMMAND=/usr/bin/sudo
+description: User attempted to execute a command with elevated privileges.
+extract_ip: false
