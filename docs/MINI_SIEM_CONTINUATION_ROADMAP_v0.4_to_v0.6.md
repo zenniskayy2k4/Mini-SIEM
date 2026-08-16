@@ -179,25 +179,39 @@ ci: add baseline GitHub Actions workflow
 
 ## M10.2 — Docker service smoke CI
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local Docker smoke passed, GitHub run pending
 
 ### Tasks
 
-- [ ] Build Docker services.
-- [ ] Start stack với CI-safe config.
-- [ ] Wait `/health`.
-- [ ] Verify dashboard startup.
-- [ ] Verify SQLite initialization.
-- [ ] Stop stack trong cleanup.
-- [ ] Upload logs khi job fail.
-- [ ] Không gọi Ollama Cloud mặc định.
+- [x] Build Docker services.
+- [x] Start stack với CI-safe config.
+- [x] Wait `/health`.
+- [x] Verify dashboard startup.
+- [x] Verify SQLite initialization.
+- [x] Stop stack trong cleanup.
+- [x] Upload logs khi job fail.
+- [x] Không gọi Ollama Cloud mặc định.
 
 ### DoD
 
 - [ ] Docker build pass trên GitHub runner.
-- [ ] `/health` trả expected result.
-- [ ] Cleanup luôn chạy.
-- [ ] Failure có logs để debug.
+- [x] `/health` trả expected result.
+- [x] Cleanup luôn chạy.
+- [x] Failure có logs để debug.
+
+### Local verification — 2026-08-16
+
+```text
+GitHub Actions YAML/contract validation                     PASS
+docker compose config --quiet                              PASS
+docker compose build                                       PASS
+GET /health (agent/dashboard/database/status = healthy)    PASS
+GET /login (HTTP 200)                                      PASS
+SQLite PRAGMA quick_check + alerts table                   PASS
+Failure log artifact + always-run cleanup                  CONFIGURED
+```
+
+Docker build trên GitHub-hosted runner vẫn chờ workflow được commit và push.
 
 ### Commit
 
