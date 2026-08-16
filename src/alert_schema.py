@@ -34,6 +34,13 @@ def ensure_lifecycle(alert: dict) -> dict:
         raise ValueError(f"Invalid incident status: {incident_status}")
     alert["incident_status"] = incident_status
     alert.setdefault("rule_id", None)
+    rule_source = alert.get("rule_source") or ("native" if alert["rule_id"] else None)
+    if rule_source not in {None, "native", "sigma"}:
+        raise ValueError(f"Invalid rule source: {rule_source}")
+    if rule_source == "sigma" and not alert.get("sigma_rule_id"):
+        raise ValueError("Sigma alerts require sigma_rule_id")
+    alert["rule_source"] = rule_source
+    alert.setdefault("sigma_rule_id", None)
     alert.setdefault("assigned_to", None)
     alert["analyst_notes"] = list(alert.get("analyst_notes") or [])
     alert["response_actions"] = list(alert.get("response_actions") or [])
@@ -46,7 +53,7 @@ def build_alert(
     status="DETECTED", alert_id=None, event_count=1, first_seen=None,
     last_seen=None, correlation_key=None, ml_confidence=None,
     ai_analysis=None, ai_recommended_severity=None, ai_disposition=None,
-    rule_id=None,
+    rule_id=None, rule_source=None, sigma_rule_id=None,
     incident_id=None, incident_status=None, assigned_to=None,
     analyst_notes=None, created_at=None, updated_at=None,
     **extra,
@@ -82,6 +89,8 @@ def build_alert(
         "ai_recommended_severity": ai_recommended_severity,
         "ai_disposition": ai_disposition,
         "rule_id": rule_id,
+        "rule_source": rule_source,
+        "sigma_rule_id": sigma_rule_id,
         "incident_id": incident_id,
         "incident_status": incident_status,
         "assigned_to": assigned_to,

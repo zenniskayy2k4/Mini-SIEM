@@ -90,6 +90,11 @@ def validate_rule(rule: dict) -> dict:
         raise ValueError(f"Rule {rule['id']} has invalid severity")
     if rule.get("source_type") not in SOURCE_TYPES:
         raise ValueError(f"Rule {rule['id']} has invalid source_type")
+    rule_source = rule.get("rule_source", "native")
+    if rule_source not in {"native", "sigma"}:
+        raise ValueError(f"Rule {rule['id']} has invalid rule_source")
+    if rule_source == "sigma" and not rule.get("sigma_rule_id"):
+        raise ValueError(f"Rule {rule['id']} requires sigma_rule_id")
 
     mitre = rule.get("mitre")
     if not isinstance(mitre, dict) or not all(

@@ -1,0 +1,21 @@
+title: Suspicious PowerShell Execution
+id: 7c4f8f2e-1e7b-4d95-9f76-8c731fef60a3
+status: experimental
+description: Detects PowerShell launched with an encoded command option.
+author: Mini-SIEM
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+tags:
+  - attack.execution
+  - attack.t1059.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith: '\powershell.exe'
+    CommandLine|contains:
+      - ' -enc '
+      - ' -encodedcommand '
+  condition: selection
+level: high

@@ -322,6 +322,8 @@ class ThreatDetector:
             if match:
                 return build_alert(
                     rule_id=sig["id"],
+                    rule_source=sig.get("rule_source", "native"),
+                    sigma_rule_id=sig.get("sigma_rule_id"),
                     alert_name=sig["title"],
                     severity=sig["severity"],
                     source_type=sig["source_type"],
@@ -404,6 +406,8 @@ class ThreatDetector:
             events = list(failures)
             alert = build_alert(
                 rule_id=rule["id"],
+                rule_source=rule.get("rule_source", "native"),
+                sigma_rule_id=rule.get("sigma_rule_id"),
                 alert_name=rule["title"],
                 severity=rule["severity"],
                 source_type=rule["source_type"],

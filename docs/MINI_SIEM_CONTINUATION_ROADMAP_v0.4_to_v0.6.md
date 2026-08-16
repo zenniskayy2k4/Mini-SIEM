@@ -96,8 +96,8 @@ M18 — Multi-tenant Architecture
 
 | Milestone | Nội dung | Release | Status |
 |---|---|---|---|
-| M10 | Engineering Quality & CI | v0.4.0 | 🟠 In Progress |
-| M11 | Sigma Rule Support | v0.4.0 | ⬜ |
+| M10 | Engineering Quality & CI | v0.4.0 | ✅ Complete |
+| M11 | Sigma Rule Support | v0.4.0 | 🟠 In Progress |
 | M12 | Threat Intelligence Layer | v0.4.0 | ⬜ |
 | M13 | Asset Inventory & Risk Context | v0.5.0 | ⬜ |
 | M14 | Reporting & Observability | v0.5.0 | ⬜ |
@@ -269,7 +269,7 @@ ci: add secret and dependency security checks
 
 ## M10.4 — Release gate
 
-**Status:** 🟠 In Progress — local release gate passed, GitHub run pending
+**Status:** ✅ Complete — local and GitHub release gate passed
 
 ### Tasks
 
@@ -291,7 +291,7 @@ CHANGELOG semantic-version/date format                      PASS
 Clean-clone Compose and tracked-runtime checks              PASS
 ```
 
-M10 chỉ chuyển sang complete sau khi GitHub-hosted `release-gate` của commit M10.4 pass.
+GitHub Actions [run 31926399008](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31926399008) passed for commit `1953a63`.
 
 ### Commit
 
@@ -305,7 +305,7 @@ docs: add CI-backed release gate
 
 ## M11.1 — Sigma parser và metadata
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local Sigma metadata verification passed, GitHub run pending
 
 ### Architecture
 
@@ -345,22 +345,35 @@ config/sigma/
 
 ### Tasks
 
-- [ ] Load Sigma YAML.
-- [ ] Validate structure.
-- [ ] Invalid rule bị skip riêng.
-- [ ] Giữ Sigma UUID.
-- [ ] Map Sigma level → severity.
-- [ ] Map ATT&CK tags.
-- [ ] Alert lưu `rule_source: sigma`.
-- [ ] Alert lưu `sigma_rule_id`.
-- [ ] Unsupported rule không được enable silently.
+- [x] Load Sigma YAML.
+- [x] Validate structure.
+- [x] Invalid rule bị skip riêng.
+- [x] Giữ Sigma UUID.
+- [x] Map Sigma level → severity.
+- [x] Map ATT&CK tags.
+- [x] Alert lưu `rule_source: sigma`.
+- [x] Alert lưu `sigma_rule_id`.
+- [x] Unsupported rule không được enable silently.
 
 ### DoD
 
-- [ ] Sample Sigma rule load được.
-- [ ] Invalid rule không crash agent.
-- [ ] Native rules không bị ảnh hưởng.
-- [ ] Duplicate Sigma ID bị phát hiện.
+- [x] Sample Sigma rule load được.
+- [x] Invalid rule không crash agent.
+- [x] Native rules không bị ảnh hưởng.
+- [x] Duplicate Sigma ID bị phát hiện.
+
+### Local verification — 2026-08-16
+
+```text
+Sigma loader/schema/adapter syntax                           PASS
+Sample metadata, severity and ATT&CK mapping                 PASS
+Invalid rule isolation                                      PASS
+Duplicate Sigma UUID detection                              PASS
+Native/Sigma alert provenance contract                      PASS
+15 executable regression modules                            PASS
+```
+
+Sigma detection translation vẫn disabled rõ ràng cho tới M11.2. GitHub-hosted regression chờ commit được push.
 
 ### Commit
 
@@ -1296,7 +1309,7 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M10.4 — Commit/push and verify the CI-backed release gate
+M11.1 — Commit/push and verify Sigma metadata regression
 ```
 
 Không bắt đầu Sigma trước CI vì feature Sigma/TI sẽ mở rộng đáng kể số code path cần bảo vệ.
@@ -1306,7 +1319,7 @@ Không bắt đầu Sigma trước CI vì feature Sigma/TI sẽ mở rộng đá
 ```text
 git push
 → GitHub Actions tự chạy
-→ baseline/docker-smoke/security/release-gate checks
+→ baseline (including Sigma regression)/docker-smoke/security/release-gate
 → PASS hoặc FAIL rõ ràng
 ```
 
@@ -1478,12 +1491,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M10.4 — Commit/push and verify the release-gate GitHub Actions run
+M11.1 — Commit/push and verify the Sigma metadata GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M10.4 và milestone M10 thành `✅`.
-2. Ghi commit hash và GitHub Actions run.
-3. Đổi M11.1 thành batch tiếp theo.
-4. Không bắt đầu M11 nếu release gate chưa green, trừ khi có blocker rõ ràng.
+1. Đổi M11.1 thành `✅` và ghi GitHub Actions run.
+2. Đổi M11.2 thành batch tiếp theo.
+3. Không enable Sigma detection trước khi selection mapping pass.
