@@ -173,6 +173,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
 - Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.3.0 checklist](docs/RELEASE_v0.3.0.md).
+- Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
 - The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.4–v0.6 roadmap](docs/MINI_SIEM_CONTINUATION_ROADMAP_v0.4_to_v0.6.md).
 
 Useful commands:

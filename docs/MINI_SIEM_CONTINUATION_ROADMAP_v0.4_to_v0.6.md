@@ -112,7 +112,7 @@ M18 — Multi-tenant Architecture
 
 ## M10.1 — GitHub Actions baseline CI
 
-**Status:** 🟠 In Progress — local verification passed, GitHub run pending
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Goal
 
@@ -152,10 +152,10 @@ Checkout
 
 ### Definition of Done
 
-- [ ] Commit hợp lệ → CI green.
-- [ ] Syntax lỗi → CI red.
-- [ ] Regression lỗi → CI red.
-- [ ] Không lộ secret trong log.
+- [x] Commit hợp lệ → CI green.
+- [x] Syntax lỗi → CI red.
+- [x] Regression lỗi → CI red.
+- [x] Không lộ secret trong log.
 - [x] README có CI badge.
 
 ### Local verification — 2026-08-15
@@ -167,7 +167,7 @@ python -m compileall -q config src tools tests dashboard.py main.py PASS
 14 executable regression modules                                  PASS
 ```
 
-GitHub-hosted PASS/FAIL behavior remains pending until the workflow is committed and pushed.
+GitHub Actions [run 31880377953](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31880377953) passed for commit `308d82b`.
 
 ### Commit
 
@@ -179,7 +179,7 @@ ci: add baseline GitHub Actions workflow
 
 ## M10.2 — Docker service smoke CI
 
-**Status:** 🟠 In Progress — local Docker smoke passed, GitHub run pending
+**Status:** ✅ Complete — local and GitHub Docker smoke passed
 
 ### Tasks
 
@@ -194,7 +194,7 @@ ci: add baseline GitHub Actions workflow
 
 ### DoD
 
-- [ ] Docker build pass trên GitHub runner.
+- [x] Docker build pass trên GitHub runner.
 - [x] `/health` trả expected result.
 - [x] Cleanup luôn chạy.
 - [x] Failure có logs để debug.
@@ -211,7 +211,7 @@ SQLite PRAGMA quick_check + alerts table                   PASS
 Failure log artifact + always-run cleanup                  CONFIGURED
 ```
 
-Docker build trên GitHub-hosted runner vẫn chờ workflow được commit và push.
+GitHub Actions [run 31925484215](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31925484215) passed for commit `be8b718`.
 
 ### Commit
 
@@ -223,7 +223,7 @@ ci: add Docker service smoke checks
 
 ## M10.3 — Security checks
 
-**Status:** 🟠 In Progress — local security checks passed, GitHub run pending
+**Status:** ✅ Complete — local and GitHub security checks passed
 
 ### Tasks
 
@@ -257,7 +257,7 @@ pip-audit requirements.txt                                  PASS — no known vu
 .gitleaksignore reviewed-fingerprint policy                 PASS — 0 exceptions
 ```
 
-GitHub-hosted security job vẫn chờ workflow được commit và push.
+GitHub Actions [run 31925849592](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31925849592) passed for commit `e3a7c47`.
 
 ### Commit
 
@@ -269,16 +269,29 @@ ci: add secret and dependency security checks
 
 ## M10.4 — Release gate
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local release gate passed, GitHub run pending
 
 ### Tasks
 
-- [ ] Document release checklist.
-- [ ] CI phải green trước release.
-- [ ] Verify changelog.
-- [ ] Verify Compose config.
-- [ ] Verify clean-clone path.
-- [ ] Verify no tracked secrets.
+- [x] Document release checklist.
+- [x] CI phải green trước release.
+- [x] Verify changelog.
+- [x] Verify Compose config.
+- [x] Verify clean-clone path.
+- [x] Verify no tracked secrets.
+
+### Local verification — 2026-08-16
+
+```text
+GitHub Actions YAML/release-gate contract validation         PASS
+M10.1 baseline GitHub run                                   PASS
+M10.2 Docker smoke GitHub run                               PASS
+M10.3 security GitHub run                                   PASS
+CHANGELOG semantic-version/date format                      PASS
+Clean-clone Compose and tracked-runtime checks              PASS
+```
+
+M10 chỉ chuyển sang complete sau khi GitHub-hosted `release-gate` của commit M10.4 pass.
 
 ### Commit
 
@@ -1283,7 +1296,7 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M10.1 — Commit/push and verify GitHub Actions baseline CI
+M10.4 — Commit/push and verify the CI-backed release gate
 ```
 
 Không bắt đầu Sigma trước CI vì feature Sigma/TI sẽ mở rộng đáng kể số code path cần bảo vệ.
@@ -1293,7 +1306,7 @@ Không bắt đầu Sigma trước CI vì feature Sigma/TI sẽ mở rộng đá
 ```text
 git push
 → GitHub Actions tự chạy
-→ regression/syntax/compose checks
+→ baseline/docker-smoke/security/release-gate checks
 → PASS hoặc FAIL rõ ràng
 ```
 
@@ -1465,13 +1478,12 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M10.1 — Commit/push and verify the first GitHub Actions run
+M10.4 — Commit/push and verify the release-gate GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi status `🟡 NEXT` → `✅`.
-2. Ghi commit hash.
-3. Ghi verification evidence.
-4. Đổi M10.2 thành `🟡 NEXT`.
-5. Không nhảy sang M11 nếu M10 chưa hoàn tất, trừ khi có blocker rõ ràng.
+1. Đổi M10.4 và milestone M10 thành `✅`.
+2. Ghi commit hash và GitHub Actions run.
+3. Đổi M11.1 thành batch tiếp theo.
+4. Không bắt đầu M11 nếu release gate chưa green, trừ khi có blocker rõ ràng.
