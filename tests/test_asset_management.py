@@ -85,6 +85,7 @@ def test_asset_management():
 
                 all_assets = admin.get("/api/assets").get_json()
                 assert all_assets["total"] == 2
+                assert admin.get(f"/api/assets?q={first['asset_id']}").get_json()["assets"] == [first]
                 assert admin.get("/api/assets?q=internet-facing").get_json()["assets"] == [first]
                 assert admin.get("/api/assets?environment=test").get_json()["assets"] == [second]
                 assert admin.get("/api/assets?criticality=HIGH").get_json()["assets"] == [second]

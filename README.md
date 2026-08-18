@@ -23,7 +23,7 @@ Current release: **v0.4.0** — see the [changelog](CHANGELOG.md) and [release c
 - TF-IDF/Isolation Forest and autoencoder anomaly signals alongside deterministic rules.
 - Ollama Cloud triage through one shared worker; detection continues while the worker is busy or AI is unavailable.
 - SQLite as the primary alert store, with JSON dual-write/fallback during migration.
-- Admin-only asset inventory with validated CRUD, hostname/IP lookup, filters, criticality, ownership, tags, and immutable audit events.
+- Admin-only asset inventory with validated CRUD, hostname/IP lookup, alert links, filters, criticality, ownership, tags, and immutable audit events.
 - Incident lifecycle, notes, assignee, timeline, audit trail, role-based access, and CSRF protection.
 - Proposed response actions, approvals, simulation, rollback metadata, and optional webhook notifications.
 - Normalized GeoIP, optional AbuseIPDB/VirusTotal metadata, and offline STIX/TAXII indicator matching.

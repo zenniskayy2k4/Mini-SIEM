@@ -168,6 +168,7 @@ function initAssets() {
     enabled: document.getElementById("asset-enabled"),
   };
   let assets = new Map();
+  filterQ.value = new URLSearchParams(window.location.search).get("q")?.slice(0, 200) || "";
 
   const splitList = (value) => value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
 
@@ -656,10 +657,11 @@ function initDashboard() {
           const row = `
               <tr>
                 <td>${new Date(alert.timestamp).toLocaleTimeString()}</td>
-                <td style="font-weight:bold">${alert.alert_name}</td>
+                <td style="font-weight:bold">${escapeHTML(alert.alert_name || "")}</td>
                 <td class="font-mono">${escapeHTML(alert.rule_id || "-")}</td>
-                <td><span style="color:${getColor(alert.severity)}">${alert.severity}</span></td>
-                <td>${alert.ip_address || "N/A"}</td>
+                <td><span style="color:${getColor(alert.severity)}">${escapeHTML(alert.severity || "")}</span></td>
+                <td>${escapeHTML(alert.ip_address || "N/A")}</td>
+                <td>${renderAssetReference(alert.asset_id)}</td>
               </tr>`;
           tbody.innerHTML += row;
         });
@@ -925,6 +927,9 @@ function createRow(alert) {
   }
   if (alert.assigned_to) {
     detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Assigned to: ${escapeHTML(alert.assigned_to)}</div>`;
+  }
+  if (alert.asset_id) {
+    detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Asset: ${renderAssetReference(alert.asset_id)}</div>`;
   }
 
   if (alert.ml_anomaly_score) {
@@ -1214,6 +1219,13 @@ function escapeHTML(value) {
 
 function escapeAttr(value) {
   return escapeHTML(value).replaceAll("\n", " ");
+}
+
+function renderAssetReference(assetId) {
+  if (!assetId) return "-";
+  const label = escapeHTML(assetId);
+  if (CURRENT_ROLE !== "admin") return label;
+  return `<a href="/assets?q=${encodeURIComponent(assetId)}">${label}</a>`;
 }
 
 // Helper function

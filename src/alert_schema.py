@@ -42,6 +42,7 @@ def ensure_lifecycle(alert: dict) -> dict:
     alert["rule_source"] = rule_source
     alert.setdefault("sigma_rule_id", None)
     alert.setdefault("assigned_to", None)
+    alert.setdefault("asset_id", None)
     alert["analyst_notes"] = list(alert.get("analyst_notes") or [])
     alert["response_actions"] = list(alert.get("response_actions") or [])
     return alert

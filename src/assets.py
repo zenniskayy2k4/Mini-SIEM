@@ -118,3 +118,24 @@ def build_asset(
         "created_at": timestamp,
         "updated_at": timestamp,
     })
+
+
+def enrich_alert_with_asset(alert: dict, repository) -> dict:
+    """Attach only the matching enabled asset ID; hostname wins over IP."""
+    match = None
+    for field in ("hostname", "computer"):
+        hostname = alert.get(field)
+        if isinstance(hostname, str) and hostname.strip():
+            candidate = repository.find_by_hostname(hostname)
+            if candidate and candidate["enabled"]:
+                match = candidate
+                break
+    if match is None and alert.get("ip_address"):
+        try:
+            candidate = repository.find_by_ip(alert["ip_address"])
+        except ValueError:
+            candidate = None
+        if candidate and candidate["enabled"]:
+            match = candidate
+    alert["asset_id"] = match["asset_id"] if match else None
+    return alert

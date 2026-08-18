@@ -446,7 +446,7 @@ def api_assets():
         assets = [asset for asset in assets if asset["criticality"] == criticality]
     if q:
         assets = [asset for asset in assets if q in " ".join([
-            asset["hostname"], *asset["ip_addresses"], asset["os"], asset["owner"],
+            asset["asset_id"], asset["hostname"], *asset["ip_addresses"], asset["os"], asset["owner"],
             asset["department"], *asset["tags"],
         ]).casefold()]
     return jsonify({"assets": assets, "total": len(assets)})

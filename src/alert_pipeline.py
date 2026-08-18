@@ -2,7 +2,9 @@ import logging
 
 from config import config
 from src.alert_store import upsert_alert
+from src.assets import enrich_alert_with_asset
 from src.notifier import notification_service
+from src.sqlite_store import SQLiteAssetRepository
 from src.threat_intel import (
     ABUSEIPDB_FIELDS,
     GEOIP_FIELDS,
@@ -14,6 +16,7 @@ from src.threat_intel import (
 
 logger = logging.getLogger(__name__)
 _STIX_STORE = STIXIndicatorStore(config.STIX_INDICATOR_FILE)
+_ASSET_REPOSITORY = SQLiteAssetRepository()
 
 
 def _persist_and_notify(alert):
@@ -131,9 +134,14 @@ def _initial_threat_intel(
 
 def persist_and_enrich(
     alert: dict, ai_analyst=None, geoip_service=None, abuseipdb_service=None,
-    virustotal_service=None, stix_store=_STIX_STORE,
+    virustotal_service=None, stix_store=_STIX_STORE, asset_repository=_ASSET_REPOSITORY,
 ) -> dict:
     """Persist every alert before dispatching optional asynchronous enrichment."""
+    try:
+        enrich_alert_with_asset(alert, asset_repository)
+    except Exception as exc:
+        alert["asset_id"] = None
+        logger.warning("Asset enrichment failed for %s: %s", alert.get("alert_id"), exc)
     file_hash = _initial_threat_intel(
         alert, geoip_service, abuseipdb_service, virustotal_service, stix_store,
     )
