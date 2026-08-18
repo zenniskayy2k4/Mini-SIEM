@@ -440,7 +440,7 @@ feat: translate supported Sigma selections into Mini-SIEM rules
 
 ## M11.3 — Sigma lifecycle
 
-**Status:** 🟠 In Progress — local Sigma lifecycle regression passed, GitHub run pending
+**Status:** ✅ Complete — GitHub Actions passed
 
 ### Tasks
 
@@ -464,7 +464,9 @@ JavaScript syntax and Python compile                         PASS
 Docker Compose validation                                    PASS
 ```
 
-Sigma YAML remains read-only; runtime overrides are stored atomically under `data/`. M11.4 has not started.
+Sigma YAML remains read-only; runtime overrides are stored atomically under `data/`.
+
+GitHub Actions [run 31929684141](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31929684141) passed for commit `31c942d`.
 
 ### Commit
 
@@ -476,23 +478,37 @@ feat: manage Sigma rule lifecycle and coverage
 
 ## M11.4 — Sigma regression corpus
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local Sigma corpus regression passed, GitHub run pending
 
 ### Fixtures
 
-- [ ] Windows process creation.
-- [ ] PowerShell.
-- [ ] Account creation.
-- [ ] Positive cases.
-- [ ] Negative cases.
-- [ ] Unsupported syntax case.
+- [x] Windows process creation.
+- [x] PowerShell.
+- [x] Account creation.
+- [x] Positive cases.
+- [x] Negative cases.
+- [x] Unsupported syntax case.
 
 ### DoD
 
-- [ ] Positive matches đúng rule.
-- [ ] Negative không match.
-- [ ] Regression chạy trong CI.
-- [ ] Không cần network.
+- [x] Positive matches đúng rule.
+- [x] Negative không match.
+- [x] Regression chạy trong CI.
+- [x] Không cần network.
+
+### Local verification — 2026-08-18
+
+```text
+Sysmon process creation positive/negative corpus             PASS
+PowerShell positive/negative corpus                          PASS
+Security Event 4720 account creation corpus                  PASS
+Unsupported Sigma syntax remains disabled                   PASS
+Sigma UUID/provenance on positive alerts                     PASS
+18 executable regression modules                            PASS
+Docker Compose validation                                    PASS
+```
+
+The corpus is entirely repository-local and is discovered by the existing CI test glob. M11.5 has not started.
 
 ### Commit
 
@@ -1336,10 +1352,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M11.3 — Commit/push and verify Sigma lifecycle regression
+M11.4 — Commit/push and verify Sigma regression corpus
 ```
 
-Không bắt đầu M11.4 corpus trước khi lifecycle CI pass.
+Không bắt đầu M11.5 documentation trước khi corpus CI pass.
 
 ### Success condition
 
@@ -1518,11 +1534,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M11.3 — Commit/push and verify the Sigma lifecycle GitHub Actions run
+M11.4 — Commit/push and verify the Sigma corpus GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M11.3 thành `✅` và ghi GitHub Actions run.
-2. Đổi M11.4 thành batch tiếp theo.
-3. Không bắt đầu regression corpus trước khi lifecycle CI pass.
+1. Đổi M11.4 thành `✅` và ghi GitHub Actions run.
+2. Đổi M11.5 thành batch tiếp theo.
+3. Không bắt đầu documentation trước khi corpus CI pass.

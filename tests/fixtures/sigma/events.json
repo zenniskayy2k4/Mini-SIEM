@@ -1,0 +1,130 @@
+[
+  {
+    "case": "process_creation_positive",
+    "expected_rule": "673bbb22-3691-438e-8849-99b4a59d5145",
+    "record": {
+      "Event": {
+        "System": {
+          "Provider": {"@Name": "Microsoft-Windows-Sysmon"},
+          "EventID": 1,
+          "Computer": "win-corpus",
+          "EventRecordID": 1001,
+          "TimeCreated": {"@SystemTime": "2026-08-18T01:00:00Z"}
+        },
+        "EventData": {
+          "Data": [
+            {"@Name": "Image", "#text": "C:\\Windows\\System32\\rundll32.exe"},
+            {"@Name": "CommandLine", "#text": "rundll32.exe javascript:\\..\\mshtml,RunHTMLApplication"}
+          ]
+        }
+      }
+    }
+  },
+  {
+    "case": "process_creation_negative",
+    "expected_rule": null,
+    "record": {
+      "Event": {
+        "System": {
+          "Provider": {"@Name": "Microsoft-Windows-Sysmon"},
+          "EventID": 1,
+          "Computer": "win-corpus",
+          "EventRecordID": 1002,
+          "TimeCreated": {"@SystemTime": "2026-08-18T01:01:00Z"}
+        },
+        "EventData": {
+          "Data": [
+            {"@Name": "Image", "#text": "C:\\Windows\\System32\\rundll32.exe"},
+            {"@Name": "CommandLine", "#text": "rundll32.exe shell32.dll,Control_RunDLL desk.cpl"}
+          ]
+        }
+      }
+    }
+  },
+  {
+    "case": "powershell_positive",
+    "expected_rule": "b48b53d4-6bfb-4d0a-af2b-12ddeb0e7bb6",
+    "record": {
+      "Event": {
+        "System": {
+          "Provider": {"@Name": "Microsoft-Windows-Sysmon"},
+          "EventID": 1,
+          "Computer": "win-corpus",
+          "EventRecordID": 1003,
+          "TimeCreated": {"@SystemTime": "2026-08-18T01:02:00Z"}
+        },
+        "EventData": {
+          "Data": [
+            {"@Name": "Image", "#text": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"},
+            {"@Name": "CommandLine", "#text": "powershell.exe -nop -w hidden -encodedcommand SQBFAFgA"}
+          ]
+        }
+      }
+    }
+  },
+  {
+    "case": "powershell_negative",
+    "expected_rule": null,
+    "record": {
+      "Event": {
+        "System": {
+          "Provider": {"@Name": "Microsoft-Windows-Sysmon"},
+          "EventID": 1,
+          "Computer": "win-corpus",
+          "EventRecordID": 1004,
+          "TimeCreated": {"@SystemTime": "2026-08-18T01:03:00Z"}
+        },
+        "EventData": {
+          "Data": [
+            {"@Name": "Image", "#text": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"},
+            {"@Name": "CommandLine", "#text": "powershell.exe Get-Process"}
+          ]
+        }
+      }
+    }
+  },
+  {
+    "case": "account_creation_positive",
+    "expected_rule": "8942baac-07a3-4c3a-b3d5-d69eadeb01d2",
+    "record": {
+      "Event": {
+        "System": {
+          "Provider": {"@Name": "Microsoft-Windows-Security-Auditing"},
+          "EventID": 4720,
+          "Channel": "Security",
+          "Computer": "win-corpus",
+          "EventRecordID": 1005,
+          "TimeCreated": {"@SystemTime": "2026-08-18T01:04:00Z"}
+        },
+        "EventData": {
+          "Data": [
+            {"@Name": "TargetUserName", "#text": "svc_backup"},
+            {"@Name": "TargetDomainName", "#text": "LAB"}
+          ]
+        }
+      }
+    }
+  },
+  {
+    "case": "account_creation_negative",
+    "expected_rule": null,
+    "record": {
+      "Event": {
+        "System": {
+          "Provider": {"@Name": "Microsoft-Windows-Security-Auditing"},
+          "EventID": 4624,
+          "Channel": "Security",
+          "Computer": "win-corpus",
+          "EventRecordID": 1006,
+          "TimeCreated": {"@SystemTime": "2026-08-18T01:05:00Z"}
+        },
+        "EventData": {
+          "Data": [
+            {"@Name": "TargetUserName", "#text": "svc_backup"},
+            {"@Name": "TargetDomainName", "#text": "LAB"}
+          ]
+        }
+      }
+    }
+  }
+]
