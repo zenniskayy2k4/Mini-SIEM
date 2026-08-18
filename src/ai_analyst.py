@@ -78,6 +78,7 @@ Window Seconds: {window_seconds}
 First Seen    : {first_seen}
 Last Seen     : {last_seen}
 Target Users  : {target_users}
+Threat Intel  : {threat_intel}
 """
 
 
@@ -307,6 +308,19 @@ class AIAnalyst:
             ]
         )
 
+    @staticmethod
+    def _threat_intel_summary(alert: dict) -> str:
+        entry = (alert.get("threat_intel") or {}).get("abuseipdb") or {}
+        allowed = (
+            "ioc", "status", "abuse_confidence", "total_reports",
+            "last_reported_at", "isp", "domain", "usage_type",
+        )
+        return json.dumps(
+            {key: entry.get(key) for key in allowed if key in entry},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+
     def _safe_enrich(self, alert: dict) -> dict:
         try:
             result = self._enrich(alert)
@@ -359,6 +373,7 @@ class AIAnalyst:
             first_seen    = alert.get("first_seen"),
             last_seen     = alert.get("last_seen"),
             target_users  = json.dumps(alert.get("target_users"), ensure_ascii=False),
+            threat_intel  = self._threat_intel_summary(alert),
         )
 
         # Call Ollama Cloud API

@@ -638,7 +638,7 @@ refactor: add threat intelligence provider abstraction
 
 ## M12.2 — GeoIP enrichment
 
-**Status:** 🟠 In Progress — local GeoIP regression and live provider smoke passed; GitHub run pending
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Fields
 
@@ -676,6 +676,8 @@ Python/JavaScript syntax and Docker Compose validation        PASS
 
 The agent shares one bounded GeoIP service across HIDS, Windows, NIDS and honeypot sensors. Public lookups use the configurable keyless HTTPS endpoint; local and special-use addresses never leave the host.
 
+GitHub Actions [run 32102158042](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32102158042) passed for commit `9e3b04b`.
+
 ### Commit
 
 ```text
@@ -686,7 +688,7 @@ feat: add GeoIP context enrichment
 
 ## M12.3 — AbuseIPDB provider
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local AbuseIPDB regression passed; GitHub run pending
 
 ### Normalize
 
@@ -698,14 +700,31 @@ feat: add GeoIP context enrichment
 
 ### Tasks
 
-- [ ] Key qua `.env`.
-- [ ] Missing key → provider disabled.
-- [ ] Không lookup private IP.
-- [ ] Rate limit.
-- [ ] Cache.
-- [ ] Không gửi raw log.
-- [ ] AI chỉ nhận normalized summary.
-- [ ] API 429 handled.
+- [x] Key qua `.env`.
+- [x] Missing key → provider disabled.
+- [x] Không lookup private IP.
+- [x] Rate limit.
+- [x] Cache.
+- [x] Không gửi raw log.
+- [x] AI chỉ nhận normalized summary.
+- [x] API 429 handled.
+
+### Local verification — 2026-08-18
+
+```text
+Missing API key disables provider construction               PASS
+Private/loopback/link-local lookup skips HTTP                PASS
+GET /api/v2/check request uses API key header only           PASS
+Normalized confidence/reports/time/ISP/domain/usage fields   PASS
+TTL cache and bounded shared provider worker                 PASS
+HTTP 429 structured rate_limited state without retry         PASS
+Raw provider payload/API key excluded from persisted result  PASS
+AI receives normalized allowlisted threat-intel summary      PASS
+21 executable regression modules                             PASS
+Python/JavaScript syntax and Docker Compose validation        PASS
+```
+
+No live AbuseIPDB request was made because the repository intentionally contains no API key; the HTTP contract is covered with an offline fake response.
 
 ### Commit
 
@@ -1400,10 +1419,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M12.2 — Commit/push and verify GeoIP context enrichment
+M12.3 — Commit/push and verify AbuseIPDB threat intelligence enrichment
 ```
 
-Không bắt đầu M12.3 AbuseIPDB trước khi GeoIP enrichment CI pass.
+Không bắt đầu M12.4 VirusTotal trước khi AbuseIPDB enrichment CI pass.
 
 ### Success condition
 
@@ -1573,6 +1592,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-15 | TI dùng provider abstraction | Tránh coupling provider |
 | 2026-08-15 | Không auto-upload VirusTotal | Tránh rò rỉ dữ liệu |
 | 2026-08-18 | GeoIP chỉ là context, chỉ lookup IP global | Không suy diễn quốc gia là malicious và không gửi địa chỉ local ra ngoài |
+| 2026-08-18 | AbuseIPDB chỉ dùng check endpoint và normalized summary | Không gửi raw log hoặc provider payload sang API/AI |
 | 2026-08-15 | Risk tách khỏi severity | Detection semantics rõ ràng |
 | 2026-08-15 | LLM không đặt risk score trực tiếp | Risk phải explainable |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
@@ -1583,11 +1603,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M12.2 — Commit/push and verify the GeoIP enrichment GitHub Actions run
+M12.3 — Commit/push and verify the AbuseIPDB enrichment GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M12.2 thành `✅` và ghi GitHub Actions run.
-2. Đổi M12.3 thành batch tiếp theo.
-3. Không bắt đầu AbuseIPDB trước khi GeoIP enrichment CI pass.
+1. Đổi M12.3 thành `✅` và ghi GitHub Actions run.
+2. Đổi M12.4 thành batch tiếp theo.
+3. Không bắt đầu VirusTotal trước khi AbuseIPDB enrichment CI pass.

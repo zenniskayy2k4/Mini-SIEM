@@ -45,6 +45,7 @@ GEOIP_CACHE_TTL_SECONDS = max(60, int(os.getenv("GEOIP_CACHE_TTL_SECONDS", "8640
 GEOIP_RATE_LIMIT_PER_SECOND = max(0.01, float(os.getenv("GEOIP_RATE_LIMIT_PER_SECOND", "1")))
 GEOIP_TIMEOUT_SECONDS = max(0.1, float(os.getenv("GEOIP_TIMEOUT_SECONDS", "3")))
 GEOIP_MAX_ATTEMPTS = min(3, max(1, int(os.getenv("GEOIP_MAX_ATTEMPTS", "2"))))
+ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "").strip()
 WINDOWS_EVENT_FILE = os.getenv(
     "WINDOWS_EVENT_FILE", os.path.join(BASE_DIR, "data", "windows_events.jsonl")
 )
