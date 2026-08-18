@@ -959,7 +959,7 @@ docs: prepare v0.4.0 release
 
 ## M13.1 — Asset schema
 
-**Status:** ✅ Complete — local verification passed; commit CI pending
+**Status:** ✅ Complete — local and GitHub Actions verification passed (`32126105310`)
 
 ### Schema
 
@@ -1007,16 +1007,28 @@ feat: add asset inventory data model
 
 ## M13.2 — Asset management API/UI
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit CI pending
 
-- [ ] Admin-only CRUD.
-- [ ] Search/filter.
-- [ ] Criticality.
-- [ ] Owner/team.
-- [ ] Tags.
-- [ ] Validation.
-- [ ] CSRF/RBAC.
-- [ ] Audit.
+- [x] Admin-only CRUD page and API.
+- [x] Search plus environment, criticality, and enabled-state filters.
+- [x] Criticality editing.
+- [x] Owner/team editing.
+- [x] Tags editing.
+- [x] Bounded payload, field, IP, and tag validation.
+- [x] Existing session RBAC and CSRF enforcement.
+- [x] Immutable create/update/delete audit events.
+
+### Local verification — 2026-08-18
+
+```text
+M13.2 focused API/UI regression                PASS
+M13.1 asset repository regression              PASS
+Authentication and responsive contracts        PASS
+Python and JavaScript syntax                    PASS
+27 executable regression modules               PASS
+Docker Compose validation                       PASS
+No image rebuild                                PASS
+```
 
 ### Commit
 
@@ -1523,10 +1535,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M13.2 — Asset management API/UI (not started; begin only in the next requested batch)
+M13.3 — Alert-to-asset enrichment (not started; begin only in the next requested batch)
 ```
 
-M13.1 hoàn tất ở local. Không bắt đầu M13.2 trong cùng batch.
+M13.2 hoàn tất ở local. Không bắt đầu M13.3 trong cùng batch.
 
 ### Success condition
 
@@ -1711,7 +1723,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M13.2 — Asset management API/UI (not started)
+M13.3 — Alert-to-asset enrichment (not started)
 ```
 
-M13.1 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M13.2 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M13.2 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M13.3 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

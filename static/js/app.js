@@ -7,6 +7,7 @@ const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
 const API_DETECTION_RULES = "/api/detection-rules";
+const API_ASSETS = "/api/assets";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
 const CURRENT_ROLE = document.querySelector('meta[name="current-role"]')?.content || "";
 
@@ -17,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (path === "/") initDashboard();
   else if (path === "/logs") initLogs();
   else if (path === "/settings") initSettings();
+  else if (path === "/assets") initAssets();
   else if (path === "/graph") initGraphPage();
 });
 
@@ -136,6 +138,174 @@ function initSettings() {
       .catch((error) => { ruleStatus.textContent = error.message; button.disabled = false; });
   });
   loadRules();
+}
+
+// --- ASSET INVENTORY ---
+function initAssets() {
+  const tableBody = document.getElementById("asset-table-body");
+  if (!tableBody) return;
+
+  const status = document.getElementById("asset-status");
+  const filters = document.getElementById("asset-filters");
+  const filterQ = document.getElementById("asset-filter-q");
+  const filterEnvironment = document.getElementById("asset-filter-environment");
+  const filterCriticality = document.getElementById("asset-filter-criticality");
+  const filterEnabled = document.getElementById("asset-filter-enabled");
+  const dialog = document.getElementById("asset-dialog");
+  const form = document.getElementById("asset-form");
+  const formError = document.getElementById("asset-form-error");
+  const saveButton = document.getElementById("asset-save");
+  const fields = {
+    id: document.getElementById("asset-id"),
+    hostname: document.getElementById("asset-hostname"),
+    ips: document.getElementById("asset-ips"),
+    os: document.getElementById("asset-os"),
+    owner: document.getElementById("asset-owner"),
+    department: document.getElementById("asset-department"),
+    environment: document.getElementById("asset-environment"),
+    criticality: document.getElementById("asset-criticality"),
+    tags: document.getElementById("asset-tags"),
+    enabled: document.getElementById("asset-enabled"),
+  };
+  let assets = new Map();
+
+  const splitList = (value) => value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+
+  function queryString() {
+    const query = new URLSearchParams();
+    if (filterQ.value.trim()) query.set("q", filterQ.value.trim());
+    if (filterEnvironment.value) query.set("environment", filterEnvironment.value);
+    if (filterCriticality.value) query.set("criticality", filterCriticality.value);
+    if (filterEnabled.value) query.set("enabled", filterEnabled.value);
+    return query.toString();
+  }
+
+  function render(items) {
+    assets = new Map(items.map((asset) => [asset.asset_id, asset]));
+    status.textContent = `${items.length} asset${items.length === 1 ? "" : "s"}`;
+    if (!items.length) {
+      tableBody.innerHTML = '<tr><td colspan="7" class="muted">No assets match the current filters.</td></tr>';
+      return;
+    }
+    tableBody.innerHTML = items.map((asset) => `
+      <tr>
+        <td><strong>${escapeHTML(asset.hostname)}</strong><div class="asset-secondary font-mono">${escapeHTML(asset.asset_id)}</div></td>
+        <td>${asset.ip_addresses.length ? asset.ip_addresses.map(escapeHTML).join("<br>") : '<span class="muted">None</span>'}</td>
+        <td><span class="severity-badge severity-${escapeAttr(asset.criticality)}">${escapeHTML(asset.criticality)}</span><div class="asset-secondary">${escapeHTML(asset.environment.toUpperCase())} · ${escapeHTML(asset.os || "Unknown OS")}</div></td>
+        <td>${escapeHTML(asset.owner || "Unassigned")}<div class="asset-secondary">${escapeHTML(asset.department || "No department")}</div></td>
+        <td>${asset.tags.length ? asset.tags.map((tag) => `<span class="ai-tag">${escapeHTML(tag)}</span>`).join(" ") : '<span class="muted">None</span>'}</td>
+        <td>${asset.enabled ? "ENABLED" : "DISABLED"}</td>
+        <td><div class="asset-table-actions">
+          <button class="btn btn-ghost asset-edit" type="button" data-asset-id="${escapeAttr(asset.asset_id)}">Edit</button>
+          <button class="btn btn-ghost asset-delete" type="button" data-asset-id="${escapeAttr(asset.asset_id)}">Delete</button>
+        </div></td>
+      </tr>`).join("");
+  }
+
+  async function loadAssets() {
+    status.textContent = "Loading assets...";
+    try {
+      const response = await fetch(`${API_ASSETS}?${queryString()}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to load assets");
+      render(data.assets || []);
+    } catch (error) {
+      status.textContent = error.message || "Failed to load assets.";
+    }
+  }
+
+  function openForm(asset) {
+    form.reset();
+    formError.textContent = "";
+    fields.id.value = asset?.asset_id || "";
+    fields.hostname.value = asset?.hostname || "";
+    fields.ips.value = (asset?.ip_addresses || []).join("\n");
+    fields.os.value = asset?.os || "";
+    fields.owner.value = asset?.owner || "";
+    fields.department.value = asset?.department || "";
+    fields.environment.value = asset?.environment || "dev";
+    fields.criticality.value = asset?.criticality || "MEDIUM";
+    fields.tags.value = (asset?.tags || []).join(", ");
+    fields.enabled.checked = asset?.enabled ?? true;
+    document.getElementById("asset-dialog-title").textContent = asset ? "Edit asset" : "Add asset";
+    dialog.showModal();
+    fields.hostname.focus();
+  }
+
+  document.getElementById("asset-add").addEventListener("click", () => openForm(null));
+  document.getElementById("asset-dialog-close").addEventListener("click", () => dialog.close());
+  document.getElementById("asset-cancel").addEventListener("click", () => dialog.close());
+
+  filters.addEventListener("submit", (event) => {
+    event.preventDefault();
+    loadAssets();
+  });
+  document.getElementById("asset-filter-clear").addEventListener("click", () => {
+    filters.reset();
+    loadAssets();
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    formError.textContent = "";
+    saveButton.disabled = true;
+    const assetId = fields.id.value;
+    const body = {
+      hostname: fields.hostname.value,
+      ip_addresses: splitList(fields.ips.value),
+      os: fields.os.value,
+      owner: fields.owner.value,
+      department: fields.department.value,
+      environment: fields.environment.value,
+      criticality: fields.criticality.value,
+      tags: splitList(fields.tags.value),
+      enabled: fields.enabled.checked,
+    };
+    try {
+      const response = await fetch(assetId ? `${API_ASSETS}/${encodeURIComponent(assetId)}` : API_ASSETS, {
+        method: assetId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Asset save failed");
+      dialog.close();
+      await loadAssets();
+    } catch (error) {
+      formError.textContent = error.message || "Asset save failed";
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+
+  tableBody.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-asset-id]");
+    if (!button) return;
+    const asset = assets.get(button.dataset.assetId);
+    if (!asset) return;
+    if (button.classList.contains("asset-edit")) {
+      openForm(asset);
+      return;
+    }
+    if (!window.confirm(`Delete asset ${asset.hostname}?`)) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(`${API_ASSETS}/${encodeURIComponent(asset.asset_id)}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": CSRF_TOKEN },
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Asset delete failed");
+      }
+      await loadAssets();
+    } catch (error) {
+      status.textContent = error.message || "Asset delete failed";
+      button.disabled = false;
+    }
+  });
+
+  loadAssets();
 }
 
 // --- DASHBOARD LOGIC ---

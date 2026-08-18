@@ -1219,6 +1219,105 @@ select.styled-input {
   box-shadow: 0 18px 35px rgba(0,0,0,0.45);
 }
 
+/* Asset inventory */
+.asset-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.asset-status {
+  min-height: 20px;
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.asset-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.table-responsive .asset-table {
+  min-width: 1050px;
+}
+
+.asset-table td {
+  vertical-align: top;
+}
+
+.asset-table-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.asset-secondary {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.asset-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+  color: var(--text-main);
+}
+
+.asset-dialog::backdrop {
+  background: rgba(2, 6, 23, 0.78);
+}
+
+.asset-dialog-header,
+.asset-dialog-actions,
+.asset-enabled-row {
+  display: flex;
+  align-items: center;
+}
+
+.asset-dialog-header {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.asset-dialog-header h3 {
+  margin: 0;
+}
+
+.asset-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.asset-field-wide {
+  grid-column: 1 / -1;
+}
+
+.asset-dialog textarea {
+  resize: vertical;
+}
+
+.asset-enabled-row {
+  gap: 8px;
+  margin: 18px 0 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.asset-dialog-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 /* Responsive shell and dense-data overflow */
 .table-wrapper {
   height: calc(100dvh - 140px);
@@ -1415,6 +1514,23 @@ select.styled-input {
   .auth-card {
     width: 100%;
     padding: 24px;
+  }
+
+  .asset-filters .filter-field,
+  .asset-filters .filter-field-wide {
+    flex-basis: 100%;
+  }
+
+  .asset-dialog {
+    padding: 16px;
+  }
+
+  .asset-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-field-wide {
+    grid-column: auto;
   }
 }
 

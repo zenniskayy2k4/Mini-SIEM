@@ -53,6 +53,8 @@ def validate_asset(asset: dict) -> dict:
     addresses = normalized.get("ip_addresses")
     if not isinstance(addresses, list):
         raise ValueError("Asset ip_addresses must be a list")
+    if len(addresses) > 64:
+        raise ValueError("Asset ip_addresses exceeds 64 entries")
     try:
         normalized["ip_addresses"] = sorted({normalize_ip_address(value) for value in addresses})
     except ValueError as exc:
@@ -74,7 +76,11 @@ def validate_asset(asset: dict) -> dict:
     tags = normalized.get("tags")
     if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
         raise ValueError("Asset tags must be a list of strings")
-    normalized["tags"] = sorted({tag.strip() for tag in tags if tag.strip()}, key=str.casefold)
+    if len(tags) > 32:
+        raise ValueError("Asset tags exceeds 32 entries")
+    normalized["tags"] = sorted(
+        {_text(tag, "tag", 64) for tag in tags if tag.strip()}, key=str.casefold,
+    )
 
     if not isinstance(normalized.get("enabled"), bool):
         raise ValueError("Asset enabled must be boolean")

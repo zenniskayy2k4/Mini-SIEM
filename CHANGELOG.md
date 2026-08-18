@@ -7,6 +7,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 ### Added
 
 - SQLite-backed asset inventory data model with stable IDs, normalized hostname/IP lookup, duplicate constraints, CRUD operations, and immutable audit events.
+- Responsive admin asset management UI and CSRF-protected API with search, environment/state/criticality filters, ownership, tags, and bounded validation.
 
 ## [0.4.0] - 2026-08-18
 

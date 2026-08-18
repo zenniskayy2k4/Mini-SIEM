@@ -39,6 +39,9 @@
                     <i class="fa-solid fa-diagram-project"></i><span class="nav-label">Graph</span>
                 </a>
                 {% if current_role == 'admin' %}
+                    <a href="/assets" class="{{ 'active' if page == 'assets' else '' }}">
+                        <i class="fa-solid fa-server"></i><span class="nav-label">Assets</span>
+                    </a>
                     <a href="/settings" class="{{ 'active' if page == 'settings' else '' }}">
                         <i class="fa-solid fa-gear"></i><span class="nav-label">Settings</span>
                     </a>

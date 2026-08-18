@@ -9,6 +9,7 @@ import re
 
 from config import config
 from src.alert_schema import INCIDENT_STATUSES, utc_iso
+from src.assets import CRITICALITIES, ENVIRONMENTS, build_asset
 from src.audit import append_audit_event
 from src.health import build_system_status
 from src.dashboard_auth import (
@@ -33,6 +34,7 @@ from src.alert_store import (
 from src.rules import build_detection_coverage, load_detection_rules
 from src.sigma import load_sigma_rules, set_sigma_rule_enabled
 from src.storage import alert_repository
+from src.sqlite_store import SQLiteAssetRepository
 from src.windows_events import ingest_windows_events
 
 app = Flask(__name__)
@@ -44,6 +46,7 @@ DETECTION_RULES = load_detection_rules(
 )
 SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
 RULES_LOADED_AT = utc_iso()
+asset_repository = SQLiteAssetRepository()
 
 ALLOWED_SETTINGS = {
     "NIDS_ENABLED",
@@ -375,6 +378,109 @@ def api_alert_status(alert_id):
         details={"from": event["from_status"], "to": event["to_status"]},
     )
     return jsonify(alert)
+
+
+@app.route("/assets")
+@role_required("admin")
+def assets():
+    return render_template("assets.html", page="assets")
+
+
+def _asset_request_body():
+    if request.content_length and request.content_length > 64 * 1024:
+        raise ValueError("Asset request exceeds 64 KiB")
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        raise ValueError("Request body must be a JSON object")
+    return body
+
+
+def _asset_error(exc):
+    message = str(exc)
+    status = 409 if "duplicate" in message.lower() or "already exists" in message.lower() else 400
+    return jsonify({"error": message}), status
+
+
+@app.route("/api/assets", methods=["GET", "POST"])
+@role_required("admin")
+def api_assets():
+    if request.method == "POST":
+        try:
+            body = _asset_request_body()
+            allowed = {
+                "hostname", "ip_addresses", "os", "owner", "department",
+                "environment", "criticality", "tags", "enabled",
+            }
+            unknown = set(body) - allowed
+            if unknown:
+                raise ValueError(f"Unsupported asset fields: {', '.join(sorted(unknown))}")
+            if "hostname" not in body:
+                raise ValueError("hostname is required")
+            asset = build_asset(**body)
+            created = asset_repository.create_asset(
+                asset, actor=session["username"], role=session.get("role"),
+            )
+            return jsonify(created), 201
+        except (TypeError, ValueError) as exc:
+            return _asset_error(exc)
+
+    q = (request.args.get("q") or "").strip().casefold()
+    environment = (request.args.get("environment") or "").strip().lower()
+    criticality = (request.args.get("criticality") or "").strip().upper()
+    enabled_text = (request.args.get("enabled") or "").strip().lower()
+    if len(q) > 200:
+        return jsonify({"error": "Search query exceeds 200 characters"}), 400
+    if environment and environment not in ENVIRONMENTS:
+        return jsonify({"error": "Invalid environment filter"}), 400
+    if criticality and criticality not in CRITICALITIES:
+        return jsonify({"error": "Invalid criticality filter"}), 400
+    if enabled_text not in {"", "true", "false"}:
+        return jsonify({"error": "enabled filter must be true or false"}), 400
+
+    enabled = None if not enabled_text else enabled_text == "true"
+    assets = asset_repository.list_assets(enabled=enabled)
+    # ponytail: in-memory filtering fits the single-node lab; move to SQL if inventory reaches thousands.
+    if environment:
+        assets = [asset for asset in assets if asset["environment"] == environment]
+    if criticality:
+        assets = [asset for asset in assets if asset["criticality"] == criticality]
+    if q:
+        assets = [asset for asset in assets if q in " ".join([
+            asset["hostname"], *asset["ip_addresses"], asset["os"], asset["owner"],
+            asset["department"], *asset["tags"],
+        ]).casefold()]
+    return jsonify({"assets": assets, "total": len(assets)})
+
+
+@app.route("/api/assets/<asset_id>", methods=["GET", "PATCH", "DELETE"])
+@role_required("admin")
+def api_asset(asset_id):
+    if request.method == "GET":
+        asset = asset_repository.get_asset(asset_id)
+        return (jsonify(asset), 200) if asset else (jsonify({"error": "Asset not found"}), 404)
+    if request.method == "DELETE":
+        deleted = asset_repository.delete_asset(
+            asset_id, actor=session["username"], role=session.get("role"),
+        )
+        return ("", 204) if deleted else (jsonify({"error": "Asset not found"}), 404)
+
+    try:
+        changes = _asset_request_body()
+        allowed = {
+            "hostname", "ip_addresses", "os", "owner", "department",
+            "environment", "criticality", "tags", "enabled",
+        }
+        unknown = set(changes) - allowed
+        if unknown:
+            raise ValueError(f"Unsupported asset fields: {', '.join(sorted(unknown))}")
+        if not changes:
+            raise ValueError("At least one asset field is required")
+        asset = asset_repository.update_asset(
+            asset_id, changes, actor=session["username"], role=session.get("role"),
+        )
+        return (jsonify(asset), 200) if asset else (jsonify({"error": "Asset not found"}), 404)
+    except ValueError as exc:
+        return _asset_error(exc)
 
 
 @app.route("/api/alerts/<alert_id>/notes", methods=["POST"])
