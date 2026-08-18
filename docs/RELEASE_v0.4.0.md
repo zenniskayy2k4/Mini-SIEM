@@ -86,11 +86,11 @@ docker compose run --rm -v "${PWD}:/app" dashboard sh -c \
 | Check | Result |
 |---|---|
 | Semantic version | `v0.4.0` selected for Detection Engineering and Threat Intelligence |
-| Regression | 24/24 executable test modules passed |
+| Regression | 25/25 executable test modules passed, including the responsive dashboard contract |
 | Sigma | Parser, mapping, lifecycle, provenance, coverage, and offline corpus passed |
 | Threat intelligence | Provider, GeoIP, AbuseIPDB, VirusTotal, dashboard, STIX/TAXII, expiry, and failure paths passed |
-| GitHub Actions | M12.6 run `32121071532` passed baseline, Docker smoke, security, and release gate |
-| Clean clone | Required release files, Compose configuration, syntax, and 24/24 regression modules passed |
+| GitHub Actions | Release-preparation run `32122174097` passed baseline, Docker smoke, security, and release gate; responsive stabilization CI is pending |
+| Clean clone | Required release files, Compose configuration, syntax, and the original 24/24 release-snapshot regression modules passed |
 | Secret review | No active Gitleaks exception; `.env`, `data/`, and `logs/` remain untracked |
 | Runtime | Existing agent/dashboard stack and public `/health` are healthy |
 

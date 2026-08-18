@@ -20,6 +20,7 @@ Detection Engineering and Threat Intelligence release.
 - Detection rules now preserve native/Sigma provenance and reload administrator lifecycle changes.
 - Threat-intelligence failures remain non-blocking and provider payloads are reduced to allowlisted fields before persistence or display.
 - The login page no longer issues an authenticated favicon request that could race its CSRF session.
+- The dashboard now adapts its navigation, cards, filters, dense tables, graph, settings, and login layout across desktop, tablet, and mobile widths.
 
 ### Security
 
@@ -29,7 +30,7 @@ Detection Engineering and Threat Intelligence release.
 
 ### Verification
 
-- All 24 executable regression modules pass with Python/JavaScript syntax and Docker Compose validation.
+- All 25 executable regression modules pass with Python/JavaScript syntax and Docker Compose validation.
 - GitHub Actions passed through M12.6, including baseline, Docker smoke, security, and release gate.
 - The release path is verified from a clean local clone without rebuilding a duplicate image.
 - No active Gitleaks exception or tracked runtime file exists.

@@ -898,7 +898,7 @@ feat: add STIX and TAXII threat intelligence ingestion
 
 ## M12.7 — Release v0.4.0
 
-**Status:** 🟠 In Progress — local release verification passed; release-commit CI and tag pending
+**Status:** 🟠 In Progress — release-preparation CI passed; responsive stabilization added before tagging
 
 ### Checklist
 
@@ -911,6 +911,8 @@ feat: add STIX and TAXII threat intelligence ingestion
 - [x] CHANGELOG update.
 - [x] Clean-clone verification.
 - [x] No secret.
+- [x] Pre-tag responsive dashboard stabilization passes 25/25 local regression modules.
+- [ ] Responsive stabilization CI green.
 - [ ] Tag `v0.4.0`.
 
 ### Release theme
@@ -934,6 +936,14 @@ No active Gitleaks exception                                  PASS
 ```
 
 The local clean-clone verification reused the existing image to avoid a duplicate multi-gigabyte build; GitHub Actions performs the independent clean build and Docker smoke after the release commit is pushed.
+
+### Pre-tag stabilization — responsive dashboard
+
+- [x] Desktop, tablet, and mobile navigation/layout breakpoints.
+- [x] Horizontal overflow for dense alert, coverage, rule, and log tables.
+- [x] Responsive filters, settings, graph, and login surfaces.
+- [x] No API, schema, business-logic, or dependency changes.
+- [x] 25/25 executable regression modules pass in the existing image without rebuilding.
 
 ### Commit
 
@@ -1501,7 +1511,7 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M12.7 — Commit/push, verify and tag release v0.4.0
+M12.7 — Commit responsive stabilization, verify its CI, then tag release v0.4.0
 ```
 
 Không tạo tag `v0.4.0` trước khi release-commit CI pass; không bắt đầu M13 trước khi release hoàn tất.
@@ -1689,11 +1699,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M12.7 — Commit/push and verify the v0.4.0 release commit, then create the annotated tag
+M12.7 — Verify the responsive stabilization commit in CI, then create the annotated tag
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Push release commit và chờ `baseline/docker-smoke/security/release-gate` pass.
+1. Push responsive stabilization commit và chờ `baseline/docker-smoke/security/release-gate` pass.
 2. Tạo/push annotated tag `v0.4.0`, sau đó đổi M12.7/M12 thành `✅`.
 3. Không bắt đầu M13 trước khi tag release đã được xác minh.
