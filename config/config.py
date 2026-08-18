@@ -39,6 +39,12 @@ NOTIFICATION_WEBHOOK_FORMAT = os.getenv("NOTIFICATION_WEBHOOK_FORMAT", "generic"
 NOTIFICATION_TIMEOUT_SECONDS = max(1, int(os.getenv("NOTIFICATION_TIMEOUT_SECONDS", "3")))
 NOTIFICATION_MAX_ATTEMPTS = min(3, max(1, int(os.getenv("NOTIFICATION_MAX_ATTEMPTS", "2"))))
 NOTIFICATION_LOG_FILE = os.path.join(BASE_DIR, "data", "notification_audit.log")
+GEOIP_ENABLED = os.getenv("GEOIP_ENABLED", "true").lower() in {"1", "true", "yes"}
+GEOIP_ENDPOINT = os.getenv("GEOIP_ENDPOINT", "https://ipwho.is").strip()
+GEOIP_CACHE_TTL_SECONDS = max(60, int(os.getenv("GEOIP_CACHE_TTL_SECONDS", "86400")))
+GEOIP_RATE_LIMIT_PER_SECOND = max(0.01, float(os.getenv("GEOIP_RATE_LIMIT_PER_SECOND", "1")))
+GEOIP_TIMEOUT_SECONDS = max(0.1, float(os.getenv("GEOIP_TIMEOUT_SECONDS", "3")))
+GEOIP_MAX_ATTEMPTS = min(3, max(1, int(os.getenv("GEOIP_MAX_ATTEMPTS", "2"))))
 WINDOWS_EVENT_FILE = os.getenv(
     "WINDOWS_EVENT_FILE", os.path.join(BASE_DIR, "data", "windows_events.jsonl")
 )

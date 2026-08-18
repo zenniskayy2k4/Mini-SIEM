@@ -14,6 +14,7 @@ from src.honeypot import MiniHoneypot
 from src.ai_analyst import AIAnalyst
 from src.rules import load_detection_rules
 from src.health import write_agent_heartbeat
+from src.threat_intel import GeoIPProvider, ThreatIntelService
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
 
@@ -65,6 +66,15 @@ def main():
 
     # Initialize modules
     ai_analyst = AIAnalyst()
+    geoip_service = None
+    if config.GEOIP_ENABLED:
+        geoip_service = ThreatIntelService(
+            GeoIPProvider(config.GEOIP_ENDPOINT),
+            cache_ttl_seconds=config.GEOIP_CACHE_TTL_SECONDS,
+            rate_limit_per_second=config.GEOIP_RATE_LIMIT_PER_SECOND,
+            timeout_seconds=config.GEOIP_TIMEOUT_SECONDS,
+            max_attempts=config.GEOIP_MAX_ATTEMPTS,
+        )
 
     detector = ThreatDetector(
         load_detection_rules(config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR),
@@ -76,11 +86,15 @@ def main():
 
     # --- HIDS: file watcher ---
     observer = Observer()
-    event_handler = LogHandler(config.LOG_FILE_TO_WATCH, detector, correlator, responder)
+    event_handler = LogHandler(
+        config.LOG_FILE_TO_WATCH, detector, correlator, responder, geoip_service,
+    )
 
     log_dir = os.path.dirname(config.LOG_FILE_TO_WATCH) or "."
     observer.schedule(event_handler, path=log_dir, recursive=False)
-    windows_handler = WindowsEventHandler(config.WINDOWS_EVENT_FILE, detector, correlator, responder)
+    windows_handler = WindowsEventHandler(
+        config.WINDOWS_EVENT_FILE, detector, correlator, responder, geoip_service,
+    )
     observer.schedule(
         windows_handler,
         path=os.path.dirname(config.WINDOWS_EVENT_FILE) or ".",
@@ -99,6 +113,7 @@ def main():
             return
         nids = NetworkMonitor(
             correlator=correlator, responder=responder, ai_analyst=ai_analyst,
+            geoip_service=geoip_service,
         )
         threading.Thread(target=nids.start, daemon=True).start()
         print("[+] NIDS enabled.")
@@ -120,6 +135,7 @@ def main():
             bind_ip=getattr(config, "HONEYPOT_BIND_IP", "0.0.0.0"),
             ai_analyst=ai_analyst,
             responder=responder,
+            geoip_service=geoip_service,
         )
         threading.Thread(target=hp.start, daemon=True).start()
         print("[+] Honeypot enabled.")
@@ -198,6 +214,8 @@ def main():
         print("\n[+] Monitoring SIEM Agent stopped.")
 
     observer.join()
+    if geoip_service:
+        geoip_service.close()
 
 if __name__ == "__main__":
     main()

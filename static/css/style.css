@@ -481,6 +481,20 @@ tr:hover {
   color: var(--text-main);
 }
 
+.geoip-context {
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-left: 3px solid #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+  color: #bbf7d0;
+  font-size: 11px;
+}
+
+.geoip-context small {
+  margin-left: 5px;
+  color: var(--text-muted);
+}
+
 .ai-title {
   font-size: 12px;
   font-weight: 800;

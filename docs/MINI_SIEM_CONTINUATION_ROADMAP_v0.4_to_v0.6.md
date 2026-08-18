@@ -560,7 +560,7 @@ docs: document Sigma rule support
 
 ## M12.1 — ThreatIntelProvider abstraction
 
-**Status:** 🟠 In Progress — local ThreatIntelProvider regression passed, GitHub run pending
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Architecture
 
@@ -626,6 +626,8 @@ Docker Compose validation                                    PASS
 
 The phase-1 abstraction uses stdlib only and one bounded provider worker. External providers and alert enrichment are deferred to later M12 batches.
 
+GitHub Actions [run 32100953262](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32100953262) passed for commit `97a5fe7`.
+
 ### Commit
 
 ```text
@@ -636,7 +638,7 @@ refactor: add threat intelligence provider abstraction
 
 ## M12.2 — GeoIP enrichment
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local GeoIP regression and live provider smoke passed; GitHub run pending
 
 ### Fields
 
@@ -653,11 +655,26 @@ refactor: add threat intelligence provider abstraction
 
 ### Tasks
 
-- [ ] Detect private/loopback/link-local.
-- [ ] Không lookup private IP ngoài Internet.
-- [ ] Cache result.
-- [ ] Dashboard hiển thị GeoIP.
-- [ ] Không coi foreign country = malicious.
+- [x] Detect private/loopback/link-local.
+- [x] Không lookup private IP ngoài Internet.
+- [x] Cache result.
+- [x] Dashboard hiển thị GeoIP.
+- [x] Không coi foreign country = malicious.
+
+### Local verification — 2026-08-18
+
+```text
+Private/loopback/link-local classification without HTTP call PASS
+Public IPv4 normalization and live HTTPS provider smoke      PASS
+TTL cache hit avoids repeated provider lookup                PASS
+Alert persisted before asynchronous GeoIP enrichment         PASS
+Dashboard renders normalized GeoIP context safely            PASS
+Foreign location does not change severity or disposition     PASS
+20 executable regression modules                             PASS
+Python/JavaScript syntax and Docker Compose validation        PASS
+```
+
+The agent shares one bounded GeoIP service across HIDS, Windows, NIDS and honeypot sensors. Public lookups use the configurable keyless HTTPS endpoint; local and special-use addresses never leave the host.
 
 ### Commit
 
@@ -1383,10 +1400,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M12.1 — Commit/push and verify ThreatIntelProvider abstraction
+M12.2 — Commit/push and verify GeoIP context enrichment
 ```
 
-Không bắt đầu M12.2 GeoIP trước khi provider abstraction CI pass.
+Không bắt đầu M12.3 AbuseIPDB trước khi GeoIP enrichment CI pass.
 
 ### Success condition
 
@@ -1555,6 +1572,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-15 | Sigma hỗ trợ theo subset | Tránh implement toàn bộ spec ngay |
 | 2026-08-15 | TI dùng provider abstraction | Tránh coupling provider |
 | 2026-08-15 | Không auto-upload VirusTotal | Tránh rò rỉ dữ liệu |
+| 2026-08-18 | GeoIP chỉ là context, chỉ lookup IP global | Không suy diễn quốc gia là malicious và không gửi địa chỉ local ra ngoài |
 | 2026-08-15 | Risk tách khỏi severity | Detection semantics rõ ràng |
 | 2026-08-15 | LLM không đặt risk score trực tiếp | Risk phải explainable |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
@@ -1565,11 +1583,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M12.1 — Commit/push and verify the ThreatIntelProvider GitHub Actions run
+M12.2 — Commit/push and verify the GeoIP enrichment GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M12.1 thành `✅` và ghi GitHub Actions run.
-2. Đổi M12.2 thành batch tiếp theo.
-3. Không bắt đầu GeoIP trước khi provider abstraction CI pass.
+1. Đổi M12.2 thành `✅` và ghi GitHub Actions run.
+2. Đổi M12.3 thành batch tiếp theo.
+3. Không bắt đầu AbuseIPDB trước khi GeoIP enrichment CI pass.

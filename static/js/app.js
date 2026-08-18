@@ -762,6 +762,7 @@ function createRow(alert) {
                             <i class="fa-solid fa-brain"></i> AI Score: ${escapeHTML(alert.ml_anomaly_score)}
                         </div>`;
   }
+  detailsHTML += renderGeoIP(alert);
   detailsHTML += renderAIAnalysis(alert);
   detailsHTML += `<div class="log-raw" title="${escapeAttr(alert.raw_log || "")}">${escapeHTML(alert.raw_log || "")}</div>`;
   detailsHTML += renderIncidentPanel(alert);
@@ -776,6 +777,22 @@ function createRow(alert) {
     `;
   bindIncidentActions(tr, alert);
   return tr;
+}
+
+function renderGeoIP(alert) {
+  const geoip = alert.geoip;
+  if (!geoip) return "";
+  const provider = alert.geoip_lookup?.provider || "unknown";
+  if (geoip.is_private) {
+    return `<div class="geoip-context"><i class="fa-solid fa-location-dot"></i> ` +
+      `GeoIP: Private/local address <small>${escapeHTML(provider)}</small></div>`;
+  }
+  const place = [geoip.city, geoip.country].filter(Boolean).map(escapeHTML).join(", ") || "Unknown location";
+  const countryCode = geoip.country_code ? ` (${escapeHTML(geoip.country_code)})` : "";
+  const asn = geoip.asn ? `AS${escapeHTML(String(geoip.asn).replace(/^AS/i, ""))}` : "ASN unknown";
+  const organization = geoip.organization ? ` · ${escapeHTML(geoip.organization)}` : "";
+  return `<div class="geoip-context"><i class="fa-solid fa-location-dot"></i> ` +
+    `GeoIP: ${place}${countryCode} · ${asn}${organization} <small>${escapeHTML(provider)}</small></div>`;
 }
 
 function renderIncidentPanel(alert) {
