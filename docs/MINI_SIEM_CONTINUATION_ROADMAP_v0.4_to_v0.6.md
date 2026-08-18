@@ -99,7 +99,7 @@ M18 — Multi-tenant Architecture
 | M10 | Engineering Quality & CI | v0.4.0 | ✅ Complete |
 | M11 | Sigma Rule Support | v0.4.0 | ✅ Complete |
 | M12 | Threat Intelligence Layer | v0.4.0 | ✅ Complete |
-| M13 | Asset Inventory & Risk Context | v0.5.0 | ⬜ |
+| M13 | Asset Inventory & Risk Context | v0.5.0 | 🟠 In Progress |
 | M14 | Reporting & Observability | v0.5.0 | ⬜ |
 | M15 | AI Resilience & Provider Abstraction | v0.5.0 | ⬜ |
 | M16 | External Case Management | v0.6.0 | ⬜ |
@@ -959,7 +959,7 @@ docs: prepare v0.4.0 release
 
 ## M13.1 — Asset schema
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit CI pending
 
 ### Schema
 
@@ -980,12 +980,22 @@ docs: prepare v0.4.0 release
 
 ### Tasks
 
-- [ ] SQLite asset table.
-- [ ] CRUD repository.
-- [ ] Stable asset ID.
-- [ ] IP/hostname lookup.
-- [ ] Duplicate detection.
-- [ ] Audit changes.
+- [x] SQLite asset and normalized IP tables.
+- [x] CRUD repository.
+- [x] Stable immutable `AST-<UUID>` ID.
+- [x] Case-insensitive hostname and canonical IPv4/IPv6 lookup.
+- [x] Application and SQLite duplicate detection.
+- [x] Immutable create/update/delete audit events.
+
+### Local verification — 2026-08-18
+
+```text
+M13.1 focused asset inventory regression        PASS
+Python syntax                                    PASS
+26 executable regression modules                PASS
+Docker Compose validation                        PASS
+No image rebuild                                 PASS
+```
 
 ### Commit
 
@@ -1513,10 +1523,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M13.1 — Asset schema (not started; begin only in the next requested batch)
+M13.2 — Asset management API/UI (not started; begin only in the next requested batch)
 ```
 
-Release `v0.4.0` đã hoàn tất. Không bắt đầu M13 trong batch đóng release này.
+M13.1 hoàn tất ở local. Không bắt đầu M13.2 trong cùng batch.
 
 ### Success condition
 
@@ -1701,7 +1711,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M13.1 — Asset schema (not started)
+M13.2 — Asset management API/UI (not started)
 ```
 
-`v0.4.0` đã được xác minh và phát hành. Bắt đầu M13.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M13.1 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M13.2 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

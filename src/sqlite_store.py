@@ -4,6 +4,9 @@ import sqlite3
 import threading
 
 from config import config
+from src.alert_schema import utc_iso
+from src.assets import normalize_ip_address, validate_asset
+from src.audit import append_audit_event
 
 
 SCHEMA = """
@@ -55,10 +58,32 @@ CREATE TABLE IF NOT EXISTS response_actions (
     timestamp TEXT NOT NULL,
     payload_json TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS assets (
+    asset_id TEXT PRIMARY KEY,
+    hostname TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    os TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    department TEXT NOT NULL,
+    environment TEXT NOT NULL CHECK(environment IN ('dev', 'test', 'prod')),
+    criticality TEXT NOT NULL CHECK(criticality IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    tags_json TEXT NOT NULL,
+    enabled INTEGER NOT NULL CHECK(enabled IN (0, 1)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_assets_hostname ON assets(hostname COLLATE NOCASE);
+
+CREATE TABLE IF NOT EXISTS asset_ip_addresses (
+    asset_id TEXT NOT NULL REFERENCES assets(asset_id) ON DELETE CASCADE,
+    ip_address TEXT NOT NULL UNIQUE,
+    PRIMARY KEY (asset_id, ip_address)
+);
+CREATE INDEX IF NOT EXISTS idx_asset_ip_address ON asset_ip_addresses(ip_address);
 """
 
 
-class SQLiteAlertRepository:
+class _SQLiteRepository:
     def __init__(self, path=None):
         self._path = path
         self._schema_path = None
@@ -85,6 +110,9 @@ class SQLiteAlertRepository:
             with self._connect() as connection:
                 connection.executescript(SCHEMA)
             self._schema_path = self.path
+
+
+class SQLiteAlertRepository(_SQLiteRepository):
 
     def create_alert(self, alert: dict) -> dict:
         self.ensure_schema()
@@ -319,3 +347,199 @@ class SQLiteAlertRepository:
             ("total", "critical", "high", "medium", "info", "anomalies"),
             (int(value or 0) for value in row),
         ))
+
+
+class SQLiteAssetRepository(_SQLiteRepository):
+    _COLUMNS = (
+        "asset_id", "hostname", "os", "owner", "department", "environment",
+        "criticality", "tags_json", "enabled", "created_at", "updated_at",
+    )
+
+    @staticmethod
+    def _from_row(row, ip_addresses=None):
+        if row is None:
+            return None
+        asset = dict(zip(SQLiteAssetRepository._COLUMNS, row))
+        asset["tags"] = json.loads(asset.pop("tags_json"))
+        asset["enabled"] = bool(asset["enabled"])
+        asset["ip_addresses"] = ip_addresses or []
+        return asset
+
+    @staticmethod
+    def _duplicate_asset_id(connection, asset, exclude_asset_id=None):
+        suffix = " AND asset_id != ?" if exclude_asset_id else ""
+        values = [asset["hostname"]]
+        if exclude_asset_id:
+            values.append(exclude_asset_id)
+        row = connection.execute(
+            "SELECT asset_id FROM assets WHERE hostname = ? COLLATE NOCASE" + suffix,
+            values,
+        ).fetchone()
+        if row:
+            return row[0]
+        for address in asset["ip_addresses"]:
+            values = [address]
+            if exclude_asset_id:
+                values.append(exclude_asset_id)
+            row = connection.execute(
+                "SELECT asset_id FROM asset_ip_addresses WHERE ip_address = ?" + suffix,
+                values,
+            ).fetchone()
+            if row:
+                return row[0]
+        return None
+
+    @staticmethod
+    def _write(connection, asset):
+        connection.execute(
+            """
+            INSERT INTO assets (
+                asset_id, hostname, os, owner, department, environment,
+                criticality, tags_json, enabled, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                asset["asset_id"], asset["hostname"], asset["os"], asset["owner"],
+                asset["department"], asset["environment"], asset["criticality"],
+                json.dumps(asset["tags"], ensure_ascii=False), int(asset["enabled"]),
+                asset["created_at"], asset["updated_at"],
+            ),
+        )
+        connection.executemany(
+            "INSERT INTO asset_ip_addresses (asset_id, ip_address) VALUES (?, ?)",
+            [(asset["asset_id"], address) for address in asset["ip_addresses"]],
+        )
+
+    def create_asset(self, asset: dict, actor="system", role=None) -> dict:
+        asset = validate_asset(asset)
+        self.ensure_schema()
+        try:
+            with self._connect() as connection:
+                duplicate = self._duplicate_asset_id(connection, asset)
+                if duplicate:
+                    raise ValueError(f"Asset duplicates existing asset {duplicate}")
+                self._write(connection, asset)
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("Asset hostname or IP address already exists") from exc
+        append_audit_event(
+            "ASSET_CREATED", actor, role=role, target_type="asset",
+            target_id=asset["asset_id"], details={"hostname": asset["hostname"]},
+        )
+        return self.get_asset(asset["asset_id"])
+
+    def get_asset(self, asset_id: str) -> dict | None:
+        self.ensure_schema()
+        with self._connect() as connection:
+            row = connection.execute(
+                f"SELECT {', '.join(self._COLUMNS)} FROM assets WHERE asset_id = ?",
+                (asset_id,),
+            ).fetchone()
+            addresses = connection.execute(
+                "SELECT ip_address FROM asset_ip_addresses WHERE asset_id = ? ORDER BY ip_address",
+                (asset_id,),
+            ).fetchall() if row else []
+        return self._from_row(row, [address[0] for address in addresses])
+
+    def list_assets(self, enabled=None) -> list[dict]:
+        if enabled is not None and not isinstance(enabled, bool):
+            raise ValueError("Asset enabled filter must be boolean")
+        self.ensure_schema()
+        where = " WHERE enabled = ?" if enabled is not None else ""
+        values = (int(enabled),) if enabled is not None else ()
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT {', '.join(self._COLUMNS)} FROM assets{where} ORDER BY hostname COLLATE NOCASE",
+                values,
+            ).fetchall()
+            addresses = connection.execute(
+                "SELECT asset_id, ip_address FROM asset_ip_addresses ORDER BY ip_address",
+            ).fetchall()
+        address_map = {}
+        for asset_id, address in addresses:
+            address_map.setdefault(asset_id, []).append(address)
+        return [self._from_row(row, address_map.get(row[0], [])) for row in rows]
+
+    def find_by_hostname(self, hostname: str) -> dict | None:
+        self.ensure_schema()
+        hostname = str(hostname or "").strip()
+        with self._connect() as connection:
+            row = connection.execute(
+                f"SELECT {', '.join(self._COLUMNS)} FROM assets WHERE hostname = ? COLLATE NOCASE",
+                (hostname,),
+            ).fetchone()
+        return self.get_asset(row[0]) if row else None
+
+    def find_by_ip(self, ip_address: str) -> dict | None:
+        self.ensure_schema()
+        address = normalize_ip_address(ip_address)
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT asset_id FROM asset_ip_addresses WHERE ip_address = ?", (address,),
+            ).fetchone()
+        return self.get_asset(row[0]) if row else None
+
+    def update_asset(self, asset_id: str, changes, actor="system", role=None) -> dict | None:
+        current = self.get_asset(asset_id)
+        if current is None:
+            return None
+        before = dict(current)
+        if callable(changes):
+            changes(current)
+        elif isinstance(changes, dict):
+            current.update(changes)
+        else:
+            raise ValueError("Asset changes must be an object or callable")
+        if current.get("asset_id") != asset_id:
+            raise ValueError("Asset asset_id is immutable")
+        current["created_at"] = before["created_at"]
+        current["updated_at"] = utc_iso()
+        current = validate_asset(current)
+        changed_fields = sorted(
+            field for field in current
+            if field != "updated_at" and current.get(field) != before.get(field)
+        )
+        if not changed_fields:
+            return before
+        try:
+            with self._connect() as connection:
+                duplicate = self._duplicate_asset_id(connection, current, asset_id)
+                if duplicate:
+                    raise ValueError(f"Asset duplicates existing asset {duplicate}")
+                connection.execute(
+                    """
+                    UPDATE assets SET
+                        hostname = ?, os = ?, owner = ?, department = ?, environment = ?,
+                        criticality = ?, tags_json = ?, enabled = ?, updated_at = ?
+                    WHERE asset_id = ?
+                    """,
+                    (
+                        current["hostname"], current["os"], current["owner"],
+                        current["department"], current["environment"], current["criticality"],
+                        json.dumps(current["tags"], ensure_ascii=False), int(current["enabled"]),
+                        current["updated_at"], asset_id,
+                    ),
+                )
+                connection.execute("DELETE FROM asset_ip_addresses WHERE asset_id = ?", (asset_id,))
+                connection.executemany(
+                    "INSERT INTO asset_ip_addresses (asset_id, ip_address) VALUES (?, ?)",
+                    [(asset_id, address) for address in current["ip_addresses"]],
+                )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("Asset hostname or IP address already exists") from exc
+        append_audit_event(
+            "ASSET_UPDATED", actor, role=role, target_type="asset", target_id=asset_id,
+            details={"fields": changed_fields},
+        )
+        return self.get_asset(asset_id)
+
+    def delete_asset(self, asset_id: str, actor="system", role=None) -> bool:
+        current = self.get_asset(asset_id)
+        if current is None:
+            return False
+        with self._connect() as connection:
+            connection.execute("DELETE FROM assets WHERE asset_id = ?", (asset_id,))
+        append_audit_event(
+            "ASSET_DELETED", actor, role=role, target_type="asset", target_id=asset_id,
+            details={"hostname": current["hostname"]},
+        )
+        return True

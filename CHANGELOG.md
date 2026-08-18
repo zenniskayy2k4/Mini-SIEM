@@ -2,6 +2,12 @@
 
 All notable changes to Mini-SIEM are documented here. The project follows semantic versioning while remaining pre-1.0.
 
+## [Unreleased]
+
+### Added
+
+- SQLite-backed asset inventory data model with stable IDs, normalized hostname/IP lookup, duplicate constraints, CRUD operations, and immutable audit events.
+
 ## [0.4.0] - 2026-08-18
 
 Detection Engineering and Threat Intelligence release.
