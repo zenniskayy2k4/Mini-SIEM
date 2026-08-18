@@ -16,7 +16,7 @@ Current release: **v0.3.0** — see the [changelog](CHANGELOG.md) and [release c
 
 ## What is implemented
 
-- YAML detection rules with MITRE ATT&CK mappings and reloadable rule state.
+- Native YAML and supported Sigma detection rules with MITRE ATT&CK mappings and reloadable rule state.
 - HIDS log monitoring, Linux-oriented packet capture, honeypot events, and multi-event correlation.
 - Offline Windows/Sysmon import plus authenticated collector ingestion.
 - TF-IDF/Isolation Forest and autoencoder anomaly signals alongside deterministic rules.
@@ -170,6 +170,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 
 - `GET /health` provides an unauthenticated liveness/readiness summary; authenticated admins can use `/api/system/status` for richer diagnostics.
 - Retention, backup, restore verification, and log rotation are documented in [Retention and backup](docs/RETENTION_BACKUP.md).
+- The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
 - Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
 - Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.3.0 checklist](docs/RELEASE_v0.3.0.md).
@@ -195,7 +196,8 @@ docker compose run --rm dashboard python -m tools.maintenance retention --days 9
 
 ```text
 Mini-SIEM/
-├── config/rules/                 # YAML detections and MITRE metadata
+├── config/rules/                 # Native YAML detections and MITRE metadata
+├── config/sigma/                 # Supported Sigma rule subset
 ├── docs/                         # Operational runbooks
 ├── models/                       # Trained local anomaly models
 ├── src/                          # Detection, storage, AI, response, and health modules

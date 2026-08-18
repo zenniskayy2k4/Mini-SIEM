@@ -478,7 +478,7 @@ feat: manage Sigma rule lifecycle and coverage
 
 ## M11.4 — Sigma regression corpus
 
-**Status:** 🟠 In Progress — local Sigma corpus regression passed, GitHub run pending
+**Status:** ✅ Complete — GitHub Actions passed
 
 ### Fixtures
 
@@ -508,7 +508,9 @@ Sigma UUID/provenance on positive alerts                     PASS
 Docker Compose validation                                    PASS
 ```
 
-The corpus is entirely repository-local and is discovered by the existing CI test glob. M11.5 has not started.
+The corpus is entirely repository-local and is discovered by the existing CI test glob.
+
+GitHub Actions [run 32099750118](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32099750118) passed for commit `6dc1fc3`.
 
 ### Commit
 
@@ -520,15 +522,29 @@ test: add Sigma detection regression corpus
 
 ## M11.5 — Sigma documentation
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local Sigma documentation verification passed, GitHub run pending
 
-- [ ] Supported subset.
-- [ ] Unsupported syntax.
-- [ ] Import path.
-- [ ] Provenance.
-- [ ] Example.
-- [ ] Debug procedure.
-- [ ] Known limitations.
+- [x] Supported subset.
+- [x] Unsupported syntax.
+- [x] Import path.
+- [x] Provenance.
+- [x] Example.
+- [x] Debug procedure.
+- [x] Known limitations.
+
+### Local verification — 2026-08-18
+
+```text
+Supported operators, conditions and field aliases documented PASS
+Unsupported behavior and limitations documented              PASS
+Import/lifecycle/provenance paths matched implementation      PASS
+Sample and repository-local links verified                   PASS
+Documented Sigma loader command                              PASS
+Documented offline corpus command                            PASS
+Docker Compose validation                                    PASS
+```
+
+Runtime code is unchanged. M12.1 has not started.
 
 ### Commit
 
@@ -1352,10 +1368,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M11.4 — Commit/push and verify Sigma regression corpus
+M11.5 — Commit/push and verify Sigma documentation
 ```
 
-Không bắt đầu M11.5 documentation trước khi corpus CI pass.
+Không bắt đầu M12.1 Threat Intelligence trước khi Sigma documentation CI pass.
 
 ### Success condition
 
@@ -1534,11 +1550,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M11.4 — Commit/push and verify the Sigma corpus GitHub Actions run
+M11.5 — Commit/push and verify the Sigma documentation GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M11.4 thành `✅` và ghi GitHub Actions run.
-2. Đổi M11.5 thành batch tiếp theo.
-3. Không bắt đầu documentation trước khi corpus CI pass.
+1. Đổi M11.5 thành `✅` và ghi GitHub Actions run.
+2. Đổi M11 milestone thành `✅`.
+3. Chỉ bắt đầu M12.1 sau khi Sigma documentation CI pass.
