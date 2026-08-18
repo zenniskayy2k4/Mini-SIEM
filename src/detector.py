@@ -353,6 +353,7 @@ class ThreatDetector:
             "computer": event.get("computer"),
             "process": event.get("process"),
             "parent_process": event.get("parent_process"),
+            "hashes": event.get("hashes"),
             "ip_address": (
                 event.get("network", {}).get("source_ip")
                 or event.get("network", {}).get("destination_ip")

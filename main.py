@@ -14,7 +14,12 @@ from src.honeypot import MiniHoneypot
 from src.ai_analyst import AIAnalyst
 from src.rules import load_detection_rules
 from src.health import write_agent_heartbeat
-from src.threat_intel import AbuseIPDBProvider, GeoIPProvider, ThreatIntelService
+from src.threat_intel import (
+    AbuseIPDBProvider,
+    GeoIPProvider,
+    ThreatIntelService,
+    VirusTotalProvider,
+)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
 
@@ -84,6 +89,15 @@ def main():
             timeout_seconds=3,
             max_attempts=2,
         )
+    virustotal_service = None
+    if config.VIRUSTOTAL_API_KEY:
+        virustotal_service = ThreatIntelService(
+            VirusTotalProvider(config.VIRUSTOTAL_API_KEY),
+            cache_ttl_seconds=86400,
+            rate_limit_per_second=4 / 60,
+            timeout_seconds=3,
+            max_attempts=2,
+        )
 
     detector = ThreatDetector(
         load_detection_rules(config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR),
@@ -97,14 +111,14 @@ def main():
     observer = Observer()
     event_handler = LogHandler(
         config.LOG_FILE_TO_WATCH, detector, correlator, responder,
-        geoip_service, abuseipdb_service,
+        geoip_service, abuseipdb_service, virustotal_service,
     )
 
     log_dir = os.path.dirname(config.LOG_FILE_TO_WATCH) or "."
     observer.schedule(event_handler, path=log_dir, recursive=False)
     windows_handler = WindowsEventHandler(
         config.WINDOWS_EVENT_FILE, detector, correlator, responder,
-        geoip_service, abuseipdb_service,
+        geoip_service, abuseipdb_service, virustotal_service,
     )
     observer.schedule(
         windows_handler,
@@ -126,6 +140,7 @@ def main():
             correlator=correlator, responder=responder, ai_analyst=ai_analyst,
             geoip_service=geoip_service,
             abuseipdb_service=abuseipdb_service,
+            virustotal_service=virustotal_service,
         )
         threading.Thread(target=nids.start, daemon=True).start()
         print("[+] NIDS enabled.")
@@ -149,6 +164,7 @@ def main():
             responder=responder,
             geoip_service=geoip_service,
             abuseipdb_service=abuseipdb_service,
+            virustotal_service=virustotal_service,
         )
         threading.Thread(target=hp.start, daemon=True).start()
         print("[+] Honeypot enabled.")
@@ -231,6 +247,8 @@ def main():
         geoip_service.close()
     if abuseipdb_service:
         abuseipdb_service.close()
+    if virustotal_service:
+        virustotal_service.close()
 
 if __name__ == "__main__":
     main()

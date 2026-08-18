@@ -688,7 +688,7 @@ feat: add GeoIP context enrichment
 
 ## M12.3 — AbuseIPDB provider
 
-**Status:** 🟠 In Progress — local AbuseIPDB regression passed; GitHub run pending
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Normalize
 
@@ -726,6 +726,8 @@ Python/JavaScript syntax and Docker Compose validation        PASS
 
 No live AbuseIPDB request was made because the repository intentionally contains no API key; the HTTP contract is covered with an offline fake response.
 
+GitHub Actions [run 32102809495](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32102809495) passed for commit `9205005`.
+
 ### Commit
 
 ```text
@@ -736,7 +738,7 @@ feat: add AbuseIPDB threat intelligence enrichment
 
 ## M12.4 — VirusTotal metadata provider
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local VirusTotal metadata regression passed; GitHub run pending
 
 ### Safety rule
 
@@ -747,12 +749,29 @@ Never auto-upload internal files.
 
 ### Tasks
 
-- [ ] Hash lookup trước.
-- [ ] Domain/IP optional.
-- [ ] Respect API quota.
-- [ ] Cache hash result.
-- [ ] Normalize malicious/suspicious counts.
-- [ ] Không có auto-upload code path.
+- [x] Hash lookup trước.
+- [x] Domain/IP optional — intentionally disabled in hash-first scope.
+- [x] Respect API quota.
+- [x] Cache hash result.
+- [x] Normalize malicious/suspicious counts.
+- [x] Không có auto-upload code path.
+
+### Local verification — 2026-08-18
+
+```text
+Missing API key disables provider construction               PASS
+SHA-256 preferred over MD5; other IOC types rejected         PASS
+GET /api/v3/files/{hash} uses x-apikey header only           PASS
+Public quota limited to 4 requests/minute with 24-hour cache PASS
+Malicious/suspicious and aggregate metadata normalized       PASS
+HTTP 404 not-found and 429 rate-limit behavior bounded       PASS
+Raw engine response/API key excluded from persisted result   PASS
+No upload, rescan or download code path                      PASS
+22 executable regression modules                             PASS
+Python/JavaScript syntax and Docker Compose validation        PASS
+```
+
+No live VirusTotal request was made because the repository intentionally contains no API key; the metadata-only HTTP contract is covered with an offline fake response.
 
 ### Commit
 
@@ -1419,10 +1438,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M12.3 — Commit/push and verify AbuseIPDB threat intelligence enrichment
+M12.4 — Commit/push and verify VirusTotal metadata enrichment
 ```
 
-Không bắt đầu M12.4 VirusTotal trước khi AbuseIPDB enrichment CI pass.
+Không bắt đầu M12.5 dashboard panel trước khi VirusTotal metadata CI pass.
 
 ### Success condition
 
@@ -1593,6 +1612,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-15 | Không auto-upload VirusTotal | Tránh rò rỉ dữ liệu |
 | 2026-08-18 | GeoIP chỉ là context, chỉ lookup IP global | Không suy diễn quốc gia là malicious và không gửi địa chỉ local ra ngoài |
 | 2026-08-18 | AbuseIPDB chỉ dùng check endpoint và normalized summary | Không gửi raw log hoặc provider payload sang API/AI |
+| 2026-08-18 | VirusTotal chỉ lookup hash metadata | Không có upload, rescan hoặc download code path |
 | 2026-08-15 | Risk tách khỏi severity | Detection semantics rõ ràng |
 | 2026-08-15 | LLM không đặt risk score trực tiếp | Risk phải explainable |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
@@ -1603,11 +1623,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M12.3 — Commit/push and verify the AbuseIPDB enrichment GitHub Actions run
+M12.4 — Commit/push and verify the VirusTotal metadata GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M12.3 thành `✅` và ghi GitHub Actions run.
-2. Đổi M12.4 thành batch tiếp theo.
-3. Không bắt đầu VirusTotal trước khi AbuseIPDB enrichment CI pass.
+1. Đổi M12.4 thành `✅` và ghi GitHub Actions run.
+2. Đổi M12.5 thành batch tiếp theo.
+3. Không bắt đầu dashboard panel trước khi VirusTotal metadata CI pass.

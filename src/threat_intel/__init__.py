@@ -6,6 +6,7 @@ from src.threat_intel.base import (
 from src.threat_intel.service import IOC_TYPES, ThreatIntelService, normalize_ioc
 from src.threat_intel.geoip import GEOIP_FIELDS, GeoIPProvider, local_geoip_context
 from src.threat_intel.abuseipdb import ABUSEIPDB_FIELDS, AbuseIPDBProvider
+from src.threat_intel.virustotal import VIRUSTOTAL_FIELDS, VirusTotalProvider
 
 __all__ = [
     "ABUSEIPDB_FIELDS",
@@ -17,6 +18,8 @@ __all__ = [
     "ThreatIntelProviderError",
     "ThreatIntelResult",
     "ThreatIntelService",
+    "VIRUSTOTAL_FIELDS",
+    "VirusTotalProvider",
     "local_geoip_context",
     "normalize_ioc",
 ]
