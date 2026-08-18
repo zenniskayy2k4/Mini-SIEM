@@ -112,7 +112,7 @@ def test_geoip_enrichment():
     assert alert["severity"] == "HIGH"
 
     dashboard_script = Path("static/js/app.js").read_text(encoding="utf-8")
-    assert "function renderGeoIP(alert)" in dashboard_script
+    assert "function renderThreatIntelligence(alert)" in dashboard_script
     assert "Private/local address" in dashboard_script
 
 

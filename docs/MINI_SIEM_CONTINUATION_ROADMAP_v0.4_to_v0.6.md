@@ -738,7 +738,7 @@ feat: add AbuseIPDB threat intelligence enrichment
 
 ## M12.4 — VirusTotal metadata provider
 
-**Status:** 🟠 In Progress — local VirusTotal metadata regression passed; GitHub run pending
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Safety rule
 
@@ -773,6 +773,8 @@ Python/JavaScript syntax and Docker Compose validation        PASS
 
 No live VirusTotal request was made because the repository intentionally contains no API key; the metadata-only HTTP contract is covered with an offline fake response.
 
+GitHub Actions [run 32103490075](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32103490075) passed for commit `2f9f6c6`.
+
 ### Commit
 
 ```text
@@ -783,7 +785,7 @@ feat: add VirusTotal IOC metadata enrichment
 
 ## M12.5 — Threat Intel dashboard panel
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local Threat Intelligence dashboard regression passed; GitHub run pending
 
 ### UI
 
@@ -801,11 +803,28 @@ Threat Intelligence
 
 ### Tasks
 
-- [ ] Pending/loading.
-- [ ] Provider unavailable.
-- [ ] Không render raw provider JSON.
-- [ ] Không tự đổi system severity.
-- [ ] Phân biệt observed evidence và third-party intelligence.
+- [x] Pending/loading.
+- [x] Provider unavailable.
+- [x] Không render raw provider JSON.
+- [x] Không tự đổi system severity.
+- [x] Phân biệt observed evidence và third-party intelligence.
+
+### Local verification — 2026-08-18
+
+```text
+Pending/loading state persisted before provider lookup       PASS
+Missing provider rendered as unavailable                     PASS
+IOC/type and GeoIP/reputation/provider cards                 PASS
+Confidence/reports, lookup time and cache state              PASS
+Observed evidence separated from third-party intelligence   PASS
+Raw provider JSON excluded from rendering                   PASS
+System severity remains unchanged                           PASS
+Legacy GeoIP alert display compatibility                    PASS
+23 executable regression modules                            PASS
+Python/JavaScript syntax and Docker Compose validation       PASS
+```
+
+The panel reuses the existing normalized alert payload and search API; it adds no endpoint, frontend framework or raw-provider rendering path.
 
 ### Commit
 
@@ -1438,10 +1457,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M12.4 — Commit/push and verify VirusTotal metadata enrichment
+M12.5 — Commit/push and verify Threat Intelligence dashboard panel
 ```
 
-Không bắt đầu M12.5 dashboard panel trước khi VirusTotal metadata CI pass.
+Không bắt đầu M12.6 STIX/TAXII trước khi Threat Intelligence dashboard CI pass.
 
 ### Success condition
 
@@ -1613,6 +1632,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-18 | GeoIP chỉ là context, chỉ lookup IP global | Không suy diễn quốc gia là malicious và không gửi địa chỉ local ra ngoài |
 | 2026-08-18 | AbuseIPDB chỉ dùng check endpoint và normalized summary | Không gửi raw log hoặc provider payload sang API/AI |
 | 2026-08-18 | VirusTotal chỉ lookup hash metadata | Không có upload, rescan hoặc download code path |
+| 2026-08-18 | TI dashboard chỉ render normalized allowlist | Tách observed IOC khỏi third-party context và không đổi severity |
 | 2026-08-15 | Risk tách khỏi severity | Detection semantics rõ ràng |
 | 2026-08-15 | LLM không đặt risk score trực tiếp | Risk phải explainable |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
@@ -1623,11 +1643,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M12.4 — Commit/push and verify the VirusTotal metadata GitHub Actions run
+M12.5 — Commit/push and verify the Threat Intelligence dashboard GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M12.4 thành `✅` và ghi GitHub Actions run.
-2. Đổi M12.5 thành batch tiếp theo.
-3. Không bắt đầu dashboard panel trước khi VirusTotal metadata CI pass.
+1. Đổi M12.5 thành `✅` và ghi GitHub Actions run.
+2. Đổi M12.6 thành batch tiếp theo.
+3. Không bắt đầu STIX/TAXII trước khi Threat Intelligence dashboard CI pass.

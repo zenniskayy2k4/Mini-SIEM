@@ -762,7 +762,7 @@ function createRow(alert) {
                             <i class="fa-solid fa-brain"></i> AI Score: ${escapeHTML(alert.ml_anomaly_score)}
                         </div>`;
   }
-  detailsHTML += renderGeoIP(alert);
+  detailsHTML += renderThreatIntelligence(alert);
   detailsHTML += renderAIAnalysis(alert);
   detailsHTML += `<div class="log-raw" title="${escapeAttr(alert.raw_log || "")}">${escapeHTML(alert.raw_log || "")}</div>`;
   detailsHTML += renderIncidentPanel(alert);
@@ -779,20 +779,73 @@ function createRow(alert) {
   return tr;
 }
 
-function renderGeoIP(alert) {
-  const geoip = alert.geoip;
-  if (!geoip) return "";
-  const provider = alert.geoip_lookup?.provider || "unknown";
-  if (geoip.is_private) {
-    return `<div class="geoip-context"><i class="fa-solid fa-location-dot"></i> ` +
-      `GeoIP: Private/local address <small>${escapeHTML(provider)}</small></div>`;
+function renderThreatIntelligence(alert) {
+  const intel = alert.threat_intel || {};
+  const legacyGeoIP = alert.geoip ? {
+    ...(alert.geoip_lookup || {}),
+    provider: "ipwhois",
+    status: alert.geoip_lookup?.status || "ok",
+    ioc_type: "ip",
+    ioc: alert.ip_address,
+  } : null;
+  const entries = ["ipwhois", "abuseipdb", "virustotal"]
+    .map((provider) => intel[provider] || (provider === "ipwhois" ? legacyGeoIP : null))
+    .filter(Boolean);
+  if (!entries.length) return "";
+
+  const observed = [...new Map(entries.map((entry) => [
+    `${entry.ioc_type}:${entry.ioc}`,
+    `<span><strong>${escapeHTML((entry.ioc_type || "ioc").toUpperCase())}</strong> ${escapeHTML(entry.ioc || "N/A")}</span>`,
+  ])).values()].join("");
+  const cards = entries.map((entry) => renderThreatIntelProvider(entry, alert)).join("");
+  return `
+    <section class="threat-intel-panel" aria-label="Threat Intelligence">
+      <div class="threat-intel-title"><i class="fa-solid fa-shield-virus"></i> Threat Intelligence</div>
+      <div class="threat-intel-observed"><strong>Observed IOC</strong>${observed}</div>
+      <div class="threat-intel-note">Third-party intelligence only · system severity unchanged</div>
+      <div class="threat-intel-grid">${cards}</div>
+    </section>`;
+}
+
+function renderThreatIntelProvider(entry, alert) {
+  const provider = entry.provider || "unknown";
+  const label = { ipwhois: "GeoIP", abuseipdb: "AbuseIPDB", virustotal: "VirusTotal" }[provider] || provider;
+  const status = entry.status || "unavailable";
+  let body = "";
+  if (status === "pending") {
+    body = '<span class="ti-state ti-pending"><i class="fa-solid fa-spinner fa-spin"></i> Lookup pending</span>';
+  } else if (status === "unavailable") {
+    body = '<span class="ti-state"><i class="fa-solid fa-plug-circle-xmark"></i> Provider unavailable</span>';
+  } else if (status === "error" || status === "timeout") {
+    body = `<span class="ti-state ti-error"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(entry.error?.message || "Lookup failed")}</span>`;
+  } else if (status === "not_found") {
+    body = '<span class="ti-state"><i class="fa-solid fa-circle-question"></i> No matching intelligence</span>';
+  } else if (provider === "ipwhois") {
+    const geo = alert.geoip || {};
+    const place = geo.is_private
+      ? "Private/local address"
+      : [geo.city, geo.country].filter(Boolean).join(", ") || "Unknown location";
+    const network = [geo.asn ? `AS${String(geo.asn).replace(/^AS/i, "")}` : null, geo.organization]
+      .filter(Boolean).join(" · ");
+    body = `<strong>${escapeHTML(place)}</strong>${network ? `<span>${escapeHTML(network)}</span>` : ""}`;
+  } else if (provider === "abuseipdb") {
+    body = `<strong>${escapeHTML(entry.abuse_confidence ?? 0)}% abuse confidence</strong>` +
+      `<span>${escapeHTML(entry.total_reports ?? 0)} reports${entry.usage_type ? ` · ${escapeHTML(entry.usage_type)}` : ""}</span>`;
+  } else if (provider === "virustotal") {
+    const total = ["malicious", "suspicious", "harmless", "undetected"]
+      .reduce((sum, key) => sum + Number(entry[key] || 0), 0);
+    body = `<strong>${escapeHTML(entry.malicious ?? 0)} malicious · ${escapeHTML(entry.suspicious ?? 0)} suspicious</strong>` +
+      `<span>${escapeHTML(total)} engines reported</span>`;
   }
-  const place = [geoip.city, geoip.country].filter(Boolean).map(escapeHTML).join(", ") || "Unknown location";
-  const countryCode = geoip.country_code ? ` (${escapeHTML(geoip.country_code)})` : "";
-  const asn = geoip.asn ? `AS${escapeHTML(String(geoip.asn).replace(/^AS/i, ""))}` : "ASN unknown";
-  const organization = geoip.organization ? ` · ${escapeHTML(geoip.organization)}` : "";
-  return `<div class="geoip-context"><i class="fa-solid fa-location-dot"></i> ` +
-    `GeoIP: ${place}${countryCode} · ${asn}${organization} <small>${escapeHTML(provider)}</small></div>`;
+  const meta = [
+    Number.isFinite(Number(entry.duration_ms)) ? `${escapeHTML(entry.duration_ms)} ms` : null,
+    entry.cached === true ? "Cache hit" : entry.cached === false ? "Live lookup" : null,
+  ].filter(Boolean).join(" · ");
+  return `<article class="threat-intel-card ti-${escapeAttr(status)}">
+    <div class="threat-intel-provider"><strong>${escapeHTML(label)}</strong><span>${escapeHTML(provider)}</span></div>
+    <div class="threat-intel-body">${body}</div>
+    ${meta ? `<div class="threat-intel-meta">${meta}</div>` : ""}
+  </article>`;
 }
 
 function renderIncidentPanel(alert) {

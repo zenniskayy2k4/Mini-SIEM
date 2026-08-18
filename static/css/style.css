@@ -481,18 +481,94 @@ tr:hover {
   color: var(--text-main);
 }
 
-.geoip-context {
-  margin-top: 6px;
-  padding: 5px 8px;
-  border-left: 3px solid #22c55e;
-  background: rgba(34, 197, 94, 0.08);
-  color: #bbf7d0;
+.threat-intel-panel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 6px;
+  background: rgba(20, 83, 45, 0.1);
+}
+
+.threat-intel-title {
+  color: #86efac;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.threat-intel-observed,
+.threat-intel-grid,
+.threat-intel-provider {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.threat-intel-observed {
+  align-items: center;
+  margin-top: 7px;
   font-size: 11px;
 }
 
-.geoip-context small {
-  margin-left: 5px;
+.threat-intel-observed span {
+  padding: 3px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.threat-intel-note,
+.threat-intel-meta {
+  margin-top: 5px;
   color: var(--text-muted);
+  font-size: 10px;
+}
+
+.threat-intel-grid {
+  margin-top: 8px;
+}
+
+.threat-intel-card {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 8px;
+  border-left: 3px solid #22c55e;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.55);
+  font-size: 11px;
+}
+
+.threat-intel-card.ti-pending,
+.threat-intel-card.ti-unavailable {
+  border-left-color: #64748b;
+}
+
+.threat-intel-card.ti-error,
+.threat-intel-card.ti-timeout {
+  border-left-color: #ef4444;
+}
+
+.threat-intel-provider {
+  justify-content: space-between;
+  color: #bbf7d0;
+}
+
+.threat-intel-provider span,
+.ti-state {
+  color: var(--text-muted);
+}
+
+.threat-intel-body {
+  display: grid;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.ti-pending {
+  color: #93c5fd;
+}
+
+.ti-error {
+  color: #fca5a5;
 }
 
 .ai-title {
