@@ -838,7 +838,7 @@ feat: show threat intelligence context on dashboard
 
 ## M12.6 — STIX/TAXII
 
-**Status:** 🟠 In Progress — local STIX/TAXII regression passed; GitHub run pending
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Scope ban đầu
 
@@ -886,6 +886,8 @@ Python/JavaScript syntax and Docker Compose validation         PASS
 
 The phase-1 parser accepts exact STIX equality patterns for IPv4, domain, SHA-256 and MD5. TAXII uses the configured collection objects URL, a 5 MiB response cap and at most 10 pages; no additional package or database is required.
 
+GitHub Actions [run 32121071532](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32121071532) passed for commit `26fdb7c`.
+
 ### Commit
 
 ```text
@@ -896,25 +898,47 @@ feat: add STIX and TAXII threat intelligence ingestion
 
 ## M12.7 — Release v0.4.0
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local release verification passed; release-commit CI and tag pending
 
 ### Checklist
 
-- [ ] M10 complete.
-- [ ] M11 complete.
-- [ ] M12 complete.
-- [ ] CI green.
-- [ ] README sync.
-- [ ] `.env.example` sync.
-- [ ] CHANGELOG update.
-- [ ] Clean-clone verification.
-- [ ] No secret.
+- [x] M10 complete.
+- [x] M11 complete.
+- [x] M12 feature batches complete.
+- [x] CI green through M12.6.
+- [x] README sync.
+- [x] `.env.example` sync.
+- [x] CHANGELOG update.
+- [x] Clean-clone verification.
+- [x] No secret.
 - [ ] Tag `v0.4.0`.
 
 ### Release theme
 
 ```text
 v0.4.0 — Detection Engineering & Threat Intelligence
+```
+
+### Local verification — 2026-08-18
+
+```text
+README, CHANGELOG and v0.4.0 release checklist synchronized  PASS
+.env.example covers all optional Threat Intelligence config PASS
+Release artifact and local Markdown link validation          PASS
+24 executable regression modules in release snapshot         PASS
+Clean-clone Docker Compose validation                         PASS
+Clean-clone 24/24 regression using existing image             PASS
+No tracked .env/data/logs runtime files                       PASS
+Release diff secret-pattern review                            PASS
+No active Gitleaks exception                                  PASS
+```
+
+The local clean-clone verification reused the existing image to avoid a duplicate multi-gigabyte build; GitHub Actions performs the independent clean build and Docker smoke after the release commit is pushed.
+
+### Commit
+
+```text
+docs: prepare v0.4.0 release
 ```
 
 ---
@@ -1289,7 +1313,7 @@ v0.5.0 — Asset-aware SOC Analytics & Resilient AI
 - [ ] M15 complete.
 - [ ] CI green.
 - [ ] Docs sync.
-- [ ] Clean clone pass.
+- [x] Clean clone pass.
 - [ ] Upgrade notes.
 - [ ] Tag `v0.5.0`.
 
@@ -1477,10 +1501,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M12.6 — Commit/push and verify STIX/TAXII threat intelligence ingestion
+M12.7 — Commit/push, verify and tag release v0.4.0
 ```
 
-Không bắt đầu M12.7 release trước khi STIX/TAXII CI pass.
+Không tạo tag `v0.4.0` trước khi release-commit CI pass; không bắt đầu M13 trước khi release hoàn tất.
 
 ### Success condition
 
@@ -1590,17 +1614,17 @@ git check-ignore .env
 - [x] Supported Sigma subset được document.
 - [x] Sigma positive/negative regression chạy trong CI.
 - [x] Native rules vẫn hoạt động.
-- [ ] Threat Intel abstraction hoàn tất.
-- [ ] GeoIP hoạt động.
-- [ ] AbuseIPDB optional provider hoạt động.
-- [ ] VirusTotal metadata lookup optional hoạt động.
-- [ ] Không có VirusTotal auto-upload.
-- [ ] TI cache/rate-limit/provenance hoạt động.
-- [ ] TI failure không block detection.
-- [ ] TI dashboard panel hoạt động.
-- [ ] STIX offline import hoạt động.
-- [ ] TAXII optional path hoạt động hoặc có documented blocker.
-- [ ] README / `.env.example` sync.
+- [x] Threat Intel abstraction hoàn tất.
+- [x] GeoIP hoạt động.
+- [x] AbuseIPDB optional provider hoạt động.
+- [x] VirusTotal metadata lookup optional hoạt động.
+- [x] Không có VirusTotal auto-upload.
+- [x] TI cache/rate-limit/provenance hoạt động.
+- [x] TI failure không block detection.
+- [x] TI dashboard panel hoạt động.
+- [x] STIX offline import hoạt động.
+- [x] TAXII optional path hoạt động hoặc có documented blocker.
+- [x] README / `.env.example` sync.
 - [ ] Clean clone pass.
 - [ ] Tag `v0.4.0`.
 
@@ -1654,6 +1678,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-18 | VirusTotal chỉ lookup hash metadata | Không có upload, rescan hoặc download code path |
 | 2026-08-18 | TI dashboard chỉ render normalized allowlist | Tách observed IOC khỏi third-party context và không đổi severity |
 | 2026-08-18 | STIX phase 1 chỉ hỗ trợ exact equality IPv4/domain/hash | Giữ parser explainable; TAXII pull bị giới hạn size/page và feed failure không chặn detection |
+| 2026-08-18 | Tag release chỉ tạo sau release-commit CI xanh | Bảo đảm annotated tag trỏ đúng commit đã qua release gate |
 | 2026-08-15 | Risk tách khỏi severity | Detection semantics rõ ràng |
 | 2026-08-15 | LLM không đặt risk score trực tiếp | Risk phải explainable |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
@@ -1664,11 +1689,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M12.6 — Commit/push and verify the STIX/TAXII GitHub Actions run
+M12.7 — Commit/push and verify the v0.4.0 release commit, then create the annotated tag
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M12.6 thành `✅` và ghi GitHub Actions run.
-2. Đổi M12.7 thành batch tiếp theo.
-3. Không bắt đầu release trước khi STIX/TAXII CI pass.
+1. Push release commit và chờ `baseline/docker-smoke/security/release-gate` pass.
+2. Tạo/push annotated tag `v0.4.0`, sau đó đổi M12.7/M12 thành `✅`.
+3. Không bắt đầu M13 trước khi tag release đã được xác minh.

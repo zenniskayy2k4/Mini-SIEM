@@ -2,6 +2,40 @@
 
 All notable changes to Mini-SIEM are documented here. The project follows semantic versioning while remaining pre-1.0.
 
+## [0.4.0] - 2026-08-18
+
+Detection Engineering and Threat Intelligence release.
+
+### Added
+
+- GitHub Actions baseline, Docker smoke, security, dependency-audit, and release-gate jobs.
+- A documented Sigma subset with UUID provenance, selection mapping, lifecycle controls, coverage, and an offline regression corpus.
+- A normalized threat-intelligence provider contract with bounded workers, timeout/retry handling, rate limits, and cache metadata.
+- GeoIP context for public addresses plus optional AbuseIPDB IP reputation and VirusTotal hash metadata providers.
+- A dashboard Threat Intelligence panel that separates observed IOCs from third-party context without changing system severity.
+- Offline STIX 2.1 IPv4/domain/hash import, normalized persistence, expiry/deduplication, alert matching, and optional bounded TAXII collection pulls.
+
+### Changed
+
+- Detection rules now preserve native/Sigma provenance and reload administrator lifecycle changes.
+- Threat-intelligence failures remain non-blocking and provider payloads are reduced to allowlisted fields before persistence or display.
+- The login page no longer issues an authenticated favicon request that could race its CSRF session.
+
+### Security
+
+- VirusTotal is metadata-only: there is no upload, rescan, download, or raw-file path.
+- API keys and TAXII bearer tokens are environment-only and excluded from normalized alert data.
+- CI rejects tracked `.env`, `data/**`, and `logs/**`, scans repository history for secrets, and audits Python dependencies.
+
+### Verification
+
+- All 24 executable regression modules pass with Python/JavaScript syntax and Docker Compose validation.
+- GitHub Actions passed through M12.6, including baseline, Docker smoke, security, and release gate.
+- The release path is verified from a clean local clone without rebuilding a duplicate image.
+- No active Gitleaks exception or tracked runtime file exists.
+
+See the [v0.4.0 release checklist](docs/RELEASE_v0.4.0.md) for setup, verification details, upgrade notes, and known limitations.
+
 ## [0.3.0] - 2026-08-15
 
 First versioned Blue Team portfolio release.

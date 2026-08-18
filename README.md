@@ -5,18 +5,19 @@
 ![Ollama](https://img.shields.io/badge/Ollama-Cloud_AI-white?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=flat-square)
-![Release](https://img.shields.io/badge/release-v0.3.0-2ea44f?style=flat-square)
+![Release](https://img.shields.io/badge/release-v0.4.0-2ea44f?style=flat-square)
 [![CI](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml/badge.svg)](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml)
 
 A compact, explainable SIEM lab for learning blue-team workflows. It combines YAML signatures, local anomaly models, event correlation, an optional Ollama Cloud analyst, an authenticated incident dashboard, and safe response simulation.
 
 > **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
 
-Current release: **v0.3.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.3.0.md).
+Current release: **v0.4.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.4.0.md).
 
 ## What is implemented
 
 - Native YAML and supported Sigma detection rules with MITRE ATT&CK mappings and reloadable rule state.
+- CI-backed baseline, Docker smoke, security, and release gates.
 - HIDS log monitoring, Linux-oriented packet capture, honeypot events, and multi-event correlation.
 - Offline Windows/Sysmon import plus authenticated collector ingestion.
 - TF-IDF/Isolation Forest and autoencoder anomaly signals alongside deterministic rules.
@@ -24,6 +25,7 @@ Current release: **v0.3.0** — see the [changelog](CHANGELOG.md) and [release c
 - SQLite as the primary alert store, with JSON dual-write/fallback during migration.
 - Incident lifecycle, notes, assignee, timeline, audit trail, role-based access, and CSRF protection.
 - Proposed response actions, approvals, simulation, rollback metadata, and optional webhook notifications.
+- Normalized GeoIP, optional AbuseIPDB/VirusTotal metadata, and offline STIX/TAXII indicator matching.
 - Health/status diagnostics, retention, SQLite backup, and log rotation tooling.
 
 ## Architecture
@@ -45,8 +47,9 @@ flowchart LR
     AE --> Pipeline
 
     Pipeline --> Correlation[Correlation + incident lifecycle]
-    Correlation --> SQLite[(SQLite)]
-    Correlation --> JSON[(JSON fallback)]
+    Correlation --> TI["Threat intelligence<br/>GeoIP + reputation + STIX/TAXII"]
+    TI --> SQLite[(SQLite)]
+    TI --> JSON[(JSON fallback)]
     Correlation --> AI["Ollama Cloud<br/>shared 1-worker analyst"]
     Correlation --> Response[Safe response workflow]
     Correlation --> Webhook[Optional webhook]
@@ -126,6 +129,24 @@ ioc_tags, escalate_to_human
 
 Provider, model, analysis time, cache state, and the separate severity recommendation are added by the application. The dashboard system-status view reports AI availability and recent outcomes without making a probe call that would occupy the worker.
 
+## Threat intelligence
+
+Threat intelligence is contextual evidence only and never rewrites detector severity. Public IPs can receive GeoIP context; AbuseIPDB and VirusTotal remain disabled until their API keys are configured. VirusTotal performs hash metadata lookups only and never uploads, rescans, or downloads files.
+
+STIX 2.1 bundles can be imported manually from a path visible inside the agent container:
+
+```bash
+docker compose exec agent python tools/import_stix.py /app/data/feed.json --source lab-feed
+```
+
+For TAXII 2.1, configure `TAXII_COLLECTION_URL`, optional `TAXII_BEARER_TOKEN`, feed source, and pull interval in `.env`. A one-off pull uses the same normalized store:
+
+```bash
+docker compose exec agent python tools/import_stix.py --taxii-url https://taxii.example/collections/lab/objects/ --source lab-taxii
+```
+
+The phase-1 STIX parser supports exact equality indicators for IPv4, domains, SHA-256, and MD5. It deduplicates per feed, ignores expired indicators, preserves source/confidence/labels, and bounds TAXII responses to 5 MiB and 10 pages.
+
 ## Dashboard roles
 
 | Role | Access |
@@ -173,7 +194,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
 - Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
-- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.3.0 checklist](docs/RELEASE_v0.3.0.md).
+- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.4.0 checklist](docs/RELEASE_v0.4.0.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
 - The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.4–v0.6 roadmap](docs/MINI_SIEM_CONTINUATION_ROADMAP_v0.4_to_v0.6.md).
 
@@ -215,9 +236,9 @@ Mini-SIEM/
 
 ## Near-term roadmap
 
-- Automated CI for the executable regression modules.
+- Asset inventory and deterministic, explainable risk context.
+- SOC metrics, incident reporting, and AI provider resilience.
 - TLS/reverse-proxy deployment guidance and stronger secret management.
-- Shared coordination state for multi-process or multi-node deployments.
 - Production-grade response integrations, after explicit approval and least-privilege design.
 
 Contributions should keep detections explainable, failure modes observable, and response actions safe by default.
