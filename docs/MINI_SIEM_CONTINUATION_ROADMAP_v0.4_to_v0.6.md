@@ -98,7 +98,7 @@ M18 — Multi-tenant Architecture
 |---|---|---|---|
 | M10 | Engineering Quality & CI | v0.4.0 | ✅ Complete |
 | M11 | Sigma Rule Support | v0.4.0 | ✅ Complete |
-| M12 | Threat Intelligence Layer | v0.4.0 | 🟠 In Progress |
+| M12 | Threat Intelligence Layer | v0.4.0 | ✅ Complete |
 | M13 | Asset Inventory & Risk Context | v0.5.0 | ⬜ |
 | M14 | Reporting & Observability | v0.5.0 | ⬜ |
 | M15 | AI Resilience & Provider Abstraction | v0.5.0 | ⬜ |
@@ -898,7 +898,7 @@ feat: add STIX and TAXII threat intelligence ingestion
 
 ## M12.7 — Release v0.4.0
 
-**Status:** 🟠 In Progress — release-preparation CI passed; responsive stabilization added before tagging
+**Status:** ✅ Complete — responsive stabilization CI passed and annotated tag published
 
 ### Checklist
 
@@ -912,8 +912,8 @@ feat: add STIX and TAXII threat intelligence ingestion
 - [x] Clean-clone verification.
 - [x] No secret.
 - [x] Pre-tag responsive dashboard stabilization passes 25/25 local regression modules.
-- [ ] Responsive stabilization CI green.
-- [ ] Tag `v0.4.0`.
+- [x] Responsive stabilization CI green (`32123583216`).
+- [x] Annotated tag `v0.4.0` published from verified commit `1c41462`.
 
 ### Release theme
 
@@ -944,6 +944,8 @@ The local clean-clone verification reused the existing image to avoid a duplicat
 - [x] Responsive filters, settings, graph, and login surfaces.
 - [x] No API, schema, business-logic, or dependency changes.
 - [x] 25/25 executable regression modules pass in the existing image without rebuilding.
+
+GitHub Actions run `32123583216` passed baseline, Docker smoke, security, and release gate. Annotated tag `v0.4.0` points to verified commit `1c41462`.
 
 ### Commit
 
@@ -1511,10 +1513,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M12.7 — Commit responsive stabilization, verify its CI, then tag release v0.4.0
+M13.1 — Asset schema (not started; begin only in the next requested batch)
 ```
 
-Không tạo tag `v0.4.0` trước khi release-commit CI pass; không bắt đầu M13 trước khi release hoàn tất.
+Release `v0.4.0` đã hoàn tất. Không bắt đầu M13 trong batch đóng release này.
 
 ### Success condition
 
@@ -1635,8 +1637,8 @@ git check-ignore .env
 - [x] STIX offline import hoạt động.
 - [x] TAXII optional path hoạt động hoặc có documented blocker.
 - [x] README / `.env.example` sync.
-- [ ] Clean clone pass.
-- [ ] Tag `v0.4.0`.
+- [x] Clean clone pass.
+- [x] Tag `v0.4.0`.
 
 ---
 
@@ -1699,11 +1701,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M12.7 — Verify the responsive stabilization commit in CI, then create the annotated tag
+M13.1 — Asset schema (not started)
 ```
 
-Sau khi GitHub Actions chạy thành công:
-
-1. Push responsive stabilization commit và chờ `baseline/docker-smoke/security/release-gate` pass.
-2. Tạo/push annotated tag `v0.4.0`, sau đó đổi M12.7/M12 thành `✅`.
-3. Không bắt đầu M13 trước khi tag release đã được xác minh.
+`v0.4.0` đã được xác minh và phát hành. Bắt đầu M13.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

@@ -31,7 +31,7 @@ Detection Engineering and Threat Intelligence release.
 ### Verification
 
 - All 25 executable regression modules pass with Python/JavaScript syntax and Docker Compose validation.
-- GitHub Actions passed through M12.6, including baseline, Docker smoke, security, and release gate.
+- GitHub Actions run `32123583216` passed baseline, Docker smoke, security, and release gate before tag `v0.4.0` was published.
 - The release path is verified from a clean local clone without rebuilding a duplicate image.
 - No active Gitleaks exception or tracked runtime file exists.
 

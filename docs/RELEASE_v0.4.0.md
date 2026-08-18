@@ -89,7 +89,7 @@ docker compose run --rm -v "${PWD}:/app" dashboard sh -c \
 | Regression | 25/25 executable test modules passed, including the responsive dashboard contract |
 | Sigma | Parser, mapping, lifecycle, provenance, coverage, and offline corpus passed |
 | Threat intelligence | Provider, GeoIP, AbuseIPDB, VirusTotal, dashboard, STIX/TAXII, expiry, and failure paths passed |
-| GitHub Actions | Release-preparation run `32122174097` passed baseline, Docker smoke, security, and release gate; responsive stabilization CI is pending |
+| GitHub Actions | Responsive stabilization run `32123583216` passed baseline, Docker smoke, security, and release gate |
 | Clean clone | Required release files, Compose configuration, syntax, and the original 24/24 release-snapshot regression modules passed |
 | Secret review | No active Gitleaks exception; `.env`, `data/`, and `logs/` remain untracked |
 | Runtime | Existing agent/dashboard stack and public `/health` are healthy |
@@ -112,7 +112,7 @@ The clean-clone verification reuses the existing local image to avoid a duplicat
 
 ## Tag and publish
 
-Create the annotated tag only after the release commit's GitHub Actions `release-gate` is green:
+The annotated tag was created after the release commit's GitHub Actions `release-gate` passed:
 
 ```bash
 git status --short
@@ -121,4 +121,4 @@ git push origin feature/blue-team-baseline
 git push origin v0.4.0
 ```
 
-The tag must point to the verified release commit; tag creation is intentionally deferred until that CI result exists.
+Published tag `v0.4.0` points to verified commit `1c41462`.
