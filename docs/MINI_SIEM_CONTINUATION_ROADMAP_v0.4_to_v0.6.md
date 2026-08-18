@@ -785,7 +785,7 @@ feat: add VirusTotal IOC metadata enrichment
 
 ## M12.5 — Threat Intel dashboard panel
 
-**Status:** 🟠 In Progress — local Threat Intelligence dashboard regression passed; GitHub run pending
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### UI
 
@@ -826,6 +826,8 @@ Python/JavaScript syntax and Docker Compose validation       PASS
 
 The panel reuses the existing normalized alert payload and search API; it adds no endpoint, frontend framework or raw-provider rendering path.
 
+GitHub Actions [run 32118998036](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32118998036) passed for commit `daeea28`. Follow-up login CSRF hotfix [run 32119994389](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32119994389) passed for commit `fd98961`.
+
 ### Commit
 
 ```text
@@ -836,7 +838,7 @@ feat: show threat intelligence context on dashboard
 
 ## M12.6 — STIX/TAXII
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local STIX/TAXII regression passed; GitHub run pending
 
 ### Scope ban đầu
 
@@ -851,20 +853,38 @@ feat: show threat intelligence context on dashboard
 
 ### Tasks
 
-- [ ] Offline STIX bundle import.
-- [ ] TAXII collection optional.
-- [ ] Scheduled/manual pull.
-- [ ] Deduplicate indicators.
-- [ ] Expire indicators.
-- [ ] Match alert IOC.
-- [ ] Preserve feed source.
+- [x] Offline STIX bundle import.
+- [x] TAXII collection optional.
+- [x] Scheduled/manual pull.
+- [x] Deduplicate indicators.
+- [x] Expire indicators.
+- [x] Match alert IOC.
+- [x] Preserve feed source.
 
 ### DoD
 
-- [ ] Sample STIX bundle import được.
-- [ ] IOC match hiển thị source.
-- [ ] Expired indicator không active.
-- [ ] Feed failure không crash detection.
+- [x] Sample STIX bundle import được.
+- [x] IOC match hiển thị source.
+- [x] Expired indicator không active.
+- [x] Feed failure không crash detection.
+
+### Local verification — 2026-08-18
+
+```text
+Offline STIX 2.1 bundle import for IPv4/domain/hash           PASS
+Normalized JSON persistence and reload                       PASS
+Same-feed IOC deduplication                                   PASS
+valid_until expiry excludes inactive indicators              PASS
+Alert IOC match preserves source/confidence/labels            PASS
+Dashboard STIX/TAXII source card uses normalized fields       PASS
+Optional bounded TAXII collection pull with bearer header     PASS
+Manual import and scheduled safe refresh paths                PASS
+Feed failure leaves detection/store operational               PASS
+24 executable regression modules                              PASS
+Python/JavaScript syntax and Docker Compose validation         PASS
+```
+
+The phase-1 parser accepts exact STIX equality patterns for IPv4, domain, SHA-256 and MD5. TAXII uses the configured collection objects URL, a 5 MiB response cap and at most 10 pages; no additional package or database is required.
 
 ### Commit
 
@@ -1457,10 +1477,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M12.5 — Commit/push and verify Threat Intelligence dashboard panel
+M12.6 — Commit/push and verify STIX/TAXII threat intelligence ingestion
 ```
 
-Không bắt đầu M12.6 STIX/TAXII trước khi Threat Intelligence dashboard CI pass.
+Không bắt đầu M12.7 release trước khi STIX/TAXII CI pass.
 
 ### Success condition
 
@@ -1633,6 +1653,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-18 | AbuseIPDB chỉ dùng check endpoint và normalized summary | Không gửi raw log hoặc provider payload sang API/AI |
 | 2026-08-18 | VirusTotal chỉ lookup hash metadata | Không có upload, rescan hoặc download code path |
 | 2026-08-18 | TI dashboard chỉ render normalized allowlist | Tách observed IOC khỏi third-party context và không đổi severity |
+| 2026-08-18 | STIX phase 1 chỉ hỗ trợ exact equality IPv4/domain/hash | Giữ parser explainable; TAXII pull bị giới hạn size/page và feed failure không chặn detection |
 | 2026-08-15 | Risk tách khỏi severity | Detection semantics rõ ràng |
 | 2026-08-15 | LLM không đặt risk score trực tiếp | Risk phải explainable |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
@@ -1643,11 +1664,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M12.5 — Commit/push and verify the Threat Intelligence dashboard GitHub Actions run
+M12.6 — Commit/push and verify the STIX/TAXII GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M12.5 thành `✅` và ghi GitHub Actions run.
-2. Đổi M12.6 thành batch tiếp theo.
-3. Không bắt đầu STIX/TAXII trước khi Threat Intelligence dashboard CI pass.
+1. Đổi M12.6 thành `✅` và ghi GitHub Actions run.
+2. Đổi M12.7 thành batch tiếp theo.
+3. Không bắt đầu release trước khi STIX/TAXII CI pass.

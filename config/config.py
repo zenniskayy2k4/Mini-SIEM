@@ -47,6 +47,12 @@ GEOIP_TIMEOUT_SECONDS = max(0.1, float(os.getenv("GEOIP_TIMEOUT_SECONDS", "3")))
 GEOIP_MAX_ATTEMPTS = min(3, max(1, int(os.getenv("GEOIP_MAX_ATTEMPTS", "2"))))
 ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "").strip()
 VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "").strip()
+STIX_INDICATOR_FILE = os.path.join(BASE_DIR, "data", "stix_indicators.json")
+STIX_BUNDLE_FILE = os.getenv("STIX_BUNDLE_FILE", "").strip()
+TAXII_COLLECTION_URL = os.getenv("TAXII_COLLECTION_URL", "").strip()
+TAXII_BEARER_TOKEN = os.getenv("TAXII_BEARER_TOKEN", "").strip()
+TAXII_FEED_SOURCE = os.getenv("TAXII_FEED_SOURCE", "taxii").strip() or "taxii"
+TAXII_PULL_INTERVAL_SECONDS = max(60, int(os.getenv("TAXII_PULL_INTERVAL_SECONDS", "3600")))
 WINDOWS_EVENT_FILE = os.getenv(
     "WINDOWS_EVENT_FILE", os.path.join(BASE_DIR, "data", "windows_events.jsonl")
 )

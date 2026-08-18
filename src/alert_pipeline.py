@@ -1,11 +1,19 @@
 import logging
 
+from config import config
 from src.alert_store import upsert_alert
 from src.notifier import notification_service
-from src.threat_intel import ABUSEIPDB_FIELDS, GEOIP_FIELDS, VIRUSTOTAL_FIELDS
+from src.threat_intel import (
+    ABUSEIPDB_FIELDS,
+    GEOIP_FIELDS,
+    VIRUSTOTAL_FIELDS,
+    STIXIndicatorStore,
+    summarize_stix_matches,
+)
 
 
 logger = logging.getLogger(__name__)
+_STIX_STORE = STIXIndicatorStore(config.STIX_INDICATOR_FILE)
 
 
 def _persist_and_notify(alert):
@@ -90,7 +98,9 @@ def _file_hash(alert):
     return None
 
 
-def _initial_threat_intel(alert, geoip_service, abuseipdb_service, virustotal_service):
+def _initial_threat_intel(
+    alert, geoip_service, abuseipdb_service, virustotal_service, stix_store,
+):
     intel = alert.setdefault("threat_intel", {})
 
     def state(provider, ioc_type, ioc, enabled):
@@ -108,6 +118,12 @@ def _initial_threat_intel(alert, geoip_service, abuseipdb_service, virustotal_se
     file_hash = _file_hash(alert)
     if file_hash:
         state("virustotal", file_hash[0], file_hash[1], bool(virustotal_service))
+    try:
+        stix_summary = summarize_stix_matches(stix_store.match_alert(alert)) if stix_store else None
+        if stix_summary:
+            intel["stix"] = stix_summary
+    except Exception as exc:
+        logger.warning("STIX matching failed for %s: %s", alert.get("alert_id"), exc)
     if not intel:
         alert.pop("threat_intel", None)
     return file_hash
@@ -115,11 +131,11 @@ def _initial_threat_intel(alert, geoip_service, abuseipdb_service, virustotal_se
 
 def persist_and_enrich(
     alert: dict, ai_analyst=None, geoip_service=None, abuseipdb_service=None,
-    virustotal_service=None,
+    virustotal_service=None, stix_store=_STIX_STORE,
 ) -> dict:
     """Persist every alert before dispatching optional asynchronous enrichment."""
     file_hash = _initial_threat_intel(
-        alert, geoip_service, abuseipdb_service, virustotal_service,
+        alert, geoip_service, abuseipdb_service, virustotal_service, stix_store,
     )
     upsert_alert(alert)
     if geoip_service and alert.get("ip_address"):

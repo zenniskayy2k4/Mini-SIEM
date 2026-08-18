@@ -788,7 +788,7 @@ function renderThreatIntelligence(alert) {
     ioc_type: "ip",
     ioc: alert.ip_address,
   } : null;
-  const entries = ["ipwhois", "abuseipdb", "virustotal"]
+  const entries = ["ipwhois", "abuseipdb", "virustotal", "stix"]
     .map((provider) => intel[provider] || (provider === "ipwhois" ? legacyGeoIP : null))
     .filter(Boolean);
   if (!entries.length) return "";
@@ -809,7 +809,7 @@ function renderThreatIntelligence(alert) {
 
 function renderThreatIntelProvider(entry, alert) {
   const provider = entry.provider || "unknown";
-  const label = { ipwhois: "GeoIP", abuseipdb: "AbuseIPDB", virustotal: "VirusTotal" }[provider] || provider;
+  const label = { ipwhois: "GeoIP", abuseipdb: "AbuseIPDB", virustotal: "VirusTotal", stix: "STIX/TAXII" }[provider] || provider;
   const status = entry.status || "unavailable";
   let body = "";
   if (status === "pending") {
@@ -836,6 +836,13 @@ function renderThreatIntelProvider(entry, alert) {
       .reduce((sum, key) => sum + Number(entry[key] || 0), 0);
     body = `<strong>${escapeHTML(entry.malicious ?? 0)} malicious · ${escapeHTML(entry.suspicious ?? 0)} suspicious</strong>` +
       `<span>${escapeHTML(total)} engines reported</span>`;
+  } else if (provider === "stix") {
+    const sources = Array.isArray(entry.sources) ? entry.sources : [];
+    const labels = Array.isArray(entry.labels) ? entry.labels : [];
+    body = `<strong>${escapeHTML(entry.match_count ?? 1)} active feed match${Number(entry.match_count) === 1 ? "" : "es"}</strong>` +
+      `<span>Source: ${escapeHTML(sources.join(", ") || "unknown")}</span>` +
+      (entry.confidence == null ? "" : `<span>${escapeHTML(entry.confidence)}% confidence</span>`) +
+      (labels.length ? `<span>${escapeHTML(labels.join(", "))}</span>` : "");
   }
   const meta = [
     Number.isFinite(Number(entry.duration_ms)) ? `${escapeHTML(entry.duration_ms)} ms` : null,

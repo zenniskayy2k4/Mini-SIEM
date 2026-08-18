@@ -17,8 +17,10 @@ from src.health import write_agent_heartbeat
 from src.threat_intel import (
     AbuseIPDBProvider,
     GeoIPProvider,
+    STIXIndicatorStore,
     ThreatIntelService,
     VirusTotalProvider,
+    pull_taxii_safe,
 )
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
@@ -98,6 +100,14 @@ def main():
             timeout_seconds=3,
             max_attempts=2,
         )
+    stix_store = STIXIndicatorStore(config.STIX_INDICATOR_FILE)
+    if config.STIX_BUNDLE_FILE:
+        try:
+            with open(config.STIX_BUNDLE_FILE, "r", encoding="utf-8") as feed:
+                stats = stix_store.import_bundle(json.load(feed), "offline")
+            logging.info("[+] STIX offline bundle imported: %s", stats)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            logging.warning("[-] STIX offline bundle import failed: %s", exc)
 
     detector = ThreatDetector(
         load_detection_rules(config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR),
@@ -185,6 +195,20 @@ def main():
 
     # Watch runtime settings changes
     stop_event = threading.Event()
+    if config.TAXII_COLLECTION_URL:
+        def taxii_feed_worker():
+            while not stop_event.is_set():
+                result = pull_taxii_safe(
+                    stix_store,
+                    config.TAXII_COLLECTION_URL,
+                    config.TAXII_FEED_SOURCE,
+                    config.TAXII_BEARER_TOKEN,
+                )
+                if result["status"] == "error":
+                    logging.warning("[-] TAXII feed refresh failed")
+                stop_event.wait(config.TAXII_PULL_INTERVAL_SECONDS)
+
+        threading.Thread(target=taxii_feed_worker, daemon=True).start()
     last_settings_mtime = 0.0
     last_sigma_mtime = 0.0
 
