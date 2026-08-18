@@ -97,8 +97,8 @@ M18 — Multi-tenant Architecture
 | Milestone | Nội dung | Release | Status |
 |---|---|---|---|
 | M10 | Engineering Quality & CI | v0.4.0 | ✅ Complete |
-| M11 | Sigma Rule Support | v0.4.0 | 🟠 In Progress |
-| M12 | Threat Intelligence Layer | v0.4.0 | ⬜ |
+| M11 | Sigma Rule Support | v0.4.0 | ✅ Complete |
+| M12 | Threat Intelligence Layer | v0.4.0 | 🟠 In Progress |
 | M13 | Asset Inventory & Risk Context | v0.5.0 | ⬜ |
 | M14 | Reporting & Observability | v0.5.0 | ⬜ |
 | M15 | AI Resilience & Provider Abstraction | v0.5.0 | ⬜ |
@@ -522,7 +522,7 @@ test: add Sigma detection regression corpus
 
 ## M11.5 — Sigma documentation
 
-**Status:** 🟠 In Progress — local Sigma documentation verification passed, GitHub run pending
+**Status:** ✅ Complete — GitHub Actions passed
 
 - [x] Supported subset.
 - [x] Unsupported syntax.
@@ -544,7 +544,9 @@ Documented offline corpus command                            PASS
 Docker Compose validation                                    PASS
 ```
 
-Runtime code is unchanged. M12.1 has not started.
+Runtime code is unchanged.
+
+GitHub Actions [run 32100301022](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32100301022) passed for commit `f25d087`.
 
 ### Commit
 
@@ -558,7 +560,7 @@ docs: document Sigma rule support
 
 ## M12.1 — ThreatIntelProvider abstraction
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local ThreatIntelProvider regression passed, GitHub run pending
 
 ### Architecture
 
@@ -571,15 +573,13 @@ Alert IOC
 → Dashboard / AI Context
 ```
 
-### File dự kiến
+### File triển khai
 
 ```text
 src/threat_intel/
 ├── __init__.py
 ├── base.py
-├── service.py
-├── cache.py
-└── models.py
+└── service.py
 ```
 
 ### IOC types
@@ -594,22 +594,37 @@ md5
 
 ### Tasks
 
-- [ ] Provider interface.
-- [ ] IOC normalization.
-- [ ] TTL cache.
-- [ ] Rate limiter.
-- [ ] Timeout.
-- [ ] Bounded retry.
-- [ ] Structured error state.
-- [ ] Lookup không block alert persistence.
-- [ ] Không persist API secret.
+- [x] Provider interface.
+- [x] IOC normalization.
+- [x] TTL cache.
+- [x] Rate limiter.
+- [x] Timeout.
+- [x] Bounded retry.
+- [x] Structured error state.
+- [x] Lookup không block alert persistence.
+- [x] Không persist API secret.
 
 ### DoD
 
-- [ ] Dummy provider hoạt động.
-- [ ] Cache hit không lookup lại.
-- [ ] Provider timeout không crash pipeline.
-- [ ] Result có timestamp/provenance.
+- [x] Dummy provider hoạt động.
+- [x] Cache hit không lookup lại.
+- [x] Provider timeout không crash pipeline.
+- [x] Result có timestamp/provenance.
+
+### Local verification — 2026-08-18
+
+```text
+IP/domain/URL/SHA-256/MD5 normalization                       PASS
+Dummy provider and normalized result contract                PASS
+TTL cache hit and provider rate limiter                      PASS
+Bounded retry and enforced timeout/error state               PASS
+Async lookup returns before alert persistence path continues PASS
+No network, file persistence or API-secret handling          PASS
+19 executable regression modules                            PASS
+Docker Compose validation                                    PASS
+```
+
+The phase-1 abstraction uses stdlib only and one bounded provider worker. External providers and alert enrichment are deferred to later M12 batches.
 
 ### Commit
 
@@ -1368,10 +1383,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M11.5 — Commit/push and verify Sigma documentation
+M12.1 — Commit/push and verify ThreatIntelProvider abstraction
 ```
 
-Không bắt đầu M12.1 Threat Intelligence trước khi Sigma documentation CI pass.
+Không bắt đầu M12.2 GeoIP trước khi provider abstraction CI pass.
 
 ### Success condition
 
@@ -1474,13 +1489,13 @@ git check-ignore .env
 
 # 10. Definition of Done — v0.4.0
 
-- [ ] GitHub Actions bảo vệ baseline.
-- [ ] Docker smoke CI hoạt động.
-- [ ] Secret/dependency checks hoạt động.
-- [ ] Sigma parser giữ provenance.
-- [ ] Supported Sigma subset được document.
-- [ ] Sigma positive/negative regression chạy trong CI.
-- [ ] Native rules vẫn hoạt động.
+- [x] GitHub Actions bảo vệ baseline.
+- [x] Docker smoke CI hoạt động.
+- [x] Secret/dependency checks hoạt động.
+- [x] Sigma parser giữ provenance.
+- [x] Supported Sigma subset được document.
+- [x] Sigma positive/negative regression chạy trong CI.
+- [x] Native rules vẫn hoạt động.
 - [ ] Threat Intel abstraction hoàn tất.
 - [ ] GeoIP hoạt động.
 - [ ] AbuseIPDB optional provider hoạt động.
@@ -1550,11 +1565,11 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M11.5 — Commit/push and verify the Sigma documentation GitHub Actions run
+M12.1 — Commit/push and verify the ThreatIntelProvider GitHub Actions run
 ```
 
 Sau khi GitHub Actions chạy thành công:
 
-1. Đổi M11.5 thành `✅` và ghi GitHub Actions run.
-2. Đổi M11 milestone thành `✅`.
-3. Chỉ bắt đầu M12.1 sau khi Sigma documentation CI pass.
+1. Đổi M12.1 thành `✅` và ghi GitHub Actions run.
+2. Đổi M12.2 thành batch tiếp theo.
+3. Không bắt đầu GeoIP trước khi provider abstraction CI pass.
