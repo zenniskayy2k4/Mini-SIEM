@@ -42,7 +42,8 @@ def test_dashboard_auth():
             client = app.test_client()
             assert client.get("/").status_code == 302
             assert client.get("/api/alerts").status_code == 401
-            client.get("/login")
+            login_page = client.get("/login")
+            assert b'<link rel="icon" href="data:,' in login_page.data
             assert client.post("/login", data={
                 "username": "viewer", "password": "viewer-password-123", "csrf_token": "bad",
             }).status_code == 400
