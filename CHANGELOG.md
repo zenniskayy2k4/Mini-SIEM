@@ -10,6 +10,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 - Responsive admin asset management UI and CSRF-protected API with search, environment/state/criticality filters, ownership, tags, and bounded validation.
 - Fail-open alert enrichment with a compact `asset_id` reference and admin dashboard links to matching inventory records.
 - Deterministic asset-aware risk scoring with configurable contribution ceilings, persisted factors, async TI/AI recomputation, and dashboard explanations.
+- Prometheus text exposition for alerts, incidents, detections, AI/TI/notification outcomes, response simulations, heartbeat age, and worker backlog, with optional bearer authentication.
 
 ## [0.4.0] - 2026-08-18
 

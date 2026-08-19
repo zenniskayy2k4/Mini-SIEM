@@ -68,6 +68,7 @@ WINDOWS_COLLECTOR_SECRET = os.getenv("WINDOWS_COLLECTOR_SECRET", "").strip()
 DASHBOARD_USERS_FILE = os.path.join(BASE_DIR, "data", "dashboard_users.json")
 DASHBOARD_SESSION_KEY_FILE = os.path.join(BASE_DIR, "data", "dashboard_session.key")
 DASHBOARD_COOKIE_SECURE = os.getenv("DASHBOARD_COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
+METRICS_BEARER_TOKEN = os.getenv("METRICS_BEARER_TOKEN", "").strip()
 
 # --- ENGINE SETTINGS ---
 CORRELATION_WINDOW_MINUTES = 5

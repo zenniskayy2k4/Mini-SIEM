@@ -1069,7 +1069,7 @@ feat: enrich alerts with asset context
 
 ## M13.4 — Explainable risk scoring
 
-**Status:** ✅ Complete — local verification passed; commit CI pending
+**Status:** ✅ Complete — local verification and commit CI passed (`32217744391`)
 
 ### Inputs
 
@@ -1121,7 +1121,7 @@ feat: add explainable asset-aware risk scoring
 
 ## M14.1 — Prometheus metrics
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit CI pending
 
 ### Metrics
 
@@ -1137,10 +1137,21 @@ feat: add explainable asset-aware risk scoring
 
 ### Tasks
 
-- [ ] `/metrics`.
-- [ ] Không expose secrets.
-- [ ] Không dùng raw IP/user làm high-cardinality labels.
-- [ ] Document access/auth.
+- [x] `/metrics`.
+- [x] Không expose secrets.
+- [x] Không dùng raw IP/user làm high-cardinality labels.
+- [x] Document access/auth.
+
+### Local verification — 2026-08-19
+
+```text
+M14.1 focused metrics/auth/security regression   PASS
+Health/notification/detection regressions        PASS
+Python and JavaScript syntax                     PASS
+30 executable regression modules                PASS
+Docker Compose validation                        PASS
+No image rebuild                                 PASS
+```
 
 ### Commit
 
@@ -1557,10 +1568,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M14.1 — Prometheus metrics (not started; begin only in the next requested batch)
+M14.2 — SOC KPIs (not started; begin only in the next requested batch)
 ```
 
-M13.4 hoàn tất ở local. Không bắt đầu M14.1 trong cùng batch.
+M14.1 hoàn tất ở local. Không bắt đầu M14.2 trong cùng batch.
 
 ### Success condition
 
@@ -1745,7 +1756,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M14.1 — Prometheus metrics (not started)
+M14.2 — SOC KPIs (not started)
 ```
 
-M13.4 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M14.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M14.1 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M14.2 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

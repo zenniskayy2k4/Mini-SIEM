@@ -12,6 +12,7 @@ from src.alert_schema import INCIDENT_STATUSES, utc_iso
 from src.assets import CRITICALITIES, ENVIRONMENTS, build_asset
 from src.audit import append_audit_event
 from src.health import build_system_status
+from src.metrics import metrics_unavailable, render_prometheus_metrics
 from src.dashboard_auth import (
     authenticate,
     clear_login_failures,
@@ -165,7 +166,7 @@ def _auth_error():
 
 @app.before_request
 def require_dashboard_authentication():
-    if request.endpoint in {"login", "static", "api_windows_events", "health"}:
+    if request.endpoint in {"login", "static", "api_windows_events", "health", "metrics"}:
         return None
     username = session.get("username")
     user = get_user(username) if username else None
@@ -250,6 +251,31 @@ def health():
         "database": status["database"]["status"],
     }
     return jsonify(public), 503 if status["status"] == "unhealthy" else 200
+
+
+@app.route("/metrics")
+def metrics():
+    expected = config.METRICS_BEARER_TOKEN
+    supplied = request.headers.get("Authorization", "")
+    if expected and not hmac.compare_digest(supplied, f"Bearer {expected}"):
+        return app.response_class(
+            "Authentication required\n", status=401,
+            headers={"WWW-Authenticate": "Bearer"}, content_type="text/plain; charset=utf-8",
+        )
+    try:
+        body = render_prometheus_metrics(
+            alert_repository.list_alerts(),
+            _detection_rule_records(),
+            build_system_status(_effective_settings()),
+            config.NOTIFICATION_LOG_FILE,
+        )
+        status = 200
+    except Exception:
+        body, status = metrics_unavailable(), 503
+    return app.response_class(
+        body, status=status,
+        content_type="text/plain; version=0.0.4; charset=utf-8",
+    )
 
 
 @app.route("/api/system/status")

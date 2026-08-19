@@ -104,6 +104,8 @@ docker compose ps
 curl http://localhost:5000/health
 ```
 
+Prometheus can scrape `GET /metrics`. Set `METRICS_BEARER_TOKEN` in `.env` and send `Authorization: Bearer <token>` outside an isolated local lab; an empty token leaves the endpoint unauthenticated. Restrict it at the firewall or reverse proxy because the endpoint is intentionally exempt from dashboard session login. Metrics expose only bounded labels such as severity, incident status, rule ID/source, provider, and result—never raw IPs, usernames, secrets, or payloads.
+
 The local rule/ML pipeline works without an Ollama key. Training only needs to be rerun when models or training data change.
 
 ## Ollama Cloud setup
