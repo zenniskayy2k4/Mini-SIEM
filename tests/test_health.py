@@ -7,6 +7,7 @@ from unittest.mock import patch
 from config import config
 from dashboard import app
 from src.ai_analyst import AIAnalyst
+from src.ai_provider import OllamaCloudProvider
 from src.alert_schema import build_alert
 from src.health import write_agent_heartbeat
 from src.sqlite_store import SQLiteAlertRepository
@@ -84,7 +85,7 @@ def test_health():
                 config.SQLITE_ALERT_DB = str(directory / "missing.db")
                 assert public.get("/health").status_code == 503
 
-            analyst = AIAnalyst(api_key="test-key")
+            analyst = AIAnalyst(OllamaCloudProvider("test-key"))
             with patch.object(
                 analyst, "_enrich", return_value={"ai_analysis": {"analysed_at": "2026-08-14T02:00:00Z"}}
             ):

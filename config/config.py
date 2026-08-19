@@ -1,5 +1,10 @@
 import os
 
+AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama_cloud").strip().lower()
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "").strip()
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "https://ollama.com/api").strip()
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:cloud").strip()
+
 # --- PATH CONFIGURATION ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RULES_DIR = os.path.join(BASE_DIR, "config", "rules")

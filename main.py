@@ -12,6 +12,7 @@ from src.handler import LogHandler, WindowsEventHandler
 from src.network_monitor import NetworkMonitor
 from src.honeypot import MiniHoneypot
 from src.ai_analyst import AIAnalyst
+from src.ai_provider import build_ai_provider
 from src.rules import load_detection_rules
 from src.health import write_agent_heartbeat
 from src.threat_intel import (
@@ -72,7 +73,12 @@ def main():
     print("---------------------------------------------------------")
 
     # Initialize modules
-    ai_analyst = AIAnalyst()
+    ai_analyst = AIAnalyst(build_ai_provider(
+        config.AI_PROVIDER,
+        api_key=config.OLLAMA_API_KEY,
+        base_url=config.OLLAMA_BASE_URL,
+        model=config.OLLAMA_MODEL,
+    ))
     geoip_service = None
     if config.GEOIP_ENABLED:
         geoip_service = ThreatIntelService(

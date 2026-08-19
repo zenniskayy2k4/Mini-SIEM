@@ -1,8 +1,8 @@
 """
-ai_analyst.py - Ollama Cloud LLM Analyst (Layer 3)
+ai_analyst.py - Provider-neutral LLM Analyst (Layer 3)
 
 Responsibilities:
-  - Async triage of HIGH/CRITICAL alerts via Ollama Cloud API
+  - Async triage of HIGH/CRITICAL alerts through an AIProvider
   - False-positive assessment with confidence score
   - MITRE tactic/technique mapping suggestion
   - Automated playbook generation tailored to the alert type
@@ -18,16 +18,16 @@ The analyst runs in a background thread pool so it does not block the
 detection pipeline. Results are written back into the alert dictionary.
 """
 
-import os
 import json
 import logging
 import re
 import threading
 import time
-import requests
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+
+from src.ai_provider import AIProvider
 
 
 logger = logging.getLogger(__name__)
@@ -147,61 +147,42 @@ class _RateLimiter:
 # ---------------------------------------------------------------------------
 class AIAnalyst:
     """
-    Enriches SIEM alerts with Ollama Cloud analysis
-    in a background thread pool.
+    Enriches SIEM alerts through an injected provider in a background thread pool.
 
     Usage:
-        analyst = AIAnalyst()
+        analyst = AIAnalyst(provider)
         detector = ThreatDetector(
             signatures,
             ai_analyst=analyst,
         )
     """
 
-    MAX_TOKENS  = 800
-    TEMPERATURE = 0.1   # near-deterministic for structured analysis
-
     def __init__(
         self,
-        api_key: str | None = None,
+        provider: AIProvider,
         cache_ttl: int = 120,
         rate_per_min: int = 10,
     ):
-        self._provider = os.environ.get(
-            "AI_PROVIDER",
-            "ollama_cloud",
-        ).strip().lower()
-
-        self._api_key = (
-            api_key
-            or os.environ.get("OLLAMA_API_KEY", "")
-        ).strip()
-
-        self._base_url = os.environ.get(
-            "OLLAMA_BASE_URL",
-            "https://ollama.com/api",
-        ).rstrip("/")
-
-        self._model = os.environ.get(
-            "OLLAMA_MODEL",
-            "gemma4:cloud",
-        ).strip()
-
-        self._enabled = (
-            self._provider == "ollama_cloud"
-            and bool(self._api_key)
-        )
+        if not isinstance(provider, AIProvider):
+            raise TypeError("provider must implement AIProvider")
+        if not isinstance(provider.name, str) or not provider.name.strip():
+            raise ValueError("provider name must not be empty")
+        if not isinstance(provider.model, str) or not provider.model.strip():
+            raise ValueError("provider model must not be empty")
+        self._provider_client = provider
+        self._provider = provider.name.strip()
+        self._model = provider.model.strip()
+        self._enabled = bool(provider.available())
 
         if not self._enabled:
             logger.warning(
-                "[AIAnalyst] Ollama Cloud configuration missing. "
-                "Layer 3 analysis disabled. "
-                "Set AI_PROVIDER=ollama_cloud and OLLAMA_API_KEY."
+                "[AIAnalyst] AI provider %s is not configured; Layer 3 analysis disabled.",
+                self._provider,
             )
         else:
             logger.info(
-                "[AIAnalyst] Ollama Cloud enabled "
-                f"with model={self._model}"
+                "[AIAnalyst] AI provider %s enabled with model=%s",
+                self._provider, self._model,
             )
 
         self._executor = ThreadPoolExecutor(
@@ -376,48 +357,10 @@ class AIAnalyst:
             threat_intel  = self._threat_intel_summary(alert),
         )
 
-        # Call Ollama Cloud API
-        response = requests.post(
-            f"{self._base_url}/chat",
-            headers={
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": self._model,
-                "stream": False,
-                "format": "json",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": _SYSTEM_PROMPT,
-                    },
-                    {
-                        "role": "user",
-                        "content": user_msg,
-                    },
-                ],
-                "options": {
-                    "temperature": self.TEMPERATURE,
-                    "num_predict": self.MAX_TOKENS,
-                },
-            },
-            timeout=120,
-        )
-
-        response.raise_for_status()
-
-        payload = response.json()
-        raw_text = (
-            payload.get("message", {})
-            .get("content", "")
-            .strip()
-        )
-
-        if not raw_text:
-            raise RuntimeError(
-                "Ollama Cloud returned an empty response"
-            )
+        raw_text = self._provider_client.analyze([
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg},
+        ], "json")
 
         # Parse JSON response
         analysis = self._parse_response(raw_text)

@@ -127,6 +127,8 @@ OLLAMA_MODEL=gemma4:cloud
 
 The analyst uses one shared worker because the configured Ollama service accepts one request at a time. If it is occupied, new eligible alerts are marked `busy` instead of building an unbounded queue. AI failures do not block alert creation.
 
+`AIAnalyst` owns the stable result contract, cache, rate limit, and single-worker behavior; transport is injected through `AIProvider`. The current `OllamaCloudProvider` validates provider name, HTTPS base URL, and model configuration, while an empty API key cleanly disables AI enrichment. Unsupported providers fail configuration validation instead of silently using the wrong backend.
+
 The validated AI payload contains:
 
 ```text

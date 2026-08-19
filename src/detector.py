@@ -168,7 +168,7 @@ class ThreatDetector:
     Three-layer hybrid detection engine.
 
     The AI Analyst (Layer 3) is injected optionally to avoid circular imports:
-        detector = ThreatDetector(signatures, ai_analyst=AIAnalyst())
+        detector = ThreatDetector(signatures, ai_analyst=AIAnalyst(provider))
     """
 
     FEATURE_DIM = 15
