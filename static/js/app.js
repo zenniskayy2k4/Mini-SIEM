@@ -8,6 +8,7 @@ const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
 const API_DETECTION_RULES = "/api/detection-rules";
 const API_ASSETS = "/api/assets";
+const API_ANALYTICS = "/api/analytics/kpis";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
 const CURRENT_ROLE = document.querySelector('meta[name="current-role"]')?.content || "";
 
@@ -17,10 +18,88 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (path === "/") initDashboard();
   else if (path === "/logs") initLogs();
+  else if (path === "/analytics") initAnalytics();
   else if (path === "/settings") initSettings();
   else if (path === "/assets") initAssets();
   else if (path === "/graph") initGraphPage();
 });
+
+function initAnalytics() {
+  const form = document.getElementById("analytics-range-form");
+  const range = document.getElementById("analytics-range");
+  const error = document.getElementById("analytics-error");
+  let charts = [];
+
+  const colors = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#ef4444", "#38bdf8"];
+  const metricFormats = {
+    mttd_seconds: "duration", mtta_seconds: "duration", mttr_seconds: "duration",
+    false_positive_rate_percent: "percent", human_review_rate_percent: "percent",
+    ai_enrichment_success_rate_percent: "percent",
+  };
+
+  function formatMetric(key, metric) {
+    if (!metric?.available) return "Insufficient data";
+    if (metricFormats[key] === "percent") return `${metric.value}%`;
+    if (metricFormats[key] === "duration") {
+      const seconds = Math.round(metric.value);
+      return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
+    }
+    return Number(metric.value).toLocaleString();
+  }
+
+  function chart(id, type, labels, values, label, options = {}) {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    charts.push(new Chart(canvas, {
+      type,
+      data: { labels, datasets: [{ label, data: values, backgroundColor: options.multi ? colors : "#3b82f6", borderColor: "#38bdf8", borderWidth: 2, tension: 0.25, fill: type === "line" }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: options.horizontal ? "y" : "x",
+        plugins: { legend: { display: type === "doughnut", labels: { color: "#cbd5e1" } } },
+        scales: type === "doughnut" ? {} : {
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,.12)" } },
+          y: { beginAtZero: true, ticks: { color: "#94a3b8", precision: 0 }, grid: { color: "rgba(148,163,184,.12)" } },
+        },
+      },
+    }));
+  }
+
+  function render(payload) {
+    Object.entries(payload.kpis).forEach(([key, metric]) => {
+      if (key === "alerts_per_rule") return;
+      const value = document.getElementById(`kpi-${key}`);
+      const sample = document.getElementById(`sample-${key}`);
+      if (value) value.textContent = formatMetric(key, metric);
+      if (sample) sample.textContent = metric.available ? `Sample: ${metric.sample_size}` : "No qualifying samples";
+    });
+    document.getElementById("analytics-period").textContent =
+      `${new Date(payload.period.from).toLocaleString()} – ${new Date(payload.period.to).toLocaleString()} · per ${payload.analytics.granularity}`;
+
+    charts.forEach((item) => item.destroy());
+    charts = [];
+    const data = payload.analytics;
+    chart("alertTrendChart", "line", data.alert_trend.map((x) => x.timestamp), data.alert_trend.map((x) => x.count), "Alerts");
+    chart("incidentDistributionChart", "doughnut", data.incident_distribution.map((x) => x.status), data.incident_distribution.map((x) => x.count), "Incidents", { multi: true });
+    chart("topRulesChart", "bar", data.top_rules.map((x) => x.rule_id), data.top_rules.map((x) => x.count), "Alerts", { horizontal: true });
+    chart("topMitreChart", "bar", data.top_mitre_techniques.map((x) => x.technique_id), data.top_mitre_techniques.map((x) => x.count), "Alerts", { horizontal: true });
+    chart("falsePositiveTrendChart", "line", data.false_positive_trend.map((x) => x.timestamp), data.false_positive_trend.map((x) => x.count), "False positives");
+  }
+
+  function load() {
+    error.textContent = "";
+    const to = new Date();
+    const from = new Date(to.getTime() - Number(range.value) * 3600000);
+    const query = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
+    fetch(`${API_ANALYTICS}?${query}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : response.json().then((body) => Promise.reject(new Error(body.error))))
+      .then(render)
+      .catch((failure) => { error.textContent = failure.message || "Analytics data unavailable."; });
+  }
+
+  form.addEventListener("submit", (event) => { event.preventDefault(); load(); });
+  load();
+}
 
 // --- SETTINGS PAGE LOGIC ---
 function initSettings() {

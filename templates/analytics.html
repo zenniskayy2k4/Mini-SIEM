@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="content-header analytics-header">
+    <div>
+        <h2>SOC Analytics</h2>
+        <span class="muted" id="analytics-period">Loading selected period...</span>
+    </div>
+    <form class="analytics-range" id="analytics-range-form">
+        <label>Range
+            <select id="analytics-range">
+                <option value="24">Last 24 hours</option>
+                <option value="168">Last 7 days</option>
+                <option value="720">Last 30 days</option>
+            </select>
+        </label>
+        <button class="btn btn-primary" type="submit">Apply</button>
+    </form>
+</div>
+
+<div class="analytics-kpis" id="analytics-kpis">
+    {% for key, label in [
+        ('mttd_seconds', 'MTTD'), ('mtta_seconds', 'MTTA'), ('mttr_seconds', 'MTTR'),
+        ('open_incidents', 'Open incidents'), ('resolved_incidents', 'Resolved incidents'),
+        ('false_positive_rate_percent', 'False-positive rate'),
+        ('human_review_rate_percent', 'Human-review rate'),
+        ('ai_enrichment_success_rate_percent', 'AI enrichment success')
+    ] %}
+    <div class="card analytics-kpi">
+        <h3>{{ label }}</h3>
+        <p id="kpi-{{ key }}">—</p>
+        <span id="sample-{{ key }}">Loading...</span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="analytics-grid">
+    {% for id, title, icon in [
+        ('alertTrendChart', 'Alert trend', 'fa-chart-line'),
+        ('incidentDistributionChart', 'Incident distribution', 'fa-chart-pie'),
+        ('topRulesChart', 'Top rules', 'fa-filter'),
+        ('topMitreChart', 'Top MITRE techniques', 'fa-crosshairs'),
+        ('falsePositiveTrendChart', 'False-positive trend', 'fa-wave-square')
+    ] %}
+    <section class="card analytics-chart-card">
+        <h3><i class="fa-solid {{ icon }}"></i> {{ title }}</h3>
+        <div class="analytics-canvas"><canvas id="{{ id }}"></canvas></div>
+    </section>
+    {% endfor %}
+</div>
+<div class="analytics-error" id="analytics-error" role="status"></div>
+{% endblock %}

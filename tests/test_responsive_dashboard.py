@@ -21,7 +21,7 @@ def test_responsive_dashboard_contract():
     assert "100dvh" in css
 
     assert 'class="logo-label"' in layout
-    assert layout.count('class="nav-label"') == 5
+    assert layout.count('class="nav-label"') == 6
     assert 'class="logout-label"' in layout
 
     assert dashboard.count('class="table-responsive') == 2

@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 import threading
+from datetime import datetime, timedelta
 
 from config import config
 from src.alert_schema import utc_iso
@@ -43,6 +44,7 @@ CREATE TABLE IF NOT EXISTS incident_events (
     payload_json TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_incident_events_incident ON incident_events(incident_id);
+CREATE INDEX IF NOT EXISTS idx_incident_events_timestamp ON incident_events(timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS analyst_notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -472,6 +474,76 @@ class SQLiteAlertRepository(_SQLiteRepository):
             },
             "human_review_rate_percent": rate(alerts[3], alerts[0]),
             "ai_enrichment_success_rate_percent": rate(alerts[4], ai_attempts),
+        }
+
+    def soc_analytics(self, from_timestamp: str, to_timestamp: str) -> dict:
+        """Return bounded chart aggregates without loading alert payloads into Python."""
+        self.ensure_schema()
+        start = datetime.fromisoformat(from_timestamp.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(to_timestamp.replace("Z", "+00:00"))
+        granularity = "hour" if end - start <= timedelta(days=2) else "day"
+        bucket = "%Y-%m-%dT%H:00:00Z" if granularity == "hour" else "%Y-%m-%dT00:00:00Z"
+        period = (from_timestamp, to_timestamp)
+        with self._connect() as connection:
+            alert_trend = connection.execute(
+                """
+                SELECT strftime(?, created_at), COUNT(*)
+                FROM alerts
+                WHERE created_at >= ? AND created_at < ?
+                GROUP BY 1 ORDER BY 1
+                """,
+                (bucket, *period),
+            ).fetchall()
+            incident_distribution = connection.execute(
+                """
+                SELECT i.status, COUNT(*)
+                FROM incidents i JOIN alerts a ON a.alert_id = i.alert_id
+                WHERE a.created_at >= ? AND a.created_at < ?
+                GROUP BY i.status ORDER BY COUNT(*) DESC, i.status
+                """,
+                period,
+            ).fetchall()
+            top_rules = connection.execute(
+                """
+                SELECT json_extract(payload_json, '$.rule_id'), COUNT(*)
+                FROM alerts
+                WHERE created_at >= ? AND created_at < ?
+                    AND json_extract(payload_json, '$.rule_id') IS NOT NULL
+                GROUP BY 1 ORDER BY COUNT(*) DESC, 1 LIMIT 10
+                """,
+                period,
+            ).fetchall()
+            top_mitre = connection.execute(
+                """
+                SELECT json_extract(payload_json, '$.mitre_attck_id'), COUNT(*)
+                FROM alerts
+                WHERE created_at >= ? AND created_at < ?
+                    AND json_extract(payload_json, '$.mitre_attck_id') IS NOT NULL
+                GROUP BY 1 ORDER BY COUNT(*) DESC, 1 LIMIT 10
+                """,
+                period,
+            ).fetchall()
+            false_positive_trend = connection.execute(
+                """
+                SELECT strftime(?, timestamp), COUNT(*)
+                FROM incident_events
+                WHERE timestamp >= ? AND timestamp < ?
+                    AND event_type = 'STATUS_CHANGED'
+                    AND json_extract(payload_json, '$.to_status') = 'FALSE_POSITIVE'
+                GROUP BY 1 ORDER BY 1
+                """,
+                (bucket, *period),
+            ).fetchall()
+
+        points = lambda rows: [{"timestamp": key, "count": int(total)} for key, total in rows]
+        ranked = lambda rows, key: [{key: label, "count": int(total)} for label, total in rows]
+        return {
+            "granularity": granularity,
+            "alert_trend": points(alert_trend),
+            "false_positive_trend": points(false_positive_trend),
+            "incident_distribution": ranked(incident_distribution, "status"),
+            "top_rules": ranked(top_rules, "rule_id"),
+            "top_mitre_techniques": ranked(top_mitre, "technique_id"),
         }
 
 

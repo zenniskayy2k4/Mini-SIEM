@@ -274,6 +274,9 @@ class DualWriteAlertRepository:
         """Analytics intentionally requires the indexed primary SQLite store."""
         return self.sqlite.soc_kpis(from_timestamp, to_timestamp)
 
+    def soc_analytics(self, from_timestamp: str, to_timestamp: str) -> dict:
+        return self.sqlite.soc_analytics(from_timestamp, to_timestamp)
+
 
 json_repository = JsonAlertRepository()
 sqlite_repository = SQLiteAlertRepository()

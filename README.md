@@ -108,6 +108,8 @@ Prometheus can scrape `GET /metrics`. Set `METRICS_BEARER_TOKEN` in `.env` and s
 
 Authenticated dashboard users can query `GET /api/analytics/kpis?from=<ISO-8601>&to=<ISO-8601>` for a half-open detection-time range of at most 366 days; the default is the last 24 hours. MTTD measures observed `timestamp` to alert `created_at`, MTTA measures incident creation to the first analyst workflow event, and MTTR measures incident creation to the first `RESOLVED` transition. Every KPI includes `available` and `sample_size`; insufficient samples return `value: null`.
 
+Open `/analytics` for responsive SOC summary cards, alert and false-positive trends, incident distribution, top rules, and top MITRE techniques. The 24-hour, 7-day, and 30-day presets use indexed SQLite aggregates and never load raw alert payloads into the browser.
+
 The local rule/ML pipeline works without an Ollama key. Training only needs to be rerun when models or training data change.
 
 ## Ollama Cloud setup

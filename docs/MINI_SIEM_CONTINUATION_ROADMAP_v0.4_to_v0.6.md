@@ -1163,7 +1163,7 @@ feat: expose Prometheus operational metrics
 
 ## M14.2 — SOC KPIs
 
-**Status:** ✅ Complete — local verification passed; commit CI pending
+**Status:** ✅ Complete — GitHub Actions run `32219631477` passed
 
 ### KPIs
 
@@ -1207,15 +1207,26 @@ feat: add SOC KPI analytics
 
 ## M14.3 — Analytics dashboard
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit CI pending
 
-- [ ] Summary cards.
-- [ ] Alert trend.
-- [ ] Incident distribution.
-- [ ] Top rules.
-- [ ] Top MITRE techniques.
-- [ ] False positive trend.
-- [ ] Time range selector.
+- [x] Summary cards.
+- [x] Alert trend.
+- [x] Incident distribution.
+- [x] Top rules.
+- [x] Top MITRE techniques.
+- [x] False positive trend.
+- [x] Time range selector.
+
+### Local verification — 2026-08-19
+
+```text
+M14.3 focused aggregation/API/UI regression      PASS
+M14.2 KPI and responsive dashboard regressions   PASS
+Python and JavaScript syntax                     PASS
+32 executable regression modules                 PASS
+Docker Compose validation                        PASS
+No image rebuild                                 PASS
+```
 
 ### Commit
 
@@ -1579,10 +1590,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M14.3 — Analytics dashboard (not started; begin only in the next requested batch)
+M14.4 — PDF incident report (not started; begin only in the next requested batch)
 ```
 
-M14.2 hoàn tất ở local. Không bắt đầu M14.3 trong cùng batch.
+M14.3 hoàn tất ở local. Không bắt đầu M14.4 trong cùng batch.
 
 ### Success condition
 
@@ -1710,11 +1721,11 @@ git check-ignore .env
 
 # 11. Definition of Done — v0.5.0
 
-- [ ] Asset inventory hoạt động.
-- [ ] Alert map được asset.
-- [ ] Risk score deterministic/explainable.
-- [ ] Prometheus metrics hoạt động.
-- [ ] SOC KPI analytics hoạt động.
+- [x] Asset inventory hoạt động.
+- [x] Alert map được asset.
+- [x] Risk score deterministic/explainable.
+- [x] Prometheus metrics hoạt động.
+- [x] SOC KPI analytics hoạt động.
 - [ ] PDF incident report hoạt động.
 - [ ] AI provider abstraction hoàn tất.
 - [ ] Local Ollama optional.
@@ -1767,7 +1778,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M14.3 — Analytics dashboard (not started)
+M14.4 — PDF incident report (not started)
 ```
 
-M14.2 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M14.3 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M14.3 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M14.4 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

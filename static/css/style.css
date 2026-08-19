@@ -217,6 +217,83 @@ nav a.active {
   height: 250px;
 }
 
+/* --- SOC ANALYTICS --- */
+.analytics-range,
+.analytics-range label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.analytics-range label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.analytics-range select {
+  min-height: 40px;
+  padding: 0 34px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-sidebar);
+  color: var(--text-main);
+}
+
+.analytics-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.analytics-kpi h3,
+.analytics-kpi span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.analytics-kpi h3 {
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.analytics-kpi p {
+  min-height: 29px;
+  margin: 8px 0 4px;
+  font-size: 23px;
+  font-weight: 700;
+}
+
+.analytics-kpi span {
+  overflow-wrap: anywhere;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.analytics-chart-card h3 {
+  margin: 0 0 15px;
+  font-size: 16px;
+}
+
+.analytics-chart-card:last-child {
+  grid-column: 1 / -1;
+}
+
+.analytics-canvas {
+  position: relative;
+  height: 280px;
+}
+
+.analytics-error {
+  min-height: 20px;
+  margin-top: 14px;
+  color: #fca5a5;
+}
+
 /* --- MINI TABLE --- */
 .recent-alerts h3 {
   margin-top: 0;
@@ -1385,6 +1462,10 @@ select.styled-input {
   .charts-row {
     grid-template-columns: 1fr;
   }
+
+  .analytics-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 700px) {
@@ -1465,6 +1546,28 @@ select.styled-input {
   .table-footer {
     align-items: flex-start;
     flex-wrap: wrap;
+  }
+
+  .analytics-header,
+  .analytics-range {
+    align-items: stretch;
+  }
+
+  .analytics-range,
+  .analytics-range label {
+    width: 100%;
+  }
+
+  .analytics-range select {
+    flex: 1;
+  }
+
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-chart-card:last-child {
+    grid-column: auto;
   }
 
   .actions,
@@ -1560,6 +1663,10 @@ select.styled-input {
   }
 
   .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-kpis {
     grid-template-columns: 1fr;
   }
 

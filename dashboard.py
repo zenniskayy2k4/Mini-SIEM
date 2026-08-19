@@ -239,6 +239,11 @@ def dashboard():
     return render_template('dashboard.html', page='dashboard')
 
 
+@app.route('/analytics')
+def analytics():
+    return render_template('analytics.html', page='analytics')
+
+
 @app.route("/health")
 def health():
     status = build_system_status(_effective_settings())
@@ -299,8 +304,9 @@ def api_soc_kpis():
     period = {"from": utc_iso(from_timestamp), "to": utc_iso(to_timestamp)}
     try:
         kpis = alert_repository.soc_kpis(period["from"], period["to"])
+        analytics = alert_repository.soc_analytics(period["from"], period["to"])
     except Exception:
-        return jsonify({"error": "KPI data unavailable"}), 503
+        return jsonify({"error": "Analytics data unavailable"}), 503
     return jsonify({
         "period": {**period, "boundary": "[from,to)", "timestamp": "alert.created_at"},
         "definitions": {
@@ -312,6 +318,7 @@ def api_soc_kpis():
             "ai_enrichment_success_rate_percent": "successful / completed AI enrichments",
         },
         "kpis": kpis,
+        "analytics": analytics,
     })
 
 @app.route('/logs')

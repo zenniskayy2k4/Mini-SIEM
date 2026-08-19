@@ -12,6 +12,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 - Deterministic asset-aware risk scoring with configurable contribution ceilings, persisted factors, async TI/AI recomputation, and dashboard explanations.
 - Prometheus text exposition for alerts, incidents, detections, AI/TI/notification outcomes, response simulations, heartbeat age, and worker backlog, with optional bearer authentication.
 - Indexed, time-bounded SOC KPI API for MTTD/MTTA/MTTR, incident counts, false positives, rule volume, human review, and AI enrichment success with explicit sample availability.
+- Responsive SOC analytics dashboard with range presets, KPI availability states, alert and false-positive trends, incident distribution, and top rule/MITRE charts.
 
 ## [0.4.0] - 2026-08-18
 
