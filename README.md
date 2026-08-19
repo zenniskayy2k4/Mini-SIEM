@@ -110,6 +110,8 @@ Authenticated dashboard users can query `GET /api/analytics/kpis?from=<ISO-8601>
 
 Open `/analytics` for responsive SOC summary cards, alert and false-positive trends, incident distribution, top rules, and top MITRE techniques. The 24-hour, 7-day, and 30-day presets use indexed SQLite aggregates and never load raw alert payloads into the browser.
 
+Each incident panel can download a deterministic PDF report from the stored alert record. Reports separate detector evidence, AI assessment, and third-party intelligence; omit raw payloads/provider responses/response commands; redact secret-like text; and normalize timestamps to UTC. The dependency-free base-font writer transliterates non-ASCII characters for portability.
+
 The local rule/ML pipeline works without an Ollama key. Training only needs to be rerun when models or training data change.
 
 ## Ollama Cloud setup

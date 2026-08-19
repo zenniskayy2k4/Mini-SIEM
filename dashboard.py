@@ -1,17 +1,20 @@
-from flask import Flask, render_template, jsonify, redirect, request, session, url_for
 import hmac
 import json
 import os
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
+from io import BytesIO
 import hashlib
 import re
+
+from flask import Flask, render_template, jsonify, redirect, request, send_file, session, url_for
 
 from config import config
 from src.alert_schema import INCIDENT_STATUSES, utc_iso
 from src.assets import CRITICALITIES, ENVIRONMENTS, build_asset
 from src.audit import append_audit_event
 from src.health import build_system_status
+from src.incident_report import generate_incident_pdf
 from src.metrics import metrics_unavailable, render_prometheus_metrics
 from src.dashboard_auth import (
     authenticate,
@@ -398,6 +401,22 @@ def api_detection_rule_update(rule_id):
 def api_alerts():
     """API return latest log list (for dashboard + live snippets)"""
     return jsonify(load_alerts(50))
+
+
+@app.route("/api/alerts/<alert_id>/report.pdf")
+def api_incident_report(alert_id):
+    alert = alert_repository.get_alert(alert_id)
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    try:
+        report = generate_incident_pdf(alert)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    filename = re.sub(r"[^A-Za-z0-9._-]", "_", str(alert["incident_id"]))[:120]
+    return send_file(
+        BytesIO(report), mimetype="application/pdf", as_attachment=True,
+        download_name=f"{filename}.pdf", max_age=0,
+    )
 
 
 @app.route("/api/windows-events", methods=["POST"])

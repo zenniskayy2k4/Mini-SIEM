@@ -1146,7 +1146,12 @@ function renderIncidentPanel(alert) {
     <section class="incident-panel" aria-label="Incident ${escapeAttr(alert.incident_id)}">
       <div class="incident-heading">
         <strong>${escapeHTML(alert.incident_id)}</strong>
-        <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
+        <div class="incident-actions">
+          <a class="btn btn-ghost" href="/api/alerts/${encodeURIComponent(alert.alert_id)}/report.pdf" download>
+            <i class="fa-solid fa-file-pdf"></i> PDF report
+          </a>
+          <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
+        </div>
       </div>
       ${canMutate ? `<div class="incident-actions">${statusButtons}</div>
       <div class="incident-form-row">

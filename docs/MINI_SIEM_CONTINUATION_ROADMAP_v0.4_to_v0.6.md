@@ -1207,7 +1207,7 @@ feat: add SOC KPI analytics
 
 ## M14.3 — Analytics dashboard
 
-**Status:** ✅ Complete — local verification passed; commit CI pending
+**Status:** ✅ Complete — GitHub Actions run `32220515608` passed
 
 - [x] Summary cards.
 - [x] Alert trend.
@@ -1238,7 +1238,7 @@ feat: add SOC analytics dashboard
 
 ## M14.4 — PDF incident report
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit CI pending
 
 ### Sections
 
@@ -1258,11 +1258,24 @@ Appendix
 
 ### Rules
 
-- [ ] Không include secrets.
-- [ ] AI text không được trình bày như observed fact.
-- [ ] Tách evidence / AI / TI.
-- [ ] UTC timestamps.
-- [ ] Report reproducible từ stored incident.
+- [x] Không include secrets.
+- [x] AI text không được trình bày như observed fact.
+- [x] Tách evidence / AI / TI.
+- [x] UTC timestamps.
+- [x] Report reproducible từ stored incident.
+
+### Local verification — 2026-08-19
+
+```text
+M14.4 PDF structure/auth/redaction regression     PASS
+M8 incident/audit and M14 analytics regressions  PASS
+Deterministic stored-record generation           PASS
+Python and JavaScript syntax                     PASS
+33 executable regression modules                 PASS
+Docker Compose validation                        PASS
+Live authenticated PDF endpoint and health       PASS
+No dependency or image rebuild                   PASS
+```
 
 ### Commit
 
@@ -1590,10 +1603,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M14.4 — PDF incident report (not started; begin only in the next requested batch)
+M15.1 — AI provider interface (not started; begin only in the next requested batch)
 ```
 
-M14.3 hoàn tất ở local. Không bắt đầu M14.4 trong cùng batch.
+M14.4 hoàn tất ở local. Không bắt đầu M15.1 trong cùng batch.
 
 ### Success condition
 
@@ -1726,7 +1739,7 @@ git check-ignore .env
 - [x] Risk score deterministic/explainable.
 - [x] Prometheus metrics hoạt động.
 - [x] SOC KPI analytics hoạt động.
-- [ ] PDF incident report hoạt động.
+- [x] PDF incident report hoạt động.
 - [ ] AI provider abstraction hoàn tất.
 - [ ] Local Ollama optional.
 - [ ] Bounded fallback hoạt động.
@@ -1770,6 +1783,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-18 | Tag release chỉ tạo sau release-commit CI xanh | Bảo đảm annotated tag trỏ đúng commit đã qua release gate |
 | 2026-08-15 | Risk tách khỏi severity | Detection semantics rõ ràng |
 | 2026-08-15 | LLM không đặt risk score trực tiếp | Risk phải explainable |
+| 2026-08-19 | PDF report dùng allowlist từ stored incident và không gọi provider | Reproducible, tránh secrets và tách observed evidence khỏi AI/TI |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1778,7 +1792,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M14.4 — PDF incident report (not started)
+M15.1 — AI provider interface (not started)
 ```
 
-M14.3 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M14.4 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M14.4 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M15.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
