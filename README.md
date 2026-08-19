@@ -148,6 +148,12 @@ docker compose exec agent python tools/import_stix.py --taxii-url https://taxii.
 
 The phase-1 STIX parser supports exact equality indicators for IPv4, domains, SHA-256, and MD5. It deduplicates per feed, ignores expired indicators, preserves source/confidence/labels, and bounds TAXII responses to 5 MiB and 10 pages.
 
+## Explainable risk scoring
+
+Each new alert receives a deterministic `risk_score` from 0–100, a level, and an ordered `risk_factors` list. The default contribution ceilings are detector severity 40, asset criticality 20, AI threat confidence 15, TI reputation 15, correlation count 5, and human-review recommendation 5. Configure them with the `RISK_WEIGHT_*` variables in `.env`.
+
+Levels are `LOW` below 25, `MEDIUM` from 25, `HIGH` from 50, and `CRITICAL` from 75. Missing TI contributes no points; GeoIP is excluded because location is not evidence of maliciousness. An LLM recommendation can contribute bounded confidence/human-review factors but cannot directly provide the score.
+
 ## Dashboard roles
 
 | Role | Access |

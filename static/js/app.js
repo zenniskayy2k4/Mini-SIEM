@@ -939,6 +939,7 @@ function createRow(alert) {
   }
   detailsHTML += renderThreatIntelligence(alert);
   detailsHTML += renderAIAnalysis(alert);
+  detailsHTML += renderRiskScore(alert);
   detailsHTML += `<div class="log-raw" title="${escapeAttr(alert.raw_log || "")}">${escapeHTML(alert.raw_log || "")}</div>`;
   detailsHTML += renderIncidentPanel(alert);
 
@@ -1226,6 +1227,18 @@ function renderAssetReference(assetId) {
   const label = escapeHTML(assetId);
   if (CURRENT_ROLE !== "admin") return label;
   return `<a href="/assets?q=${encodeURIComponent(assetId)}">${label}</a>`;
+}
+
+function renderRiskScore(alert) {
+  if (!Number.isFinite(Number(alert.risk_score))) return "";
+  const factors = Array.isArray(alert.risk_factors) ? alert.risk_factors : [];
+  const items = factors.map((factor) =>
+    `<li>${escapeHTML(factor.factor)}: +${escapeHTML(factor.points)} (${escapeHTML(factor.value)})</li>`
+  ).join("");
+  return `<details class="risk-panel"><summary>Risk ` +
+    `<span class="severity-badge severity-${escapeAttr(alert.risk_level || "LOW")}">` +
+    `${escapeHTML(alert.risk_score)}/100 ${escapeHTML(alert.risk_level || "LOW")}</span></summary>` +
+    `${items ? `<ul>${items}</ul>` : '<div class="muted">No positive risk factors.</div>'}</details>`;
 }
 
 // Helper function

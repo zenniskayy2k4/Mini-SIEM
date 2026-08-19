@@ -4,6 +4,7 @@ from config import config
 from src.alert_store import upsert_alert
 from src.assets import enrich_alert_with_asset
 from src.notifier import notification_service
+from src.risk import score_alert_risk
 from src.sqlite_store import SQLiteAssetRepository
 from src.threat_intel import (
     ABUSEIPDB_FIELDS,
@@ -19,12 +20,23 @@ _STIX_STORE = STIXIndicatorStore(config.STIX_INDICATOR_FILE)
 _ASSET_REPOSITORY = SQLiteAssetRepository()
 
 
-def _persist_and_notify(alert):
+def _score_alert(alert, asset_repository):
+    asset = None
+    try:
+        if alert.get("asset_id"):
+            asset = asset_repository.get_asset(alert["asset_id"])
+    except Exception as exc:
+        logger.warning("Asset risk lookup failed for %s: %s", alert.get("alert_id"), exc)
+    score_alert_risk(alert, asset=asset, weights=config.RISK_WEIGHTS)
+
+
+def _persist_and_notify(alert, asset_repository=_ASSET_REPOSITORY):
+    _score_alert(alert, asset_repository)
     upsert_alert(alert)
     notification_service.notify(alert)
 
 
-def _persist_geoip(alert, future):
+def _persist_geoip(alert, future, asset_repository):
     try:
         result = future.result()
         alert.setdefault("threat_intel", {})[result.provider] = _result_summary(
@@ -35,19 +47,23 @@ def _persist_geoip(alert, future):
         }
         if result.status == "ok":
             alert["geoip"] = {key: result.data.get(key) for key in GEOIP_FIELDS}
+        _score_alert(alert, asset_repository)
         upsert_alert(alert)
     except Exception as exc:
         logger.warning("GeoIP enrichment failed for %s: %s", alert.get("alert_id"), exc)
 
 
-def _dispatch_ai(alert, ai_analyst):
+def _dispatch_ai(alert, ai_analyst, asset_repository):
     if (
         ai_analyst
         and alert.get("severity") in {"HIGH", "CRITICAL"}
         and not alert.get("suppressed_count")
         and not alert.get("deduplicated_events")
     ):
-        ai_analyst.enrich_async(alert, on_complete=_persist_and_notify)
+        ai_analyst.enrich_async(
+            alert,
+            on_complete=lambda completed: _persist_and_notify(completed, asset_repository),
+        )
 
 
 def _result_summary(result, fields):
@@ -68,25 +84,26 @@ def _result_summary(result, fields):
     return summary
 
 
-def _persist_threat_intel(alert, future, fields):
+def _persist_threat_intel(alert, future, fields, asset_repository):
     result = future.result()
     summary = _result_summary(result, fields)
     alert.setdefault("threat_intel", {})[result.provider] = summary
+    _score_alert(alert, asset_repository)
     upsert_alert(alert)
 
 
-def _persist_abuseipdb(alert, future, ai_analyst):
+def _persist_abuseipdb(alert, future, ai_analyst, asset_repository):
     try:
-        _persist_threat_intel(alert, future, ABUSEIPDB_FIELDS)
+        _persist_threat_intel(alert, future, ABUSEIPDB_FIELDS, asset_repository)
     except Exception as exc:
         logger.warning("AbuseIPDB enrichment failed for %s: %s", alert.get("alert_id"), exc)
     finally:
-        _dispatch_ai(alert, ai_analyst)
+        _dispatch_ai(alert, ai_analyst, asset_repository)
 
 
-def _persist_virustotal(alert, future):
+def _persist_virustotal(alert, future, asset_repository):
     try:
-        _persist_threat_intel(alert, future, VIRUSTOTAL_FIELDS)
+        _persist_threat_intel(alert, future, VIRUSTOTAL_FIELDS, asset_repository)
     except Exception as exc:
         logger.warning("VirusTotal enrichment failed for %s: %s", alert.get("alert_id"), exc)
 
@@ -145,19 +162,26 @@ def persist_and_enrich(
     file_hash = _initial_threat_intel(
         alert, geoip_service, abuseipdb_service, virustotal_service, stix_store,
     )
+    _score_alert(alert, asset_repository)
     upsert_alert(alert)
     if geoip_service and alert.get("ip_address"):
         future = geoip_service.lookup_async("ip", alert["ip_address"])
-        future.add_done_callback(lambda completed: _persist_geoip(alert, completed))
+        future.add_done_callback(
+            lambda completed: _persist_geoip(alert, completed, asset_repository)
+        )
     if abuseipdb_service and alert.get("ip_address"):
         future = abuseipdb_service.lookup_async("ip", alert["ip_address"])
         future.add_done_callback(
-            lambda completed: _persist_abuseipdb(alert, completed, ai_analyst)
+            lambda completed: _persist_abuseipdb(
+                alert, completed, ai_analyst, asset_repository,
+            )
         )
     else:
-        _dispatch_ai(alert, ai_analyst)
+        _dispatch_ai(alert, ai_analyst, asset_repository)
     if virustotal_service and file_hash:
         future = virustotal_service.lookup_async(*file_hash)
-        future.add_done_callback(lambda completed: _persist_virustotal(alert, completed))
+        future.add_done_callback(
+            lambda completed: _persist_virustotal(alert, completed, asset_repository)
+        )
     notification_service.notify(alert)
     return alert

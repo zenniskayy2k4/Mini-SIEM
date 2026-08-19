@@ -997,6 +997,26 @@ input:checked + .slider:before {
   cursor: not-allowed;
 }
 
+.risk-panel {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.risk-panel summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.risk-panel ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
 /* Page header (Logs/Settings) */
 .page-header {
   display: flex;

@@ -1040,7 +1040,7 @@ feat: add asset inventory management
 
 ## M13.3 — Alert-to-asset enrichment
 
-**Status:** ✅ Complete — local verification passed; commit CI pending
+**Status:** ✅ Complete — local verification and commit CI passed (`32128256653`)
 
 - [x] Match by IP/hostname.
 - [x] Add `asset_id`.
@@ -1069,7 +1069,7 @@ feat: enrich alerts with asset context
 
 ## M13.4 — Explainable risk scoring
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit CI pending
 
 ### Inputs
 
@@ -1092,11 +1092,22 @@ feat: enrich alerts with asset context
 
 ### Rules
 
-- [ ] Deterministic.
-- [ ] Explainable.
-- [ ] LLM không trực tiếp đặt risk score.
-- [ ] Missing TI không làm score lỗi.
-- [ ] Configurable weights.
+- [x] Deterministic.
+- [x] Explainable.
+- [x] LLM không trực tiếp đặt risk score.
+- [x] Missing TI không làm score lỗi.
+- [x] Configurable weights.
+
+### Local verification — 2026-08-19
+
+```text
+M13.4 focused scoring/pipeline/UI regression     PASS
+M13 asset and M12 TI regressions                 PASS
+Python and JavaScript syntax                     PASS
+29 executable regression modules                PASS
+Docker Compose validation                        PASS
+No image rebuild                                 PASS
+```
 
 ### Commit
 
@@ -1546,10 +1557,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M13.4 — Explainable risk scoring (not started; begin only in the next requested batch)
+M14.1 — Prometheus metrics (not started; begin only in the next requested batch)
 ```
 
-M13.3 hoàn tất ở local. Không bắt đầu M13.4 trong cùng batch.
+M13.4 hoàn tất ở local. Không bắt đầu M14.1 trong cùng batch.
 
 ### Success condition
 
@@ -1734,7 +1745,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M13.4 — Explainable risk scoring (not started)
+M14.1 — Prometheus metrics (not started)
 ```
 
-M13.3 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M13.4 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M13.4 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M14.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

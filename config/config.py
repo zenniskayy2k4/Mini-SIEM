@@ -23,6 +23,14 @@ LOG_ROTATE_BACKUPS = max(1, int(os.getenv("LOG_ROTATE_BACKUPS", "5")))
 SQLITE_READ_ENABLED = os.getenv("SQLITE_READ_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_READ_FALLBACK_ENABLED = os.getenv("JSON_READ_FALLBACK_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_DUAL_WRITE_ENABLED = os.getenv("JSON_DUAL_WRITE_ENABLED", "true").lower() in {"1", "true", "yes"}
+RISK_WEIGHTS = {
+    "detection_severity": max(0, int(os.getenv("RISK_WEIGHT_SEVERITY", "40"))),
+    "asset_criticality": max(0, int(os.getenv("RISK_WEIGHT_ASSET", "20"))),
+    "threat_confidence": max(0, int(os.getenv("RISK_WEIGHT_THREAT_CONFIDENCE", "15"))),
+    "ti_reputation": max(0, int(os.getenv("RISK_WEIGHT_TI_REPUTATION", "15"))),
+    "correlation_count": max(0, int(os.getenv("RISK_WEIGHT_CORRELATION", "5"))),
+    "human_review": max(0, int(os.getenv("RISK_WEIGHT_HUMAN_REVIEW", "5"))),
+}
 RESPONSE_MODE = os.getenv("RESPONSE_MODE", "simulation").lower()
 RESPONSE_TARGET_OS = os.getenv("RESPONSE_TARGET_OS", "linux").lower()
 RESPONSE_APPROVAL_TIMEOUT_SECONDS = max(1, int(os.getenv("RESPONSE_APPROVAL_TIMEOUT_SECONDS", "900")))
