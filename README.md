@@ -106,6 +106,8 @@ curl http://localhost:5000/health
 
 Prometheus can scrape `GET /metrics`. Set `METRICS_BEARER_TOKEN` in `.env` and send `Authorization: Bearer <token>` outside an isolated local lab; an empty token leaves the endpoint unauthenticated. Restrict it at the firewall or reverse proxy because the endpoint is intentionally exempt from dashboard session login. Metrics expose only bounded labels such as severity, incident status, rule ID/source, provider, and result—never raw IPs, usernames, secrets, or payloads.
 
+Authenticated dashboard users can query `GET /api/analytics/kpis?from=<ISO-8601>&to=<ISO-8601>` for a half-open detection-time range of at most 366 days; the default is the last 24 hours. MTTD measures observed `timestamp` to alert `created_at`, MTTA measures incident creation to the first analyst workflow event, and MTTR measures incident creation to the first `RESOLVED` transition. Every KPI includes `available` and `sample_size`; insufficient samples return `value: null`.
+
 The local rule/ML pipeline works without an Ollama key. Training only needs to be rerun when models or training data change.
 
 ## Ollama Cloud setup

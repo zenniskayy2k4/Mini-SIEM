@@ -2,7 +2,7 @@ from flask import Flask, render_template, jsonify, redirect, request, session, u
 import hmac
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import hashlib
 import re
@@ -283,6 +283,36 @@ def metrics():
 def api_system_status():
     status = build_system_status(_effective_settings())
     return jsonify(status), 503 if status["status"] == "unhealthy" else 200
+
+
+@app.route("/api/analytics/kpis")
+def api_soc_kpis():
+    raw_from, raw_to = request.args.get("from"), request.args.get("to")
+    to_timestamp = _parse_ts_maybe(raw_to) if raw_to else datetime.now(timezone.utc)
+    from_timestamp = _parse_ts_maybe(raw_from) if raw_from else to_timestamp - timedelta(hours=24)
+    if (raw_from and from_timestamp is None) or (raw_to and to_timestamp is None):
+        return jsonify({"error": "from and to must be ISO-8601 timestamps"}), 400
+    if from_timestamp >= to_timestamp:
+        return jsonify({"error": "from must be earlier than to"}), 400
+    if to_timestamp - from_timestamp > timedelta(days=366):
+        return jsonify({"error": "KPI range must not exceed 366 days"}), 400
+    period = {"from": utc_iso(from_timestamp), "to": utc_iso(to_timestamp)}
+    try:
+        kpis = alert_repository.soc_kpis(period["from"], period["to"])
+    except Exception:
+        return jsonify({"error": "KPI data unavailable"}), 503
+    return jsonify({
+        "period": {**period, "boundary": "[from,to)", "timestamp": "alert.created_at"},
+        "definitions": {
+            "mttd_seconds": "alert.timestamp to alert.created_at",
+            "mtta_seconds": "incident.created_at to first analyst workflow event",
+            "mttr_seconds": "incident.created_at to first RESOLVED transition",
+            "false_positive_rate_percent": "FALSE_POSITIVE / (RESOLVED + FALSE_POSITIVE)",
+            "human_review_rate_percent": "REQUIRES_HUMAN_REVIEW alerts / alerts",
+            "ai_enrichment_success_rate_percent": "successful / completed AI enrichments",
+        },
+        "kpis": kpis,
+    })
 
 @app.route('/logs')
 def logs():

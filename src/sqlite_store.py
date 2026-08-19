@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS alerts (
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_alerts_timestamp ON alerts(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
 CREATE INDEX IF NOT EXISTS idx_alerts_rule_id ON alerts(json_extract(payload_json, '$.rule_id'));
 
@@ -41,6 +42,7 @@ CREATE TABLE IF NOT EXISTS incident_events (
     timestamp TEXT NOT NULL,
     payload_json TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_incident_events_incident ON incident_events(incident_id);
 
 CREATE TABLE IF NOT EXISTS analyst_notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -347,6 +349,130 @@ class SQLiteAlertRepository(_SQLiteRepository):
             ("total", "critical", "high", "medium", "info", "anomalies"),
             (int(value or 0) for value in row),
         ))
+
+    def soc_kpis(self, from_timestamp: str, to_timestamp: str) -> dict:
+        self.ensure_schema()
+        period = (from_timestamp, to_timestamp)
+        with self._connect() as connection:
+            alerts = connection.execute(
+                """
+                SELECT
+                    COUNT(*),
+                    COUNT(CASE WHEN julianday(created_at) >= julianday(timestamp) THEN 1 END),
+                    AVG(CASE WHEN julianday(created_at) >= julianday(timestamp)
+                        THEN (julianday(created_at) - julianday(timestamp)) * 86400 END),
+                    SUM(CASE WHEN json_extract(payload_json, '$.ai_disposition') =
+                        'REQUIRES_HUMAN_REVIEW' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN json_extract(payload_json, '$.ai_analysis.analysed_at')
+                        IS NOT NULL THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN json_extract(payload_json, '$.ai_analysis.error') IS NOT NULL
+                        OR json_extract(payload_json, '$.ai_analyst_error') IS NOT NULL
+                        THEN 1 ELSE 0 END)
+                FROM alerts
+                WHERE created_at >= ? AND created_at < ?
+                """,
+                period,
+            ).fetchone()
+            incidents = connection.execute(
+                """
+                WITH scoped AS (
+                    SELECT i.incident_id, i.status, i.created_at
+                    FROM incidents i
+                    JOIN alerts a ON a.alert_id = i.alert_id
+                    WHERE a.created_at >= ? AND a.created_at < ?
+                ),
+                acknowledged AS (
+                    SELECT e.incident_id, MIN(e.timestamp) AS acknowledged_at
+                    FROM incident_events e
+                    JOIN scoped s ON s.incident_id = e.incident_id
+                    WHERE e.event_type IN ('STATUS_CHANGED', 'NOTE_ADDED', 'ASSIGNMENT_CHANGED')
+                        OR e.event_type LIKE 'RESPONSE_ACTION_%'
+                    GROUP BY e.incident_id
+                ),
+                resolved AS (
+                    SELECT e.incident_id, MIN(e.timestamp) AS resolved_at
+                    FROM incident_events e
+                    JOIN scoped s ON s.incident_id = e.incident_id
+                    WHERE e.event_type = 'STATUS_CHANGED'
+                        AND json_extract(e.payload_json, '$.to_status') = 'RESOLVED'
+                    GROUP BY e.incident_id
+                )
+                SELECT
+                    COUNT(*),
+                    SUM(CASE WHEN s.status IN ('NEW', 'INVESTIGATING', 'CONTAINED')
+                        THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN s.status = 'RESOLVED' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN s.status = 'FALSE_POSITIVE' THEN 1 ELSE 0 END),
+                    COUNT(CASE WHEN julianday(k.acknowledged_at) >= julianday(s.created_at)
+                        THEN 1 END),
+                    AVG(CASE WHEN julianday(k.acknowledged_at) >= julianday(s.created_at)
+                        THEN (julianday(k.acknowledged_at) - julianday(s.created_at)) * 86400 END),
+                    COUNT(CASE WHEN julianday(r.resolved_at) >= julianday(s.created_at)
+                        THEN 1 END),
+                    AVG(CASE WHEN julianday(r.resolved_at) >= julianday(s.created_at)
+                        THEN (julianday(r.resolved_at) - julianday(s.created_at)) * 86400 END)
+                FROM scoped s
+                LEFT JOIN acknowledged k ON k.incident_id = s.incident_id
+                LEFT JOIN resolved r ON r.incident_id = s.incident_id
+                """,
+                period,
+            ).fetchone()
+            rules = connection.execute(
+                """
+                SELECT json_extract(payload_json, '$.rule_id'), COUNT(*)
+                FROM alerts
+                WHERE created_at >= ? AND created_at < ?
+                    AND json_extract(payload_json, '$.rule_id') IS NOT NULL
+                GROUP BY json_extract(payload_json, '$.rule_id')
+                ORDER BY COUNT(*) DESC, json_extract(payload_json, '$.rule_id')
+                """,
+                period,
+            ).fetchall()
+
+        def measured(value, sample_size):
+            available = int(sample_size or 0) > 0
+            return {
+                "available": available,
+                "sample_size": int(sample_size or 0),
+                "value": round(float(value), 2) if available else None,
+            }
+
+        def count(value, population):
+            available = int(population or 0) > 0
+            return {
+                "available": available,
+                "sample_size": int(population or 0),
+                "value": int(value or 0) if available else None,
+            }
+
+        def rate(numerator, denominator):
+            available = int(denominator or 0) > 0
+            return {
+                "available": available,
+                "sample_size": int(denominator or 0),
+                "value": round(100 * int(numerator or 0) / denominator, 2) if available else None,
+            }
+
+        closed = int(incidents[2] or 0) + int(incidents[3] or 0)
+        ai_attempts = int(alerts[4] or 0) + int(alerts[5] or 0)
+        rule_samples = sum(int(row[1]) for row in rules)
+        return {
+            "mttd_seconds": measured(alerts[2], alerts[1]),
+            "mtta_seconds": measured(incidents[5], incidents[4]),
+            "mttr_seconds": measured(incidents[7], incidents[6]),
+            "open_incidents": count(incidents[1], incidents[0]),
+            "resolved_incidents": count(incidents[2], incidents[0]),
+            "false_positive_rate_percent": rate(incidents[3], closed),
+            "alerts_per_rule": {
+                "available": rule_samples > 0,
+                "sample_size": rule_samples,
+                "value": [
+                    {"rule_id": rule_id, "alerts": int(total)} for rule_id, total in rules
+                ] if rule_samples else None,
+            },
+            "human_review_rate_percent": rate(alerts[3], alerts[0]),
+            "ai_enrichment_success_rate_percent": rate(alerts[4], ai_attempts),
+        }
 
 
 class SQLiteAssetRepository(_SQLiteRepository):

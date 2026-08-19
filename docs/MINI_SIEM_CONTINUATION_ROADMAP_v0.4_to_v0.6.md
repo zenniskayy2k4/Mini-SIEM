@@ -1121,7 +1121,7 @@ feat: add explainable asset-aware risk scoring
 
 ## M14.1 — Prometheus metrics
 
-**Status:** ✅ Complete — local verification passed; commit CI pending
+**Status:** ✅ Complete — local verification and commit CI passed (`32218915728`)
 
 ### Metrics
 
@@ -1163,7 +1163,7 @@ feat: expose Prometheus operational metrics
 
 ## M14.2 — SOC KPIs
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit CI pending
 
 ### KPIs
 
@@ -1181,10 +1181,21 @@ AI enrichment success rate
 
 ### Tasks
 
-- [ ] Define timestamps.
-- [ ] Time range filtering.
-- [ ] SQLite query hiệu quả.
-- [ ] Không hiển thị KPI nếu data chưa đủ.
+- [x] Define timestamps.
+- [x] Time range filtering.
+- [x] SQLite query hiệu quả.
+- [x] Không hiển thị KPI nếu data chưa đủ.
+
+### Local verification — 2026-08-19
+
+```text
+M14.2 focused KPI/API/availability regression    PASS
+M14.1 metrics and incident/audit regressions     PASS
+Python and JavaScript syntax                     PASS
+31 executable regression modules                PASS
+Docker Compose validation                        PASS
+No image rebuild                                 PASS
+```
 
 ### Commit
 
@@ -1568,10 +1579,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M14.2 — SOC KPIs (not started; begin only in the next requested batch)
+M14.3 — Analytics dashboard (not started; begin only in the next requested batch)
 ```
 
-M14.1 hoàn tất ở local. Không bắt đầu M14.2 trong cùng batch.
+M14.2 hoàn tất ở local. Không bắt đầu M14.3 trong cùng batch.
 
 ### Success condition
 
@@ -1756,7 +1767,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M14.2 — SOC KPIs (not started)
+M14.3 — Analytics dashboard (not started)
 ```
 
-M14.1 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M14.2 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M14.2 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M14.3 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

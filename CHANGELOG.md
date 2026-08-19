@@ -11,6 +11,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 - Fail-open alert enrichment with a compact `asset_id` reference and admin dashboard links to matching inventory records.
 - Deterministic asset-aware risk scoring with configurable contribution ceilings, persisted factors, async TI/AI recomputation, and dashboard explanations.
 - Prometheus text exposition for alerts, incidents, detections, AI/TI/notification outcomes, response simulations, heartbeat age, and worker backlog, with optional bearer authentication.
+- Indexed, time-bounded SOC KPI API for MTTD/MTTA/MTTR, incident counts, false positives, rule volume, human review, and AI enrichment success with explicit sample availability.
 
 ## [0.4.0] - 2026-08-18
 
