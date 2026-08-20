@@ -7,6 +7,8 @@ const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
 const API_DETECTION_RULES = "/api/detection-rules";
+const API_ASSETS = "/api/assets";
+const API_ANALYTICS = "/api/analytics/kpis";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
 const CURRENT_ROLE = document.querySelector('meta[name="current-role"]')?.content || "";
 
@@ -16,9 +18,88 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (path === "/") initDashboard();
   else if (path === "/logs") initLogs();
+  else if (path === "/analytics") initAnalytics();
   else if (path === "/settings") initSettings();
+  else if (path === "/assets") initAssets();
   else if (path === "/graph") initGraphPage();
 });
+
+function initAnalytics() {
+  const form = document.getElementById("analytics-range-form");
+  const range = document.getElementById("analytics-range");
+  const error = document.getElementById("analytics-error");
+  let charts = [];
+
+  const colors = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#ef4444", "#38bdf8"];
+  const metricFormats = {
+    mttd_seconds: "duration", mtta_seconds: "duration", mttr_seconds: "duration",
+    false_positive_rate_percent: "percent", human_review_rate_percent: "percent",
+    ai_enrichment_success_rate_percent: "percent",
+  };
+
+  function formatMetric(key, metric) {
+    if (!metric?.available) return "Insufficient data";
+    if (metricFormats[key] === "percent") return `${metric.value}%`;
+    if (metricFormats[key] === "duration") {
+      const seconds = Math.round(metric.value);
+      return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
+    }
+    return Number(metric.value).toLocaleString();
+  }
+
+  function chart(id, type, labels, values, label, options = {}) {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    charts.push(new Chart(canvas, {
+      type,
+      data: { labels, datasets: [{ label, data: values, backgroundColor: options.multi ? colors : "#3b82f6", borderColor: "#38bdf8", borderWidth: 2, tension: 0.25, fill: type === "line" }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: options.horizontal ? "y" : "x",
+        plugins: { legend: { display: type === "doughnut", labels: { color: "#cbd5e1" } } },
+        scales: type === "doughnut" ? {} : {
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,.12)" } },
+          y: { beginAtZero: true, ticks: { color: "#94a3b8", precision: 0 }, grid: { color: "rgba(148,163,184,.12)" } },
+        },
+      },
+    }));
+  }
+
+  function render(payload) {
+    Object.entries(payload.kpis).forEach(([key, metric]) => {
+      if (key === "alerts_per_rule") return;
+      const value = document.getElementById(`kpi-${key}`);
+      const sample = document.getElementById(`sample-${key}`);
+      if (value) value.textContent = formatMetric(key, metric);
+      if (sample) sample.textContent = metric.available ? `Sample: ${metric.sample_size}` : "No qualifying samples";
+    });
+    document.getElementById("analytics-period").textContent =
+      `${new Date(payload.period.from).toLocaleString()} – ${new Date(payload.period.to).toLocaleString()} · per ${payload.analytics.granularity}`;
+
+    charts.forEach((item) => item.destroy());
+    charts = [];
+    const data = payload.analytics;
+    chart("alertTrendChart", "line", data.alert_trend.map((x) => x.timestamp), data.alert_trend.map((x) => x.count), "Alerts");
+    chart("incidentDistributionChart", "doughnut", data.incident_distribution.map((x) => x.status), data.incident_distribution.map((x) => x.count), "Incidents", { multi: true });
+    chart("topRulesChart", "bar", data.top_rules.map((x) => x.rule_id), data.top_rules.map((x) => x.count), "Alerts", { horizontal: true });
+    chart("topMitreChart", "bar", data.top_mitre_techniques.map((x) => x.technique_id), data.top_mitre_techniques.map((x) => x.count), "Alerts", { horizontal: true });
+    chart("falsePositiveTrendChart", "line", data.false_positive_trend.map((x) => x.timestamp), data.false_positive_trend.map((x) => x.count), "False positives");
+  }
+
+  function load() {
+    error.textContent = "";
+    const to = new Date();
+    const from = new Date(to.getTime() - Number(range.value) * 3600000);
+    const query = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
+    fetch(`${API_ANALYTICS}?${query}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : response.json().then((body) => Promise.reject(new Error(body.error))))
+      .then(render)
+      .catch((failure) => { error.textContent = failure.message || "Analytics data unavailable."; });
+  }
+
+  form.addEventListener("submit", (event) => { event.preventDefault(); load(); });
+  load();
+}
 
 // --- SETTINGS PAGE LOGIC ---
 function initSettings() {
@@ -136,6 +217,175 @@ function initSettings() {
       .catch((error) => { ruleStatus.textContent = error.message; button.disabled = false; });
   });
   loadRules();
+}
+
+// --- ASSET INVENTORY ---
+function initAssets() {
+  const tableBody = document.getElementById("asset-table-body");
+  if (!tableBody) return;
+
+  const status = document.getElementById("asset-status");
+  const filters = document.getElementById("asset-filters");
+  const filterQ = document.getElementById("asset-filter-q");
+  const filterEnvironment = document.getElementById("asset-filter-environment");
+  const filterCriticality = document.getElementById("asset-filter-criticality");
+  const filterEnabled = document.getElementById("asset-filter-enabled");
+  const dialog = document.getElementById("asset-dialog");
+  const form = document.getElementById("asset-form");
+  const formError = document.getElementById("asset-form-error");
+  const saveButton = document.getElementById("asset-save");
+  const fields = {
+    id: document.getElementById("asset-id"),
+    hostname: document.getElementById("asset-hostname"),
+    ips: document.getElementById("asset-ips"),
+    os: document.getElementById("asset-os"),
+    owner: document.getElementById("asset-owner"),
+    department: document.getElementById("asset-department"),
+    environment: document.getElementById("asset-environment"),
+    criticality: document.getElementById("asset-criticality"),
+    tags: document.getElementById("asset-tags"),
+    enabled: document.getElementById("asset-enabled"),
+  };
+  let assets = new Map();
+  filterQ.value = new URLSearchParams(window.location.search).get("q")?.slice(0, 200) || "";
+
+  const splitList = (value) => value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+
+  function queryString() {
+    const query = new URLSearchParams();
+    if (filterQ.value.trim()) query.set("q", filterQ.value.trim());
+    if (filterEnvironment.value) query.set("environment", filterEnvironment.value);
+    if (filterCriticality.value) query.set("criticality", filterCriticality.value);
+    if (filterEnabled.value) query.set("enabled", filterEnabled.value);
+    return query.toString();
+  }
+
+  function render(items) {
+    assets = new Map(items.map((asset) => [asset.asset_id, asset]));
+    status.textContent = `${items.length} asset${items.length === 1 ? "" : "s"}`;
+    if (!items.length) {
+      tableBody.innerHTML = '<tr><td colspan="7" class="muted">No assets match the current filters.</td></tr>';
+      return;
+    }
+    tableBody.innerHTML = items.map((asset) => `
+      <tr>
+        <td><strong>${escapeHTML(asset.hostname)}</strong><div class="asset-secondary font-mono">${escapeHTML(asset.asset_id)}</div></td>
+        <td>${asset.ip_addresses.length ? asset.ip_addresses.map(escapeHTML).join("<br>") : '<span class="muted">None</span>'}</td>
+        <td><span class="severity-badge severity-${escapeAttr(asset.criticality)}">${escapeHTML(asset.criticality)}</span><div class="asset-secondary">${escapeHTML(asset.environment.toUpperCase())} · ${escapeHTML(asset.os || "Unknown OS")}</div></td>
+        <td>${escapeHTML(asset.owner || "Unassigned")}<div class="asset-secondary">${escapeHTML(asset.department || "No department")}</div></td>
+        <td>${asset.tags.length ? asset.tags.map((tag) => `<span class="ai-tag">${escapeHTML(tag)}</span>`).join(" ") : '<span class="muted">None</span>'}</td>
+        <td>${asset.enabled ? "ENABLED" : "DISABLED"}</td>
+        <td><div class="asset-table-actions">
+          <button class="btn btn-ghost asset-edit" type="button" data-asset-id="${escapeAttr(asset.asset_id)}">Edit</button>
+          <button class="btn btn-ghost asset-delete" type="button" data-asset-id="${escapeAttr(asset.asset_id)}">Delete</button>
+        </div></td>
+      </tr>`).join("");
+  }
+
+  async function loadAssets() {
+    status.textContent = "Loading assets...";
+    try {
+      const response = await fetch(`${API_ASSETS}?${queryString()}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to load assets");
+      render(data.assets || []);
+    } catch (error) {
+      status.textContent = error.message || "Failed to load assets.";
+    }
+  }
+
+  function openForm(asset) {
+    form.reset();
+    formError.textContent = "";
+    fields.id.value = asset?.asset_id || "";
+    fields.hostname.value = asset?.hostname || "";
+    fields.ips.value = (asset?.ip_addresses || []).join("\n");
+    fields.os.value = asset?.os || "";
+    fields.owner.value = asset?.owner || "";
+    fields.department.value = asset?.department || "";
+    fields.environment.value = asset?.environment || "dev";
+    fields.criticality.value = asset?.criticality || "MEDIUM";
+    fields.tags.value = (asset?.tags || []).join(", ");
+    fields.enabled.checked = asset?.enabled ?? true;
+    document.getElementById("asset-dialog-title").textContent = asset ? "Edit asset" : "Add asset";
+    dialog.showModal();
+    fields.hostname.focus();
+  }
+
+  document.getElementById("asset-add").addEventListener("click", () => openForm(null));
+  document.getElementById("asset-dialog-close").addEventListener("click", () => dialog.close());
+  document.getElementById("asset-cancel").addEventListener("click", () => dialog.close());
+
+  filters.addEventListener("submit", (event) => {
+    event.preventDefault();
+    loadAssets();
+  });
+  document.getElementById("asset-filter-clear").addEventListener("click", () => {
+    filters.reset();
+    loadAssets();
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    formError.textContent = "";
+    saveButton.disabled = true;
+    const assetId = fields.id.value;
+    const body = {
+      hostname: fields.hostname.value,
+      ip_addresses: splitList(fields.ips.value),
+      os: fields.os.value,
+      owner: fields.owner.value,
+      department: fields.department.value,
+      environment: fields.environment.value,
+      criticality: fields.criticality.value,
+      tags: splitList(fields.tags.value),
+      enabled: fields.enabled.checked,
+    };
+    try {
+      const response = await fetch(assetId ? `${API_ASSETS}/${encodeURIComponent(assetId)}` : API_ASSETS, {
+        method: assetId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Asset save failed");
+      dialog.close();
+      await loadAssets();
+    } catch (error) {
+      formError.textContent = error.message || "Asset save failed";
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+
+  tableBody.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-asset-id]");
+    if (!button) return;
+    const asset = assets.get(button.dataset.assetId);
+    if (!asset) return;
+    if (button.classList.contains("asset-edit")) {
+      openForm(asset);
+      return;
+    }
+    if (!window.confirm(`Delete asset ${asset.hostname}?`)) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(`${API_ASSETS}/${encodeURIComponent(asset.asset_id)}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": CSRF_TOKEN },
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Asset delete failed");
+      }
+      await loadAssets();
+    } catch (error) {
+      status.textContent = error.message || "Asset delete failed";
+      button.disabled = false;
+    }
+  });
+
+  loadAssets();
 }
 
 // --- DASHBOARD LOGIC ---
@@ -486,10 +736,11 @@ function initDashboard() {
           const row = `
               <tr>
                 <td>${new Date(alert.timestamp).toLocaleTimeString()}</td>
-                <td style="font-weight:bold">${alert.alert_name}</td>
+                <td style="font-weight:bold">${escapeHTML(alert.alert_name || "")}</td>
                 <td class="font-mono">${escapeHTML(alert.rule_id || "-")}</td>
-                <td><span style="color:${getColor(alert.severity)}">${alert.severity}</span></td>
-                <td>${alert.ip_address || "N/A"}</td>
+                <td><span style="color:${getColor(alert.severity)}">${escapeHTML(alert.severity || "")}</span></td>
+                <td>${escapeHTML(alert.ip_address || "N/A")}</td>
+                <td>${renderAssetReference(alert.asset_id)}</td>
               </tr>`;
           tbody.innerHTML += row;
         });
@@ -756,13 +1007,18 @@ function createRow(alert) {
   if (alert.assigned_to) {
     detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Assigned to: ${escapeHTML(alert.assigned_to)}</div>`;
   }
+  if (alert.asset_id) {
+    detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Asset: ${renderAssetReference(alert.asset_id)}</div>`;
+  }
 
   if (alert.ml_anomaly_score) {
     detailsHTML += `<div style="margin-top:4px; color:#c084fc; font-weight:700; font-size:11px">
                             <i class="fa-solid fa-brain"></i> AI Score: ${escapeHTML(alert.ml_anomaly_score)}
                         </div>`;
   }
+  detailsHTML += renderThreatIntelligence(alert);
   detailsHTML += renderAIAnalysis(alert);
+  detailsHTML += renderRiskScore(alert);
   detailsHTML += `<div class="log-raw" title="${escapeAttr(alert.raw_log || "")}">${escapeHTML(alert.raw_log || "")}</div>`;
   detailsHTML += renderIncidentPanel(alert);
 
@@ -776,6 +1032,82 @@ function createRow(alert) {
     `;
   bindIncidentActions(tr, alert);
   return tr;
+}
+
+function renderThreatIntelligence(alert) {
+  const intel = alert.threat_intel || {};
+  const legacyGeoIP = alert.geoip ? {
+    ...(alert.geoip_lookup || {}),
+    provider: "ipwhois",
+    status: alert.geoip_lookup?.status || "ok",
+    ioc_type: "ip",
+    ioc: alert.ip_address,
+  } : null;
+  const entries = ["ipwhois", "abuseipdb", "virustotal", "stix"]
+    .map((provider) => intel[provider] || (provider === "ipwhois" ? legacyGeoIP : null))
+    .filter(Boolean);
+  if (!entries.length) return "";
+
+  const observed = [...new Map(entries.map((entry) => [
+    `${entry.ioc_type}:${entry.ioc}`,
+    `<span><strong>${escapeHTML((entry.ioc_type || "ioc").toUpperCase())}</strong> ${escapeHTML(entry.ioc || "N/A")}</span>`,
+  ])).values()].join("");
+  const cards = entries.map((entry) => renderThreatIntelProvider(entry, alert)).join("");
+  return `
+    <section class="threat-intel-panel" aria-label="Threat Intelligence">
+      <div class="threat-intel-title"><i class="fa-solid fa-shield-virus"></i> Threat Intelligence</div>
+      <div class="threat-intel-observed"><strong>Observed IOC</strong>${observed}</div>
+      <div class="threat-intel-note">Third-party intelligence only · system severity unchanged</div>
+      <div class="threat-intel-grid">${cards}</div>
+    </section>`;
+}
+
+function renderThreatIntelProvider(entry, alert) {
+  const provider = entry.provider || "unknown";
+  const label = { ipwhois: "GeoIP", abuseipdb: "AbuseIPDB", virustotal: "VirusTotal", stix: "STIX/TAXII" }[provider] || provider;
+  const status = entry.status || "unavailable";
+  let body = "";
+  if (status === "pending") {
+    body = '<span class="ti-state ti-pending"><i class="fa-solid fa-spinner fa-spin"></i> Lookup pending</span>';
+  } else if (status === "unavailable") {
+    body = '<span class="ti-state"><i class="fa-solid fa-plug-circle-xmark"></i> Provider unavailable</span>';
+  } else if (status === "error" || status === "timeout") {
+    body = `<span class="ti-state ti-error"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(entry.error?.message || "Lookup failed")}</span>`;
+  } else if (status === "not_found") {
+    body = '<span class="ti-state"><i class="fa-solid fa-circle-question"></i> No matching intelligence</span>';
+  } else if (provider === "ipwhois") {
+    const geo = alert.geoip || {};
+    const place = geo.is_private
+      ? "Private/local address"
+      : [geo.city, geo.country].filter(Boolean).join(", ") || "Unknown location";
+    const network = [geo.asn ? `AS${String(geo.asn).replace(/^AS/i, "")}` : null, geo.organization]
+      .filter(Boolean).join(" · ");
+    body = `<strong>${escapeHTML(place)}</strong>${network ? `<span>${escapeHTML(network)}</span>` : ""}`;
+  } else if (provider === "abuseipdb") {
+    body = `<strong>${escapeHTML(entry.abuse_confidence ?? 0)}% abuse confidence</strong>` +
+      `<span>${escapeHTML(entry.total_reports ?? 0)} reports${entry.usage_type ? ` · ${escapeHTML(entry.usage_type)}` : ""}</span>`;
+  } else if (provider === "virustotal") {
+    const total = ["malicious", "suspicious", "harmless", "undetected"]
+      .reduce((sum, key) => sum + Number(entry[key] || 0), 0);
+    body = `<strong>${escapeHTML(entry.malicious ?? 0)} malicious · ${escapeHTML(entry.suspicious ?? 0)} suspicious</strong>` +
+      `<span>${escapeHTML(total)} engines reported</span>`;
+  } else if (provider === "stix") {
+    const sources = Array.isArray(entry.sources) ? entry.sources : [];
+    const labels = Array.isArray(entry.labels) ? entry.labels : [];
+    body = `<strong>${escapeHTML(entry.match_count ?? 1)} active feed match${Number(entry.match_count) === 1 ? "" : "es"}</strong>` +
+      `<span>Source: ${escapeHTML(sources.join(", ") || "unknown")}</span>` +
+      (entry.confidence == null ? "" : `<span>${escapeHTML(entry.confidence)}% confidence</span>`) +
+      (labels.length ? `<span>${escapeHTML(labels.join(", "))}</span>` : "");
+  }
+  const meta = [
+    Number.isFinite(Number(entry.duration_ms)) ? `${escapeHTML(entry.duration_ms)} ms` : null,
+    entry.cached === true ? "Cache hit" : entry.cached === false ? "Live lookup" : null,
+  ].filter(Boolean).join(" · ");
+  return `<article class="threat-intel-card ti-${escapeAttr(status)}">
+    <div class="threat-intel-provider"><strong>${escapeHTML(label)}</strong><span>${escapeHTML(provider)}</span></div>
+    <div class="threat-intel-body">${body}</div>
+    ${meta ? `<div class="threat-intel-meta">${meta}</div>` : ""}
+  </article>`;
 }
 
 function renderIncidentPanel(alert) {
@@ -814,7 +1146,12 @@ function renderIncidentPanel(alert) {
     <section class="incident-panel" aria-label="Incident ${escapeAttr(alert.incident_id)}">
       <div class="incident-heading">
         <strong>${escapeHTML(alert.incident_id)}</strong>
-        <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
+        <div class="incident-actions">
+          <a class="btn btn-ghost" href="/api/alerts/${encodeURIComponent(alert.alert_id)}/report.pdf" download>
+            <i class="fa-solid fa-file-pdf"></i> PDF report
+          </a>
+          <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
+        </div>
       </div>
       ${canMutate ? `<div class="incident-actions">${statusButtons}</div>
       <div class="incident-form-row">
@@ -967,6 +1304,25 @@ function escapeHTML(value) {
 
 function escapeAttr(value) {
   return escapeHTML(value).replaceAll("\n", " ");
+}
+
+function renderAssetReference(assetId) {
+  if (!assetId) return "-";
+  const label = escapeHTML(assetId);
+  if (CURRENT_ROLE !== "admin") return label;
+  return `<a href="/assets?q=${encodeURIComponent(assetId)}">${label}</a>`;
+}
+
+function renderRiskScore(alert) {
+  if (!Number.isFinite(Number(alert.risk_score))) return "";
+  const factors = Array.isArray(alert.risk_factors) ? alert.risk_factors : [];
+  const items = factors.map((factor) =>
+    `<li>${escapeHTML(factor.factor)}: +${escapeHTML(factor.points)} (${escapeHTML(factor.value)})</li>`
+  ).join("");
+  return `<details class="risk-panel"><summary>Risk ` +
+    `<span class="severity-badge severity-${escapeAttr(alert.risk_level || "LOW")}">` +
+    `${escapeHTML(alert.risk_score)}/100 ${escapeHTML(alert.risk_level || "LOW")}</span></summary>` +
+    `${items ? `<ul>${items}</ul>` : '<div class="muted">No positive risk factors.</div>'}</details>`;
 }
 
 // Helper function

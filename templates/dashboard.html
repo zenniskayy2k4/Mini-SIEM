@@ -59,7 +59,8 @@
 <!-- 3. Recent Alerts (Bảng nhỏ gọn) -->
 <div class="card recent-alerts">
     <h3><i class="fa-solid fa-bell"></i> Recent Critical Alerts</h3>
-    <table class="mini-table">
+    <div class="table-responsive">
+      <table class="mini-table">
         <thead>
             <tr>
                 <th>Time</th>
@@ -67,19 +68,22 @@
                 <th>Rule ID</th>
                 <th>Severity</th>
                 <th>Source IP</th>
+                <th>Asset</th>
             </tr>
         </thead>
         <tbody id="mini-table-body">
             <!-- JS will fill this -->
         </tbody>
-    </table>
+      </table>
+    </div>
 </div>
 
 <!-- 4. Detection Coverage -->
 <div class="card recent-alerts" style="margin-top:20px;">
     <h3><i class="fa-solid fa-bullseye"></i> Detection Coverage</h3>
     <div class="muted" id="coverage-summary">Loading coverage...</div>
-    <table class="mini-table" style="margin-top:10px;">
+    <div class="table-responsive" style="margin-top:10px;">
+      <table class="mini-table">
         <thead>
             <tr>
                 <th>Rule ID</th>
@@ -91,7 +95,8 @@
             </tr>
         </thead>
         <tbody id="coverage-table-body"></tbody>
-    </table>
+      </table>
+    </div>
 </div>
 
 <!-- 5. Context Graph -->

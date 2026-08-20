@@ -168,7 +168,7 @@ class ThreatDetector:
     Three-layer hybrid detection engine.
 
     The AI Analyst (Layer 3) is injected optionally to avoid circular imports:
-        detector = ThreatDetector(signatures, ai_analyst=AIAnalyst())
+        detector = ThreatDetector(signatures, ai_analyst=AIAnalyst(provider))
     """
 
     FEATURE_DIM = 15
@@ -353,6 +353,7 @@ class ThreatDetector:
             "computer": event.get("computer"),
             "process": event.get("process"),
             "parent_process": event.get("parent_process"),
+            "hashes": event.get("hashes"),
             "ip_address": (
                 event.get("network", {}).get("source_ip")
                 or event.get("network", {}).get("destination_ip")

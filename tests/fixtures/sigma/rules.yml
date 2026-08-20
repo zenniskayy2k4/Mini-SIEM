@@ -1,0 +1,73 @@
+title: Suspicious Rundll32 JavaScript Execution
+id: 673bbb22-3691-438e-8849-99b4a59d5145
+status: test
+description: Detects rundll32 executing a JavaScript payload.
+author: Mini-SIEM
+tags:
+  - attack.defense_evasion
+  - attack.t1218.011
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    EventID: 1
+    Image|endswith: '\rundll32.exe'
+    CommandLine|contains: 'javascript:'
+  condition: selection
+level: high
+---
+title: Encoded PowerShell With Hidden Window
+id: b48b53d4-6bfb-4d0a-af2b-12ddeb0e7bb6
+status: test
+description: Detects hidden encoded PowerShell execution.
+author: Mini-SIEM
+tags:
+  - attack.execution
+  - attack.t1059.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    EventID: 1
+    Image|endswith: '\powershell.exe'
+    CommandLine|contains|all:
+      - ' -nop'
+      - ' -encodedcommand'
+  condition: selection
+level: high
+---
+title: Windows Local Account Created
+id: 8942baac-07a3-4c3a-b3d5-d69eadeb01d2
+status: test
+description: Detects Windows Security Event 4720 account creation.
+author: Mini-SIEM
+tags:
+  - attack.persistence
+  - attack.t1136.001
+logsource:
+  service: security
+  product: windows
+detection:
+  selection:
+    EventID: 4720
+  condition: selection
+level: medium
+---
+title: Unsupported Regex Modifier Corpus Case
+id: 665633cb-86c4-4b84-bdc8-9b354b357a10
+status: test
+description: Confirms unsupported Sigma syntax remains disabled.
+author: Mini-SIEM
+tags:
+  - attack.execution
+  - attack.t1059.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|re: 'powershell.*encodedcommand'
+  condition: selection
+level: high

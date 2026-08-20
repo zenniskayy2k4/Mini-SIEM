@@ -1,5 +1,15 @@
 import os
 
+AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama_cloud").strip().lower()
+AI_FALLBACK_PROVIDER = os.getenv("AI_FALLBACK_PROVIDER", "").strip().lower()
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "").strip()
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "https://ollama.com/api").strip()
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:cloud").strip()
+OLLAMA_LOCAL_BASE_URL = os.getenv(
+    "OLLAMA_LOCAL_BASE_URL", "http://host.docker.internal:11434/api"
+).strip()
+OLLAMA_LOCAL_MODEL = os.getenv("OLLAMA_LOCAL_MODEL", "gemma3:4b").strip()
+
 # --- PATH CONFIGURATION ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RULES_DIR = os.path.join(BASE_DIR, "config", "rules")
@@ -23,6 +33,14 @@ LOG_ROTATE_BACKUPS = max(1, int(os.getenv("LOG_ROTATE_BACKUPS", "5")))
 SQLITE_READ_ENABLED = os.getenv("SQLITE_READ_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_READ_FALLBACK_ENABLED = os.getenv("JSON_READ_FALLBACK_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_DUAL_WRITE_ENABLED = os.getenv("JSON_DUAL_WRITE_ENABLED", "true").lower() in {"1", "true", "yes"}
+RISK_WEIGHTS = {
+    "detection_severity": max(0, int(os.getenv("RISK_WEIGHT_SEVERITY", "40"))),
+    "asset_criticality": max(0, int(os.getenv("RISK_WEIGHT_ASSET", "20"))),
+    "threat_confidence": max(0, int(os.getenv("RISK_WEIGHT_THREAT_CONFIDENCE", "15"))),
+    "ti_reputation": max(0, int(os.getenv("RISK_WEIGHT_TI_REPUTATION", "15"))),
+    "correlation_count": max(0, int(os.getenv("RISK_WEIGHT_CORRELATION", "5"))),
+    "human_review": max(0, int(os.getenv("RISK_WEIGHT_HUMAN_REVIEW", "5"))),
+}
 RESPONSE_MODE = os.getenv("RESPONSE_MODE", "simulation").lower()
 RESPONSE_TARGET_OS = os.getenv("RESPONSE_TARGET_OS", "linux").lower()
 RESPONSE_APPROVAL_TIMEOUT_SECONDS = max(1, int(os.getenv("RESPONSE_APPROVAL_TIMEOUT_SECONDS", "900")))
@@ -39,6 +57,20 @@ NOTIFICATION_WEBHOOK_FORMAT = os.getenv("NOTIFICATION_WEBHOOK_FORMAT", "generic"
 NOTIFICATION_TIMEOUT_SECONDS = max(1, int(os.getenv("NOTIFICATION_TIMEOUT_SECONDS", "3")))
 NOTIFICATION_MAX_ATTEMPTS = min(3, max(1, int(os.getenv("NOTIFICATION_MAX_ATTEMPTS", "2"))))
 NOTIFICATION_LOG_FILE = os.path.join(BASE_DIR, "data", "notification_audit.log")
+GEOIP_ENABLED = os.getenv("GEOIP_ENABLED", "true").lower() in {"1", "true", "yes"}
+GEOIP_ENDPOINT = os.getenv("GEOIP_ENDPOINT", "https://ipwho.is").strip()
+GEOIP_CACHE_TTL_SECONDS = max(60, int(os.getenv("GEOIP_CACHE_TTL_SECONDS", "86400")))
+GEOIP_RATE_LIMIT_PER_SECOND = max(0.01, float(os.getenv("GEOIP_RATE_LIMIT_PER_SECOND", "1")))
+GEOIP_TIMEOUT_SECONDS = max(0.1, float(os.getenv("GEOIP_TIMEOUT_SECONDS", "3")))
+GEOIP_MAX_ATTEMPTS = min(3, max(1, int(os.getenv("GEOIP_MAX_ATTEMPTS", "2"))))
+ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "").strip()
+VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "").strip()
+STIX_INDICATOR_FILE = os.path.join(BASE_DIR, "data", "stix_indicators.json")
+STIX_BUNDLE_FILE = os.getenv("STIX_BUNDLE_FILE", "").strip()
+TAXII_COLLECTION_URL = os.getenv("TAXII_COLLECTION_URL", "").strip()
+TAXII_BEARER_TOKEN = os.getenv("TAXII_BEARER_TOKEN", "").strip()
+TAXII_FEED_SOURCE = os.getenv("TAXII_FEED_SOURCE", "taxii").strip() or "taxii"
+TAXII_PULL_INTERVAL_SECONDS = max(60, int(os.getenv("TAXII_PULL_INTERVAL_SECONDS", "3600")))
 WINDOWS_EVENT_FILE = os.getenv(
     "WINDOWS_EVENT_FILE", os.path.join(BASE_DIR, "data", "windows_events.jsonl")
 )
@@ -46,6 +78,7 @@ WINDOWS_COLLECTOR_SECRET = os.getenv("WINDOWS_COLLECTOR_SECRET", "").strip()
 DASHBOARD_USERS_FILE = os.path.join(BASE_DIR, "data", "dashboard_users.json")
 DASHBOARD_SESSION_KEY_FILE = os.path.join(BASE_DIR, "data", "dashboard_session.key")
 DASHBOARD_COOKIE_SECURE = os.getenv("DASHBOARD_COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
+METRICS_BEARER_TOKEN = os.getenv("METRICS_BEARER_TOKEN", "").strip()
 
 # --- ENGINE SETTINGS ---
 CORRELATION_WINDOW_MINUTES = 5

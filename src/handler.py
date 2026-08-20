@@ -12,9 +12,15 @@ class LogHandler(FileSystemEventHandler):
     File system event handler for real-time log monitoring.
     Integrates detection, correlation, response.
     """
-    def __init__(self, file_path, detector, correlator=None, responder=None):
+    def __init__(
+        self, file_path, detector, correlator=None, responder=None,
+        geoip_service=None, abuseipdb_service=None, virustotal_service=None,
+    ):
         self.file_path = file_path
         self.detector = detector
+        self.geoip_service = geoip_service
+        self.abuseipdb_service = abuseipdb_service
+        self.virustotal_service = virustotal_service
 
         # Use instances provided by main(); fall back to defaults if not provided.
         self.correlator = correlator or AlertCorrelator(config.CORRELATION_WINDOW_MINUTES)
@@ -67,7 +73,10 @@ class LogHandler(FileSystemEventHandler):
         action = actions[-1] if actions else None
         print(f" Response Action: {action or 'None'}")
 
-        persist_and_enrich(alert, getattr(self.detector, "ai_analyst", None))
+        persist_and_enrich(
+            alert, getattr(self.detector, "ai_analyst", None), self.geoip_service,
+            self.abuseipdb_service, self.virustotal_service,
+        )
 
 
 class WindowsEventHandler(LogHandler):

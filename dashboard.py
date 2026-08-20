@@ -1,16 +1,21 @@
-from flask import Flask, render_template, jsonify, redirect, request, session, url_for
 import hmac
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
+from io import BytesIO
 import hashlib
 import re
 
+from flask import Flask, render_template, jsonify, redirect, request, send_file, session, url_for
+
 from config import config
 from src.alert_schema import INCIDENT_STATUSES, utc_iso
+from src.assets import CRITICALITIES, ENVIRONMENTS, build_asset
 from src.audit import append_audit_event
 from src.health import build_system_status
+from src.incident_report import generate_incident_pdf
+from src.metrics import metrics_unavailable, render_prometheus_metrics
 from src.dashboard_auth import (
     authenticate,
     clear_login_failures,
@@ -33,6 +38,7 @@ from src.alert_store import (
 from src.rules import build_detection_coverage, load_detection_rules
 from src.sigma import load_sigma_rules, set_sigma_rule_enabled
 from src.storage import alert_repository
+from src.sqlite_store import SQLiteAssetRepository
 from src.windows_events import ingest_windows_events
 
 app = Flask(__name__)
@@ -44,6 +50,7 @@ DETECTION_RULES = load_detection_rules(
 )
 SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
 RULES_LOADED_AT = utc_iso()
+asset_repository = SQLiteAssetRepository()
 
 ALLOWED_SETTINGS = {
     "NIDS_ENABLED",
@@ -162,7 +169,7 @@ def _auth_error():
 
 @app.before_request
 def require_dashboard_authentication():
-    if request.endpoint in {"login", "static", "api_windows_events", "health"}:
+    if request.endpoint in {"login", "static", "api_windows_events", "health", "metrics"}:
         return None
     username = session.get("username")
     user = get_user(username) if username else None
@@ -235,6 +242,11 @@ def dashboard():
     return render_template('dashboard.html', page='dashboard')
 
 
+@app.route('/analytics')
+def analytics():
+    return render_template('analytics.html', page='analytics')
+
+
 @app.route("/health")
 def health():
     status = build_system_status(_effective_settings())
@@ -249,11 +261,68 @@ def health():
     return jsonify(public), 503 if status["status"] == "unhealthy" else 200
 
 
+@app.route("/metrics")
+def metrics():
+    expected = config.METRICS_BEARER_TOKEN
+    supplied = request.headers.get("Authorization", "")
+    if expected and not hmac.compare_digest(supplied, f"Bearer {expected}"):
+        return app.response_class(
+            "Authentication required\n", status=401,
+            headers={"WWW-Authenticate": "Bearer"}, content_type="text/plain; charset=utf-8",
+        )
+    try:
+        body = render_prometheus_metrics(
+            alert_repository.list_alerts(),
+            _detection_rule_records(),
+            build_system_status(_effective_settings()),
+            config.NOTIFICATION_LOG_FILE,
+        )
+        status = 200
+    except Exception:
+        body, status = metrics_unavailable(), 503
+    return app.response_class(
+        body, status=status,
+        content_type="text/plain; version=0.0.4; charset=utf-8",
+    )
+
+
 @app.route("/api/system/status")
 @role_required("admin")
 def api_system_status():
     status = build_system_status(_effective_settings())
     return jsonify(status), 503 if status["status"] == "unhealthy" else 200
+
+
+@app.route("/api/analytics/kpis")
+def api_soc_kpis():
+    raw_from, raw_to = request.args.get("from"), request.args.get("to")
+    to_timestamp = _parse_ts_maybe(raw_to) if raw_to else datetime.now(timezone.utc)
+    from_timestamp = _parse_ts_maybe(raw_from) if raw_from else to_timestamp - timedelta(hours=24)
+    if (raw_from and from_timestamp is None) or (raw_to and to_timestamp is None):
+        return jsonify({"error": "from and to must be ISO-8601 timestamps"}), 400
+    if from_timestamp >= to_timestamp:
+        return jsonify({"error": "from must be earlier than to"}), 400
+    if to_timestamp - from_timestamp > timedelta(days=366):
+        return jsonify({"error": "KPI range must not exceed 366 days"}), 400
+    period = {"from": utc_iso(from_timestamp), "to": utc_iso(to_timestamp)}
+    try:
+        kpis = alert_repository.soc_kpis(period["from"], period["to"])
+        analytics = alert_repository.soc_analytics(period["from"], period["to"])
+    except Exception:
+        return jsonify({"error": "Analytics data unavailable"}), 503
+    return jsonify({
+        "period": {**period, "boundary": "[from,to)", "timestamp": "alert.created_at"},
+        "definitions": {
+            "mttd_seconds": "alert.timestamp to alert.created_at",
+            "mtta_seconds": "incident.created_at to first analyst workflow event",
+            "mttr_seconds": "incident.created_at to first RESOLVED transition",
+            "false_positive_rate_percent": "FALSE_POSITIVE / (RESOLVED + FALSE_POSITIVE)",
+            "human_review_rate_percent": "REQUIRES_HUMAN_REVIEW alerts / alerts",
+            "ai_enrichment_success_rate_percent": "successful / completed AI enrichments",
+        },
+        "kpis": kpis,
+        "analytics": analytics,
+    })
 
 @app.route('/logs')
 def logs():
@@ -334,6 +403,22 @@ def api_alerts():
     return jsonify(load_alerts(50))
 
 
+@app.route("/api/alerts/<alert_id>/report.pdf")
+def api_incident_report(alert_id):
+    alert = alert_repository.get_alert(alert_id)
+    if alert is None:
+        return jsonify({"error": "Alert not found"}), 404
+    try:
+        report = generate_incident_pdf(alert)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    filename = re.sub(r"[^A-Za-z0-9._-]", "_", str(alert["incident_id"]))[:120]
+    return send_file(
+        BytesIO(report), mimetype="application/pdf", as_attachment=True,
+        download_name=f"{filename}.pdf", max_age=0,
+    )
+
+
 @app.route("/api/windows-events", methods=["POST"])
 def api_windows_events():
     expected = config.WINDOWS_COLLECTOR_SECRET
@@ -375,6 +460,109 @@ def api_alert_status(alert_id):
         details={"from": event["from_status"], "to": event["to_status"]},
     )
     return jsonify(alert)
+
+
+@app.route("/assets")
+@role_required("admin")
+def assets():
+    return render_template("assets.html", page="assets")
+
+
+def _asset_request_body():
+    if request.content_length and request.content_length > 64 * 1024:
+        raise ValueError("Asset request exceeds 64 KiB")
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        raise ValueError("Request body must be a JSON object")
+    return body
+
+
+def _asset_error(exc):
+    message = str(exc)
+    status = 409 if "duplicate" in message.lower() or "already exists" in message.lower() else 400
+    return jsonify({"error": message}), status
+
+
+@app.route("/api/assets", methods=["GET", "POST"])
+@role_required("admin")
+def api_assets():
+    if request.method == "POST":
+        try:
+            body = _asset_request_body()
+            allowed = {
+                "hostname", "ip_addresses", "os", "owner", "department",
+                "environment", "criticality", "tags", "enabled",
+            }
+            unknown = set(body) - allowed
+            if unknown:
+                raise ValueError(f"Unsupported asset fields: {', '.join(sorted(unknown))}")
+            if "hostname" not in body:
+                raise ValueError("hostname is required")
+            asset = build_asset(**body)
+            created = asset_repository.create_asset(
+                asset, actor=session["username"], role=session.get("role"),
+            )
+            return jsonify(created), 201
+        except (TypeError, ValueError) as exc:
+            return _asset_error(exc)
+
+    q = (request.args.get("q") or "").strip().casefold()
+    environment = (request.args.get("environment") or "").strip().lower()
+    criticality = (request.args.get("criticality") or "").strip().upper()
+    enabled_text = (request.args.get("enabled") or "").strip().lower()
+    if len(q) > 200:
+        return jsonify({"error": "Search query exceeds 200 characters"}), 400
+    if environment and environment not in ENVIRONMENTS:
+        return jsonify({"error": "Invalid environment filter"}), 400
+    if criticality and criticality not in CRITICALITIES:
+        return jsonify({"error": "Invalid criticality filter"}), 400
+    if enabled_text not in {"", "true", "false"}:
+        return jsonify({"error": "enabled filter must be true or false"}), 400
+
+    enabled = None if not enabled_text else enabled_text == "true"
+    assets = asset_repository.list_assets(enabled=enabled)
+    # ponytail: in-memory filtering fits the single-node lab; move to SQL if inventory reaches thousands.
+    if environment:
+        assets = [asset for asset in assets if asset["environment"] == environment]
+    if criticality:
+        assets = [asset for asset in assets if asset["criticality"] == criticality]
+    if q:
+        assets = [asset for asset in assets if q in " ".join([
+            asset["asset_id"], asset["hostname"], *asset["ip_addresses"], asset["os"], asset["owner"],
+            asset["department"], *asset["tags"],
+        ]).casefold()]
+    return jsonify({"assets": assets, "total": len(assets)})
+
+
+@app.route("/api/assets/<asset_id>", methods=["GET", "PATCH", "DELETE"])
+@role_required("admin")
+def api_asset(asset_id):
+    if request.method == "GET":
+        asset = asset_repository.get_asset(asset_id)
+        return (jsonify(asset), 200) if asset else (jsonify({"error": "Asset not found"}), 404)
+    if request.method == "DELETE":
+        deleted = asset_repository.delete_asset(
+            asset_id, actor=session["username"], role=session.get("role"),
+        )
+        return ("", 204) if deleted else (jsonify({"error": "Asset not found"}), 404)
+
+    try:
+        changes = _asset_request_body()
+        allowed = {
+            "hostname", "ip_addresses", "os", "owner", "department",
+            "environment", "criticality", "tags", "enabled",
+        }
+        unknown = set(changes) - allowed
+        if unknown:
+            raise ValueError(f"Unsupported asset fields: {', '.join(sorted(unknown))}")
+        if not changes:
+            raise ValueError("At least one asset field is required")
+        asset = asset_repository.update_asset(
+            asset_id, changes, actor=session["username"], role=session.get("role"),
+        )
+        return (jsonify(asset), 200) if asset else (jsonify({"error": "Asset not found"}), 404)
+    except ValueError as exc:
+        return _asset_error(exc)
 
 
 @app.route("/api/alerts/<alert_id>/notes", methods=["POST"])

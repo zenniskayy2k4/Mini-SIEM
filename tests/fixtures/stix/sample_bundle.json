@@ -1,0 +1,78 @@
+{
+  "type": "bundle",
+  "id": "bundle--11111111-1111-4111-8111-111111111111",
+  "objects": [
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--11111111-1111-4111-8111-111111111111",
+      "created": "2026-08-01T00:00:00Z",
+      "modified": "2026-08-01T00:00:00Z",
+      "pattern_type": "stix",
+      "pattern": "[ipv4-addr:value = '198.51.100.44']",
+      "valid_from": "2026-08-01T00:00:00Z",
+      "valid_until": "2099-01-01T00:00:00Z",
+      "confidence": 85,
+      "labels": ["malicious-activity"]
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--22222222-2222-4222-8222-222222222222",
+      "created": "2026-08-02T00:00:00Z",
+      "modified": "2026-08-02T00:00:00Z",
+      "pattern_type": "stix",
+      "pattern": "[ipv4-addr:value = '198.51.100.44']",
+      "valid_from": "2026-08-02T00:00:00Z",
+      "valid_until": "2099-01-01T00:00:00Z",
+      "confidence": 90,
+      "labels": ["command-and-control"]
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--33333333-3333-4333-8333-333333333333",
+      "created": "2026-08-01T00:00:00Z",
+      "modified": "2026-08-01T00:00:00Z",
+      "pattern_type": "stix",
+      "pattern": "[domain-name:value = 'evil.example']",
+      "valid_from": "2026-08-01T00:00:00Z",
+      "confidence": 70,
+      "labels": ["phishing"]
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--44444444-4444-4444-8444-444444444444",
+      "created": "2026-08-01T00:00:00Z",
+      "modified": "2026-08-01T00:00:00Z",
+      "pattern_type": "stix",
+      "pattern": "[file:hashes.'SHA-256' = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc']",
+      "valid_from": "2026-08-01T00:00:00Z",
+      "confidence": 95,
+      "labels": ["malware"]
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--55555555-5555-4555-8555-555555555555",
+      "created": "2019-01-01T00:00:00Z",
+      "modified": "2019-01-01T00:00:00Z",
+      "pattern_type": "stix",
+      "pattern": "[ipv4-addr:value = '203.0.113.55']",
+      "valid_from": "2019-01-01T00:00:00Z",
+      "valid_until": "2020-01-01T00:00:00Z",
+      "confidence": 50,
+      "labels": ["expired"]
+    },
+    {
+      "type": "malware",
+      "spec_version": "2.1",
+      "id": "malware--66666666-6666-4666-8666-666666666666",
+      "created": "2026-08-01T00:00:00Z",
+      "modified": "2026-08-01T00:00:00Z",
+      "name": "out-of-scope",
+      "is_family": false
+    }
+  ]
+}

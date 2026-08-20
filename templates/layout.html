@@ -25,22 +25,28 @@
         <aside class="sidebar">
             <div class="logo">
                 <i class="fa-solid fa-shield-virus"></i>
-                <span>SIEM<span class="highlight">PRO</span></span>
+                <span class="logo-label">SIEM<span class="highlight">PRO</span></span>
             </div>
             
             <nav>
                 <a href="/" class="{{ 'active' if page == 'dashboard' else '' }}">
-                    <i class="fa-solid fa-chart-pie"></i> Dashboard
+                    <i class="fa-solid fa-chart-pie"></i><span class="nav-label">Dashboard</span>
                 </a>
                 <a href="/logs" class="{{ 'active' if page == 'logs' else '' }}">
-                    <i class="fa-solid fa-list-ul"></i> Live Logs
+                    <i class="fa-solid fa-list-ul"></i><span class="nav-label">Live Logs</span>
+                </a>
+                <a href="/analytics" class="{{ 'active' if page == 'analytics' else '' }}">
+                    <i class="fa-solid fa-chart-line"></i><span class="nav-label">Analytics</span>
                 </a>
                 <a href="/graph" class="{{ 'active' if page == 'graph' else '' }}">
-                    <i class="fa-solid fa-diagram-project"></i> Graph
+                    <i class="fa-solid fa-diagram-project"></i><span class="nav-label">Graph</span>
                 </a>
                 {% if current_role == 'admin' %}
+                    <a href="/assets" class="{{ 'active' if page == 'assets' else '' }}">
+                        <i class="fa-solid fa-server"></i><span class="nav-label">Assets</span>
+                    </a>
                     <a href="/settings" class="{{ 'active' if page == 'settings' else '' }}">
-                        <i class="fa-solid fa-gear"></i> Settings
+                        <i class="fa-solid fa-gear"></i><span class="nav-label">Settings</span>
                     </a>
                 {% endif %}
             </nav>
@@ -52,7 +58,7 @@
                 </div>
                 <form action="{{ url_for('logout') }}" method="post">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button class="logout-button" type="submit"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                    <button class="logout-button" type="submit"><i class="fa-solid fa-right-from-bracket"></i><span class="logout-label">Logout</span></button>
                 </form>
                 <div class="status-badge">
                     <span class="pulse-dot"></span> System Online

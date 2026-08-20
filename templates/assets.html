@@ -1,0 +1,128 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="page-header">
+  <h2><i class="fa-solid fa-server"></i> Asset Inventory</h2>
+  <button id="asset-add" class="btn btn-primary" type="button">
+    <i class="fa-solid fa-plus"></i> Add asset
+  </button>
+</div>
+
+<form id="asset-filters" class="card asset-filters">
+  <div class="filter-field filter-field-wide">
+    <label class="input-label" for="asset-filter-q">Search</label>
+    <input id="asset-filter-q" class="styled-input" type="search" maxlength="200" placeholder="hostname, IP, owner, department, tag">
+  </div>
+  <div class="filter-field">
+    <label class="input-label" for="asset-filter-environment">Environment</label>
+    <select id="asset-filter-environment" class="styled-input">
+      <option value="">All</option>
+      <option value="dev">DEV</option>
+      <option value="test">TEST</option>
+      <option value="prod">PROD</option>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label class="input-label" for="asset-filter-criticality">Criticality</label>
+    <select id="asset-filter-criticality" class="styled-input">
+      <option value="">All</option>
+      <option value="LOW">LOW</option>
+      <option value="MEDIUM">MEDIUM</option>
+      <option value="HIGH">HIGH</option>
+      <option value="CRITICAL">CRITICAL</option>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label class="input-label" for="asset-filter-enabled">State</label>
+    <select id="asset-filter-enabled" class="styled-input">
+      <option value="">All</option>
+      <option value="true">Enabled</option>
+      <option value="false">Disabled</option>
+    </select>
+  </div>
+  <div class="filter-buttons">
+    <button class="btn btn-primary" type="submit">Apply</button>
+    <button id="asset-filter-clear" class="btn btn-ghost" type="button">Clear</button>
+  </div>
+</form>
+
+<div id="asset-status" class="muted asset-status" role="status">Loading assets...</div>
+<div class="card asset-table-card">
+  <div class="table-responsive">
+    <table class="mini-table asset-table">
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>IP addresses</th>
+          <th>Context</th>
+          <th>Owner / Team</th>
+          <th>Tags</th>
+          <th>State</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="asset-table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<dialog id="asset-dialog" class="asset-dialog">
+  <form id="asset-form">
+    <div class="asset-dialog-header">
+      <h3 id="asset-dialog-title">Add asset</h3>
+      <button id="asset-dialog-close" class="btn btn-ghost" type="button" aria-label="Close">×</button>
+    </div>
+    <input id="asset-id" type="hidden">
+    <div class="asset-form-grid">
+      <div class="input-group asset-field-wide">
+        <label class="input-label" for="asset-hostname">Hostname</label>
+        <input id="asset-hostname" class="styled-input" type="text" maxlength="253" required>
+      </div>
+      <div class="input-group asset-field-wide">
+        <label class="input-label" for="asset-ips">IP addresses</label>
+        <textarea id="asset-ips" class="styled-input" rows="3" placeholder="One per line or comma-separated"></textarea>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="asset-os">Operating system</label>
+        <input id="asset-os" class="styled-input" type="text" maxlength="100">
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="asset-owner">Owner</label>
+        <input id="asset-owner" class="styled-input" type="text" maxlength="200">
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="asset-department">Department / Team</label>
+        <input id="asset-department" class="styled-input" type="text" maxlength="200">
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="asset-environment">Environment</label>
+        <select id="asset-environment" class="styled-input">
+          <option value="dev">DEV</option>
+          <option value="test">TEST</option>
+          <option value="prod">PROD</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="asset-criticality">Criticality</label>
+        <select id="asset-criticality" class="styled-input">
+          <option value="LOW">LOW</option>
+          <option value="MEDIUM" selected>MEDIUM</option>
+          <option value="HIGH">HIGH</option>
+          <option value="CRITICAL">CRITICAL</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="asset-tags">Tags</label>
+        <input id="asset-tags" class="styled-input" type="text" placeholder="linux, internet-facing">
+      </div>
+    </div>
+    <label class="asset-enabled-row" for="asset-enabled">
+      <input id="asset-enabled" type="checkbox" checked> Enabled
+    </label>
+    <div id="asset-form-error" class="incident-error" role="alert"></div>
+    <div class="asset-dialog-actions">
+      <button id="asset-cancel" class="btn btn-ghost" type="button">Cancel</button>
+      <button id="asset-save" class="btn btn-primary" type="submit">Save asset</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}

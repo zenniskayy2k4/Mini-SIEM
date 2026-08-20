@@ -2,6 +2,8 @@
 
 Use this checklist for every Mini-SIEM release. A release commit is eligible for tagging only when the GitHub Actions `release-gate` job is green.
 
+Keep only the current release in `RELEASE_vX.Y.Z.md`. When publishing a newer version, move the previous standalone release into `RELEASE_HISTORY.md` under a versioned heading and update inbound links.
+
 ## Prepare the release commit
 
 - [ ] Choose the semantic version and release date.

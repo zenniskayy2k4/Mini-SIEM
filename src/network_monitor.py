@@ -18,10 +18,16 @@ class NetworkMonitor:
       - ARP spoof heuristic (MAC changes for same IP)
     Emits alerts using the same JSON-lines file as HIDS.
     """
-    def __init__(self, correlator=None, responder=None, ai_analyst=None):
+    def __init__(
+        self, correlator=None, responder=None, ai_analyst=None,
+        geoip_service=None, abuseipdb_service=None, virustotal_service=None,
+    ):
         self.correlator = correlator
         self.responder = responder
         self.ai_analyst = ai_analyst
+        self.geoip_service = geoip_service
+        self.abuseipdb_service = abuseipdb_service
+        self.virustotal_service = virustotal_service
         self.elk = ELKForwarder()
 
         self._lock = threading.Lock()
@@ -46,7 +52,10 @@ class NetworkMonitor:
             alert = self.responder.handle_incident(alert)
 
         self.elk.send_alert(alert)
-        persist_and_enrich(alert, self.ai_analyst)
+        persist_and_enrich(
+            alert, self.ai_analyst, self.geoip_service, self.abuseipdb_service,
+            self.virustotal_service,
+        )
 
         print(f"\n[!] NETWORK ALERT: {alert['alert_name']} [{alert['severity']}] src={alert.get('ip_address')}")
 

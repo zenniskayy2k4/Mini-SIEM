@@ -5,8 +5,8 @@
 > **Created:** 2026-08-15
 > **Environment:** Windows + Docker Desktop
 > **Storage:** SQLite primary + JSON dual-write/fallback
-> **AI:** Ollama Cloud (`gemma4:cloud`)
-> **Recommended next release:** `v0.4.0`
+> **AI:** Ollama Cloud with optional bounded local fallback
+> **Recommended next release:** `v0.6.0`
 
 ---
 
@@ -97,11 +97,11 @@ M18 — Multi-tenant Architecture
 | Milestone | Nội dung | Release | Status |
 |---|---|---|---|
 | M10 | Engineering Quality & CI | v0.4.0 | ✅ Complete |
-| M11 | Sigma Rule Support | v0.4.0 | 🟠 In Progress |
-| M12 | Threat Intelligence Layer | v0.4.0 | ⬜ |
-| M13 | Asset Inventory & Risk Context | v0.5.0 | ⬜ |
-| M14 | Reporting & Observability | v0.5.0 | ⬜ |
-| M15 | AI Resilience & Provider Abstraction | v0.5.0 | ⬜ |
+| M11 | Sigma Rule Support | v0.4.0 | ✅ Complete |
+| M12 | Threat Intelligence Layer | v0.4.0 | ✅ Complete |
+| M13 | Asset Inventory & Risk Context | v0.5.0 | ✅ Complete |
+| M14 | Reporting & Observability | v0.5.0 | ✅ Complete |
+| M15 | AI Resilience & Provider Abstraction | v0.5.0 | ✅ Complete |
 | M16 | External Case Management | v0.6.0 | ⬜ |
 | M17 | Role-specific SOC Workspace | v0.6.0 | ⬜ |
 | M18 | Multi-tenant Architecture | Future | ⬜ |
@@ -160,12 +160,12 @@ Checkout
 
 ### Local verification — 2026-08-15
 
-```text
-node --check static/js/app.js                                      PASS
-docker compose --profile train config --quiet                     PASS
-python -m compileall -q config src tools tests dashboard.py main.py PASS
-14 executable regression modules                                  PASS
-```
+| Check | Result |
+|---|:---:|
+| node --check static/js/app.js | PASS |
+| docker compose --profile train config --quiet | PASS |
+| python -m compileall -q config src tools tests dashboard.py main.py | PASS |
+| 14 executable regression modules | PASS |
 
 GitHub Actions [run 31880377953](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31880377953) passed for commit `308d82b`.
 
@@ -201,15 +201,15 @@ ci: add baseline GitHub Actions workflow
 
 ### Local verification — 2026-08-16
 
-```text
-GitHub Actions YAML/contract validation                     PASS
-docker compose config --quiet                              PASS
-docker compose build                                       PASS
-GET /health (agent/dashboard/database/status = healthy)    PASS
-GET /login (HTTP 200)                                      PASS
-SQLite PRAGMA quick_check + alerts table                   PASS
-Failure log artifact + always-run cleanup                  CONFIGURED
-```
+| Check | Result |
+|---|:---:|
+| GitHub Actions YAML/contract validation | PASS |
+| docker compose config --quiet | PASS |
+| docker compose build | PASS |
+| GET /health (agent/dashboard/database/status = healthy) | PASS |
+| GET /login (HTTP 200) | PASS |
+| SQLite PRAGMA quick_check + alerts table | PASS |
+| Failure log artifact + always-run cleanup | CONFIGURED |
 
 GitHub Actions [run 31925484215](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31925484215) passed for commit `be8b718`.
 
@@ -248,14 +248,14 @@ pip-audit
 
 ### Local verification — 2026-08-16
 
-```text
-GitHub Actions YAML/security contract validation            PASS
-Gitleaks full Git history (40 commits)                      PASS — no leaks
-Gitleaks documented dummy-secret fixture                    PASS — detected
-pip-audit requirements.txt                                  PASS — no known vulnerabilities
-.env, data/** and logs/** tracking guard                    PASS
-.gitleaksignore reviewed-fingerprint policy                 PASS — 0 exceptions
-```
+| Check | Result |
+|---|:---:|
+| GitHub Actions YAML/security contract validation | PASS |
+| Gitleaks full Git history (40 commits) | PASS — no leaks |
+| Gitleaks documented dummy-secret fixture | PASS — detected |
+| pip-audit requirements.txt | PASS — no known vulnerabilities |
+| .env, data/** and logs/** tracking guard | PASS |
+| .gitleaksignore reviewed-fingerprint policy | PASS — 0 exceptions |
 
 GitHub Actions [run 31925849592](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31925849592) passed for commit `e3a7c47`.
 
@@ -282,14 +282,14 @@ ci: add secret and dependency security checks
 
 ### Local verification — 2026-08-16
 
-```text
-GitHub Actions YAML/release-gate contract validation         PASS
-M10.1 baseline GitHub run                                   PASS
-M10.2 Docker smoke GitHub run                               PASS
-M10.3 security GitHub run                                   PASS
-CHANGELOG semantic-version/date format                      PASS
-Clean-clone Compose and tracked-runtime checks              PASS
-```
+| Check | Result |
+|---|:---:|
+| GitHub Actions YAML/release-gate contract validation | PASS |
+| M10.1 baseline GitHub run | PASS |
+| M10.2 Docker smoke GitHub run | PASS |
+| M10.3 security GitHub run | PASS |
+| CHANGELOG semantic-version/date format | PASS |
+| Clean-clone Compose and tracked-runtime checks | PASS |
 
 GitHub Actions [run 31926399008](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31926399008) passed for commit `1953a63`.
 
@@ -364,14 +364,14 @@ config/sigma/
 
 ### Local verification — 2026-08-16
 
-```text
-Sigma loader/schema/adapter syntax                           PASS
-Sample metadata, severity and ATT&CK mapping                 PASS
-Invalid rule isolation                                      PASS
-Duplicate Sigma UUID detection                              PASS
-Native/Sigma alert provenance contract                      PASS
-15 executable regression modules                            PASS
-```
+| Check | Result |
+|---|:---:|
+| Sigma loader/schema/adapter syntax | PASS |
+| Sample metadata, severity and ATT&CK mapping | PASS |
+| Invalid rule isolation | PASS |
+| Duplicate Sigma UUID detection | PASS |
+| Native/Sigma alert provenance contract | PASS |
+| 15 executable regression modules | PASS |
 
 GitHub Actions [run 31926912963](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31926912963) passed for commit `b29c39e`.
 
@@ -419,12 +419,12 @@ selection1 or selection2
 
 ### Local verification — 2026-08-16
 
-```text
-Sigma loader and selection mapping regression                PASS
-Windows/native rule compatibility                            PASS
-16 executable regression modules                            PASS
-Docker Compose validation                                    PASS
-```
+| Check | Result |
+|---|:---:|
+| Sigma loader and selection mapping regression | PASS |
+| Windows/native rule compatibility | PASS |
+| 16 executable regression modules | PASS |
+| Docker Compose validation | PASS |
 
 Unsupported fields, modifiers, wildcards and complex conditions remain disabled with an explicit `skip_reason`.
 
@@ -440,7 +440,7 @@ feat: translate supported Sigma selections into Mini-SIEM rules
 
 ## M11.3 — Sigma lifecycle
 
-**Status:** 🟠 In Progress — local Sigma lifecycle regression passed, GitHub run pending
+**Status:** ✅ Complete — GitHub Actions passed
 
 ### Tasks
 
@@ -454,17 +454,19 @@ feat: translate supported Sigma selections into Mini-SIEM rules
 
 ### Local verification — 2026-08-16
 
-```text
-Admin lifecycle API and CSRF/RBAC path                       PASS
-Persistent enable/disable override and agent reload          PASS
-Source, validation, loaded time, hit/never-hit metadata      PASS
-Immutable enable/disable audit events                        PASS
-JavaScript syntax and Python compile                         PASS
-17 executable regression modules                            PASS
-Docker Compose validation                                    PASS
-```
+| Check | Result |
+|---|:---:|
+| Admin lifecycle API and CSRF/RBAC path | PASS |
+| Persistent enable/disable override and agent reload | PASS |
+| Source, validation, loaded time, hit/never-hit metadata | PASS |
+| Immutable enable/disable audit events | PASS |
+| JavaScript syntax and Python compile | PASS |
+| 17 executable regression modules | PASS |
+| Docker Compose validation | PASS |
 
-Sigma YAML remains read-only; runtime overrides are stored atomically under `data/`. M11.4 has not started.
+Sigma YAML remains read-only; runtime overrides are stored atomically under `data/`.
+
+GitHub Actions [run 31929684141](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31929684141) passed for commit `31c942d`.
 
 ### Commit
 
@@ -476,23 +478,39 @@ feat: manage Sigma rule lifecycle and coverage
 
 ## M11.4 — Sigma regression corpus
 
-**Status:** ⬜
+**Status:** ✅ Complete — GitHub Actions passed
 
 ### Fixtures
 
-- [ ] Windows process creation.
-- [ ] PowerShell.
-- [ ] Account creation.
-- [ ] Positive cases.
-- [ ] Negative cases.
-- [ ] Unsupported syntax case.
+- [x] Windows process creation.
+- [x] PowerShell.
+- [x] Account creation.
+- [x] Positive cases.
+- [x] Negative cases.
+- [x] Unsupported syntax case.
 
 ### DoD
 
-- [ ] Positive matches đúng rule.
-- [ ] Negative không match.
-- [ ] Regression chạy trong CI.
-- [ ] Không cần network.
+- [x] Positive matches đúng rule.
+- [x] Negative không match.
+- [x] Regression chạy trong CI.
+- [x] Không cần network.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| Sysmon process creation positive/negative corpus | PASS |
+| PowerShell positive/negative corpus | PASS |
+| Security Event 4720 account creation corpus | PASS |
+| Unsupported Sigma syntax remains disabled | PASS |
+| Sigma UUID/provenance on positive alerts | PASS |
+| 18 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+
+The corpus is entirely repository-local and is discovered by the existing CI test glob.
+
+GitHub Actions [run 32099750118](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32099750118) passed for commit `6dc1fc3`.
 
 ### Commit
 
@@ -504,15 +522,31 @@ test: add Sigma detection regression corpus
 
 ## M11.5 — Sigma documentation
 
-**Status:** ⬜
+**Status:** ✅ Complete — GitHub Actions passed
 
-- [ ] Supported subset.
-- [ ] Unsupported syntax.
-- [ ] Import path.
-- [ ] Provenance.
-- [ ] Example.
-- [ ] Debug procedure.
-- [ ] Known limitations.
+- [x] Supported subset.
+- [x] Unsupported syntax.
+- [x] Import path.
+- [x] Provenance.
+- [x] Example.
+- [x] Debug procedure.
+- [x] Known limitations.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| Supported operators, conditions and field aliases documented | PASS |
+| Unsupported behavior and limitations documented | PASS |
+| Import/lifecycle/provenance paths matched implementation | PASS |
+| Sample and repository-local links verified | PASS |
+| Documented Sigma loader command | PASS |
+| Documented offline corpus command | PASS |
+| Docker Compose validation | PASS |
+
+Runtime code is unchanged.
+
+GitHub Actions [run 32100301022](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32100301022) passed for commit `f25d087`.
 
 ### Commit
 
@@ -526,7 +560,7 @@ docs: document Sigma rule support
 
 ## M12.1 — ThreatIntelProvider abstraction
 
-**Status:** ⬜
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Architecture
 
@@ -539,15 +573,13 @@ Alert IOC
 → Dashboard / AI Context
 ```
 
-### File dự kiến
+### File triển khai
 
 ```text
 src/threat_intel/
 ├── __init__.py
 ├── base.py
-├── service.py
-├── cache.py
-└── models.py
+└── service.py
 ```
 
 ### IOC types
@@ -562,22 +594,39 @@ md5
 
 ### Tasks
 
-- [ ] Provider interface.
-- [ ] IOC normalization.
-- [ ] TTL cache.
-- [ ] Rate limiter.
-- [ ] Timeout.
-- [ ] Bounded retry.
-- [ ] Structured error state.
-- [ ] Lookup không block alert persistence.
-- [ ] Không persist API secret.
+- [x] Provider interface.
+- [x] IOC normalization.
+- [x] TTL cache.
+- [x] Rate limiter.
+- [x] Timeout.
+- [x] Bounded retry.
+- [x] Structured error state.
+- [x] Lookup không block alert persistence.
+- [x] Không persist API secret.
 
 ### DoD
 
-- [ ] Dummy provider hoạt động.
-- [ ] Cache hit không lookup lại.
-- [ ] Provider timeout không crash pipeline.
-- [ ] Result có timestamp/provenance.
+- [x] Dummy provider hoạt động.
+- [x] Cache hit không lookup lại.
+- [x] Provider timeout không crash pipeline.
+- [x] Result có timestamp/provenance.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| IP/domain/URL/SHA-256/MD5 normalization | PASS |
+| Dummy provider and normalized result contract | PASS |
+| TTL cache hit and provider rate limiter | PASS |
+| Bounded retry and enforced timeout/error state | PASS |
+| Async lookup returns before alert persistence path continues | PASS |
+| No network, file persistence or API-secret handling | PASS |
+| 19 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+
+The phase-1 abstraction uses stdlib only and one bounded provider worker. External providers and alert enrichment are deferred to later M12 batches.
+
+GitHub Actions [run 32100953262](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32100953262) passed for commit `97a5fe7`.
 
 ### Commit
 
@@ -589,7 +638,7 @@ refactor: add threat intelligence provider abstraction
 
 ## M12.2 — GeoIP enrichment
 
-**Status:** ⬜
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Fields
 
@@ -606,11 +655,28 @@ refactor: add threat intelligence provider abstraction
 
 ### Tasks
 
-- [ ] Detect private/loopback/link-local.
-- [ ] Không lookup private IP ngoài Internet.
-- [ ] Cache result.
-- [ ] Dashboard hiển thị GeoIP.
-- [ ] Không coi foreign country = malicious.
+- [x] Detect private/loopback/link-local.
+- [x] Không lookup private IP ngoài Internet.
+- [x] Cache result.
+- [x] Dashboard hiển thị GeoIP.
+- [x] Không coi foreign country = malicious.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| Private/loopback/link-local classification without HTTP call | PASS |
+| Public IPv4 normalization and live HTTPS provider smoke | PASS |
+| TTL cache hit avoids repeated provider lookup | PASS |
+| Alert persisted before asynchronous GeoIP enrichment | PASS |
+| Dashboard renders normalized GeoIP context safely | PASS |
+| Foreign location does not change severity or disposition | PASS |
+| 20 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+
+The agent shares one bounded GeoIP service across HIDS, Windows, NIDS and honeypot sensors. Public lookups use the configurable keyless HTTPS endpoint; local and special-use addresses never leave the host.
+
+GitHub Actions [run 32102158042](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32102158042) passed for commit `9e3b04b`.
 
 ### Commit
 
@@ -622,7 +688,7 @@ feat: add GeoIP context enrichment
 
 ## M12.3 — AbuseIPDB provider
 
-**Status:** ⬜
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Normalize
 
@@ -634,14 +700,33 @@ feat: add GeoIP context enrichment
 
 ### Tasks
 
-- [ ] Key qua `.env`.
-- [ ] Missing key → provider disabled.
-- [ ] Không lookup private IP.
-- [ ] Rate limit.
-- [ ] Cache.
-- [ ] Không gửi raw log.
-- [ ] AI chỉ nhận normalized summary.
-- [ ] API 429 handled.
+- [x] Key qua `.env`.
+- [x] Missing key → provider disabled.
+- [x] Không lookup private IP.
+- [x] Rate limit.
+- [x] Cache.
+- [x] Không gửi raw log.
+- [x] AI chỉ nhận normalized summary.
+- [x] API 429 handled.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| Missing API key disables provider construction | PASS |
+| Private/loopback/link-local lookup skips HTTP | PASS |
+| GET /api/v2/check request uses API key header only | PASS |
+| Normalized confidence/reports/time/ISP/domain/usage fields | PASS |
+| TTL cache and bounded shared provider worker | PASS |
+| HTTP 429 structured rate_limited state without retry | PASS |
+| Raw provider payload/API key excluded from persisted result | PASS |
+| AI receives normalized allowlisted threat-intel summary | PASS |
+| 21 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+
+No live AbuseIPDB request was made because the repository intentionally contains no API key; the HTTP contract is covered with an offline fake response.
+
+GitHub Actions [run 32102809495](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32102809495) passed for commit `9205005`.
 
 ### Commit
 
@@ -653,7 +738,7 @@ feat: add AbuseIPDB threat intelligence enrichment
 
 ## M12.4 — VirusTotal metadata provider
 
-**Status:** ⬜
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Safety rule
 
@@ -664,12 +749,31 @@ Never auto-upload internal files.
 
 ### Tasks
 
-- [ ] Hash lookup trước.
-- [ ] Domain/IP optional.
-- [ ] Respect API quota.
-- [ ] Cache hash result.
-- [ ] Normalize malicious/suspicious counts.
-- [ ] Không có auto-upload code path.
+- [x] Hash lookup trước.
+- [x] Domain/IP optional — intentionally disabled in hash-first scope.
+- [x] Respect API quota.
+- [x] Cache hash result.
+- [x] Normalize malicious/suspicious counts.
+- [x] Không có auto-upload code path.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| Missing API key disables provider construction | PASS |
+| SHA-256 preferred over MD5; other IOC types rejected | PASS |
+| GET /api/v3/files/{hash} uses x-apikey header only | PASS |
+| Public quota limited to 4 requests/minute with 24-hour cache | PASS |
+| Malicious/suspicious and aggregate metadata normalized | PASS |
+| HTTP 404 not-found and 429 rate-limit behavior bounded | PASS |
+| Raw engine response/API key excluded from persisted result | PASS |
+| No upload, rescan or download code path | PASS |
+| 22 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+
+No live VirusTotal request was made because the repository intentionally contains no API key; the metadata-only HTTP contract is covered with an offline fake response.
+
+GitHub Actions [run 32103490075](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32103490075) passed for commit `2f9f6c6`.
 
 ### Commit
 
@@ -681,7 +785,7 @@ feat: add VirusTotal IOC metadata enrichment
 
 ## M12.5 — Threat Intel dashboard panel
 
-**Status:** ⬜
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### UI
 
@@ -699,11 +803,30 @@ Threat Intelligence
 
 ### Tasks
 
-- [ ] Pending/loading.
-- [ ] Provider unavailable.
-- [ ] Không render raw provider JSON.
-- [ ] Không tự đổi system severity.
-- [ ] Phân biệt observed evidence và third-party intelligence.
+- [x] Pending/loading.
+- [x] Provider unavailable.
+- [x] Không render raw provider JSON.
+- [x] Không tự đổi system severity.
+- [x] Phân biệt observed evidence và third-party intelligence.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| Pending/loading state persisted before provider lookup | PASS |
+| Missing provider rendered as unavailable | PASS |
+| IOC/type and GeoIP/reputation/provider cards | PASS |
+| Confidence/reports, lookup time and cache state | PASS |
+| Observed evidence separated from third-party intelligence | PASS |
+| Raw provider JSON excluded from rendering | PASS |
+| System severity remains unchanged | PASS |
+| Legacy GeoIP alert display compatibility | PASS |
+| 23 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+
+The panel reuses the existing normalized alert payload and search API; it adds no endpoint, frontend framework or raw-provider rendering path.
+
+GitHub Actions [run 32118998036](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32118998036) passed for commit `daeea28`. Follow-up login CSRF hotfix [run 32119994389](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32119994389) passed for commit `fd98961`.
 
 ### Commit
 
@@ -715,7 +838,7 @@ feat: show threat intelligence context on dashboard
 
 ## M12.6 — STIX/TAXII
 
-**Status:** ⬜
+**Status:** ✅ Complete — local and GitHub verification passed
 
 ### Scope ban đầu
 
@@ -730,20 +853,40 @@ feat: show threat intelligence context on dashboard
 
 ### Tasks
 
-- [ ] Offline STIX bundle import.
-- [ ] TAXII collection optional.
-- [ ] Scheduled/manual pull.
-- [ ] Deduplicate indicators.
-- [ ] Expire indicators.
-- [ ] Match alert IOC.
-- [ ] Preserve feed source.
+- [x] Offline STIX bundle import.
+- [x] TAXII collection optional.
+- [x] Scheduled/manual pull.
+- [x] Deduplicate indicators.
+- [x] Expire indicators.
+- [x] Match alert IOC.
+- [x] Preserve feed source.
 
 ### DoD
 
-- [ ] Sample STIX bundle import được.
-- [ ] IOC match hiển thị source.
-- [ ] Expired indicator không active.
-- [ ] Feed failure không crash detection.
+- [x] Sample STIX bundle import được.
+- [x] IOC match hiển thị source.
+- [x] Expired indicator không active.
+- [x] Feed failure không crash detection.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| Offline STIX 2.1 bundle import for IPv4/domain/hash | PASS |
+| Normalized JSON persistence and reload | PASS |
+| Same-feed IOC deduplication | PASS |
+| valid_until expiry excludes inactive indicators | PASS |
+| Alert IOC match preserves source/confidence/labels | PASS |
+| Dashboard STIX/TAXII source card uses normalized fields | PASS |
+| Optional bounded TAXII collection pull with bearer header | PASS |
+| Manual import and scheduled safe refresh paths | PASS |
+| Feed failure leaves detection/store operational | PASS |
+| 24 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+
+The phase-1 parser accepts exact STIX equality patterns for IPv4, domain, SHA-256 and MD5. TAXII uses the configured collection objects URL, a 5 MiB response cap and at most 10 pages; no additional package or database is required.
+
+GitHub Actions [run 32121071532](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/32121071532) passed for commit `26fdb7c`.
 
 ### Commit
 
@@ -755,25 +898,59 @@ feat: add STIX and TAXII threat intelligence ingestion
 
 ## M12.7 — Release v0.4.0
 
-**Status:** ⬜
+**Status:** ✅ Complete — responsive stabilization CI passed and annotated tag published
 
 ### Checklist
 
-- [ ] M10 complete.
-- [ ] M11 complete.
-- [ ] M12 complete.
-- [ ] CI green.
-- [ ] README sync.
-- [ ] `.env.example` sync.
-- [ ] CHANGELOG update.
-- [ ] Clean-clone verification.
-- [ ] No secret.
-- [ ] Tag `v0.4.0`.
+- [x] M10 complete.
+- [x] M11 complete.
+- [x] M12 feature batches complete.
+- [x] CI green through M12.6.
+- [x] README sync.
+- [x] `.env.example` sync.
+- [x] CHANGELOG update.
+- [x] Clean-clone verification.
+- [x] No secret.
+- [x] Pre-tag responsive dashboard stabilization passes 25/25 local regression modules.
+- [x] Responsive stabilization CI green (`32123583216`).
+- [x] Annotated tag `v0.4.0` published from verified commit `1c41462`.
 
 ### Release theme
 
 ```text
 v0.4.0 — Detection Engineering & Threat Intelligence
+```
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| README, CHANGELOG and v0.4.0 release checklist synchronized | PASS |
+| .env.example covers all optional Threat Intelligence config | PASS |
+| Release artifact and local Markdown link validation | PASS |
+| 24 executable regression modules in release snapshot | PASS |
+| Clean-clone Docker Compose validation | PASS |
+| Clean-clone 24/24 regression using existing image | PASS |
+| No tracked .env/data/logs runtime files | PASS |
+| Release diff secret-pattern review | PASS |
+| No active Gitleaks exception | PASS |
+
+The local clean-clone verification reused the existing image to avoid a duplicate multi-gigabyte build; GitHub Actions performs the independent clean build and Docker smoke after the release commit is pushed.
+
+### Pre-tag stabilization — responsive dashboard
+
+- [x] Desktop, tablet, and mobile navigation/layout breakpoints.
+- [x] Horizontal overflow for dense alert, coverage, rule, and log tables.
+- [x] Responsive filters, settings, graph, and login surfaces.
+- [x] No API, schema, business-logic, or dependency changes.
+- [x] 25/25 executable regression modules pass in the existing image without rebuilding.
+
+GitHub Actions run `32123583216` passed baseline, Docker smoke, security, and release gate. Annotated tag `v0.4.0` points to verified commit `1c41462`.
+
+### Commit
+
+```text
+docs: prepare v0.4.0 release
 ```
 
 ---
@@ -782,7 +959,7 @@ v0.4.0 — Detection Engineering & Threat Intelligence
 
 ## M13.1 — Asset schema
 
-**Status:** ⬜
+**Status:** ✅ Complete — local and GitHub Actions verification passed (`32126105310`)
 
 ### Schema
 
@@ -803,12 +980,22 @@ v0.4.0 — Detection Engineering & Threat Intelligence
 
 ### Tasks
 
-- [ ] SQLite asset table.
-- [ ] CRUD repository.
-- [ ] Stable asset ID.
-- [ ] IP/hostname lookup.
-- [ ] Duplicate detection.
-- [ ] Audit changes.
+- [x] SQLite asset and normalized IP tables.
+- [x] CRUD repository.
+- [x] Stable immutable `AST-<UUID>` ID.
+- [x] Case-insensitive hostname and canonical IPv4/IPv6 lookup.
+- [x] Application and SQLite duplicate detection.
+- [x] Immutable create/update/delete audit events.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| M13.1 focused asset inventory regression | PASS |
+| Python syntax | PASS |
+| 26 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -820,16 +1007,28 @@ feat: add asset inventory data model
 
 ## M13.2 — Asset management API/UI
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification and commit CI passed (`32127236447`)
 
-- [ ] Admin-only CRUD.
-- [ ] Search/filter.
-- [ ] Criticality.
-- [ ] Owner/team.
-- [ ] Tags.
-- [ ] Validation.
-- [ ] CSRF/RBAC.
-- [ ] Audit.
+- [x] Admin-only CRUD page and API.
+- [x] Search plus environment, criticality, and enabled-state filters.
+- [x] Criticality editing.
+- [x] Owner/team editing.
+- [x] Tags editing.
+- [x] Bounded payload, field, IP, and tag validation.
+- [x] Existing session RBAC and CSRF enforcement.
+- [x] Immutable create/update/delete audit events.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| M13.2 focused API/UI regression | PASS |
+| M13.1 asset repository regression | PASS |
+| Authentication and responsive contracts | PASS |
+| Python and JavaScript syntax | PASS |
+| 27 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -841,13 +1040,24 @@ feat: add asset inventory management
 
 ## M13.3 — Alert-to-asset enrichment
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification and commit CI passed (`32128256653`)
 
-- [ ] Match by IP/hostname.
-- [ ] Add `asset_id`.
-- [ ] Unknown asset vẫn hợp lệ.
-- [ ] Dashboard link alert → asset.
-- [ ] Không duplicate full asset object nếu không cần.
+- [x] Match by IP/hostname.
+- [x] Add `asset_id`.
+- [x] Unknown asset vẫn hợp lệ.
+- [x] Dashboard link alert → asset.
+- [x] Không duplicate full asset object nếu không cần.
+
+### Local verification — 2026-08-18
+
+| Check | Result |
+|---|:---:|
+| M13.3 focused enrichment/UI regression | PASS |
+| M13.1/M13.2 asset regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 28 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -859,7 +1069,7 @@ feat: enrich alerts with asset context
 
 ## M13.4 — Explainable risk scoring
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification and commit CI passed (`32217744391`)
 
 ### Inputs
 
@@ -882,11 +1092,22 @@ feat: enrich alerts with asset context
 
 ### Rules
 
-- [ ] Deterministic.
-- [ ] Explainable.
-- [ ] LLM không trực tiếp đặt risk score.
-- [ ] Missing TI không làm score lỗi.
-- [ ] Configurable weights.
+- [x] Deterministic.
+- [x] Explainable.
+- [x] LLM không trực tiếp đặt risk score.
+- [x] Missing TI không làm score lỗi.
+- [x] Configurable weights.
+
+### Local verification — 2026-08-19
+
+| Check | Result |
+|---|:---:|
+| M13.4 focused scoring/pipeline/UI regression | PASS |
+| M13 asset and M12 TI regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 29 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -900,7 +1121,7 @@ feat: add explainable asset-aware risk scoring
 
 ## M14.1 — Prometheus metrics
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification and commit CI passed (`32218915728`)
 
 ### Metrics
 
@@ -916,10 +1137,21 @@ feat: add explainable asset-aware risk scoring
 
 ### Tasks
 
-- [ ] `/metrics`.
-- [ ] Không expose secrets.
-- [ ] Không dùng raw IP/user làm high-cardinality labels.
-- [ ] Document access/auth.
+- [x] `/metrics`.
+- [x] Không expose secrets.
+- [x] Không dùng raw IP/user làm high-cardinality labels.
+- [x] Document access/auth.
+
+### Local verification — 2026-08-19
+
+| Check | Result |
+|---|:---:|
+| M14.1 focused metrics/auth/security regression | PASS |
+| Health/notification/detection regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 30 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -931,7 +1163,7 @@ feat: expose Prometheus operational metrics
 
 ## M14.2 — SOC KPIs
 
-**Status:** ⬜
+**Status:** ✅ Complete — GitHub Actions run `32219631477` passed
 
 ### KPIs
 
@@ -949,10 +1181,21 @@ AI enrichment success rate
 
 ### Tasks
 
-- [ ] Define timestamps.
-- [ ] Time range filtering.
-- [ ] SQLite query hiệu quả.
-- [ ] Không hiển thị KPI nếu data chưa đủ.
+- [x] Define timestamps.
+- [x] Time range filtering.
+- [x] SQLite query hiệu quả.
+- [x] Không hiển thị KPI nếu data chưa đủ.
+
+### Local verification — 2026-08-19
+
+| Check | Result |
+|---|:---:|
+| M14.2 focused KPI/API/availability regression | PASS |
+| M14.1 metrics and incident/audit regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 31 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -964,15 +1207,26 @@ feat: add SOC KPI analytics
 
 ## M14.3 — Analytics dashboard
 
-**Status:** ⬜
+**Status:** ✅ Complete — GitHub Actions run `32220515608` passed
 
-- [ ] Summary cards.
-- [ ] Alert trend.
-- [ ] Incident distribution.
-- [ ] Top rules.
-- [ ] Top MITRE techniques.
-- [ ] False positive trend.
-- [ ] Time range selector.
+- [x] Summary cards.
+- [x] Alert trend.
+- [x] Incident distribution.
+- [x] Top rules.
+- [x] Top MITRE techniques.
+- [x] False positive trend.
+- [x] Time range selector.
+
+### Local verification — 2026-08-19
+
+| Check | Result |
+|---|:---:|
+| M14.3 focused aggregation/API/UI regression | PASS |
+| M14.2 KPI and responsive dashboard regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 32 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -984,7 +1238,7 @@ feat: add SOC analytics dashboard
 
 ## M14.4 — PDF incident report
 
-**Status:** ⬜
+**Status:** ✅ Complete — GitHub Actions run `32256397374` passed
 
 ### Sections
 
@@ -1004,11 +1258,24 @@ Appendix
 
 ### Rules
 
-- [ ] Không include secrets.
-- [ ] AI text không được trình bày như observed fact.
-- [ ] Tách evidence / AI / TI.
-- [ ] UTC timestamps.
-- [ ] Report reproducible từ stored incident.
+- [x] Không include secrets.
+- [x] AI text không được trình bày như observed fact.
+- [x] Tách evidence / AI / TI.
+- [x] UTC timestamps.
+- [x] Report reproducible từ stored incident.
+
+### Local verification — 2026-08-19
+
+| Check | Result |
+|---|:---:|
+| M14.4 PDF structure/auth/redaction regression | PASS |
+| M8 incident/audit and M14 analytics regressions | PASS |
+| Deterministic stored-record generation | PASS |
+| Python and JavaScript syntax | PASS |
+| 33 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| Live authenticated PDF endpoint and health | PASS |
+| No dependency or image rebuild | PASS |
 
 ### Commit
 
@@ -1022,7 +1289,7 @@ feat: generate incident PDF reports
 
 ## M15.1 — AI provider interface
 
-**Status:** ⬜
+**Status:** ✅ Complete — GitHub Actions run `32327601771` passed
 
 ### Interface
 
@@ -1039,11 +1306,23 @@ class AIProvider:
 
 ### Tasks
 
-- [ ] Ollama Cloud adapter.
-- [ ] `AIAnalyst` chỉ phụ thuộc interface.
-- [ ] Provider config validation.
-- [ ] Persist provider actually used.
-- [ ] Existing AI result contract không đổi.
+- [x] Ollama Cloud adapter.
+- [x] `AIAnalyst` chỉ phụ thuộc interface.
+- [x] Provider config validation.
+- [x] Persist provider actually used.
+- [x] Existing AI result contract không đổi.
+
+### Local verification — 2026-08-19
+
+| Check | Result |
+|---|:---:|
+| M15.1 adapter/interface/config regression | PASS |
+| Existing AI result/cache/error/health contract | PASS |
+| Single worker and zero-backlog behavior retained | PASS |
+| 34 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| Live adapter factory/heartbeat/health | PASS |
+| No provider probe, dependency or image rebuild | PASS |
 
 ### Commit
 
@@ -1055,17 +1334,30 @@ refactor: add pluggable AI provider interface
 
 ## M15.2 — Local Ollama optional provider
 
-**Status:** ⬜
+**Status:** ✅ Complete — commit `7a977fd`; CI run `32328249756` passed
 
 ### Tasks
 
-- [ ] `ollama_cloud`.
-- [ ] `ollama_local`.
-- [ ] Local base URL configurable.
-- [ ] Local model configurable.
-- [ ] Không auto-download model.
-- [ ] Health detection.
-- [ ] Resource requirements documented.
+- [x] `ollama_cloud`.
+- [x] `ollama_local`.
+- [x] Local base URL configurable.
+- [x] Local model configurable.
+- [x] Không auto-download model.
+- [x] Health detection.
+- [x] Resource requirements documented.
+
+### Local verification — 2026-08-20
+
+| Check | Result |
+|---|:---:|
+| M15.2 local tags/chat/config regression | PASS |
+| No bearer token sent to local Ollama | PASS |
+| No install/start/pull code path | PASS |
+| Existing cloud adapter and AI contract | PASS |
+| 35 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| Host Ollama absent; no model download attempted | PASS |
+| No dependency or image rebuild | PASS |
 
 ### Commit
 
@@ -1077,7 +1369,7 @@ feat: add optional local Ollama provider
 
 ## M15.3 — Bounded provider fallback
 
-**Status:** ⬜
+**Status:** ✅ Complete — commit `bdb2a3c`; CI run `32329060761` passed
 
 ### Example
 
@@ -1089,11 +1381,22 @@ Ollama Cloud
 
 ### Rules
 
-- [ ] Bounded failover.
-- [ ] Không retry storm.
-- [ ] Persist provider used.
-- [ ] Diagnostics hiển thị fallback.
-- [ ] Không gửi incident lặp vô hạn.
+- [x] Bounded failover.
+- [x] Không retry storm.
+- [x] Persist provider used.
+- [x] Diagnostics hiển thị fallback.
+- [x] Không gửi incident lặp vô hạn.
+
+### Local verification — 2026-08-20
+
+| Check | Result |
+|---|:---:|
+| Cloud failure -> local success | PASS |
+| One attempt per provider / one completion callback | PASS |
+| Actual provider/model persisted | PASS |
+| Fallback diagnostics and sanitized terminal error | PASS |
+| 36 executable regression modules | PASS |
+| Single worker retained; no dependency/image build | PASS |
 
 ### Commit
 
@@ -1105,7 +1408,7 @@ feat: add bounded AI provider fallback
 
 ## M15.4 — AI evaluation corpus
 
-**Status:** ⬜
+**Status:** ✅ Complete — commit `eae1925`; CI run `32329779023` passed
 
 ### Cases
 
@@ -1120,12 +1423,26 @@ feat: add bounded AI provider fallback
 
 ### Evaluate
 
-- [ ] JSON valid.
-- [ ] Evidence grounding.
-- [ ] No unsupported compromise claim.
-- [ ] MITRE consistency.
-- [ ] No secret leakage.
-- [ ] Severity recommendation semantics stable.
+- [x] JSON valid.
+- [x] Evidence grounding.
+- [x] No unsupported compromise claim.
+- [x] MITRE consistency.
+- [x] No secret leakage.
+- [x] Severity recommendation semantics stable.
+
+### Local verification — 2026-08-20
+
+| Check | Result |
+|---|:---:|
+| Eight required deterministic corpus cases | PASS |
+| JSON types/confidence ranges | PASS |
+| Evidence terms and unsupported-claim guards | PASS |
+| MITRE tactic/technique consistency | PASS |
+| Prompt-like text isolated as untrusted evidence | PASS |
+| Secret-like prompt fields redacted | PASS |
+| Severity/disposition semantics | PASS |
+| 37 executable regression modules | PASS |
+| No Ollama/network call, dependency or image build | PASS |
 
 ### Commit
 
@@ -1137,20 +1454,32 @@ test: add AI triage evaluation corpus
 
 ## M15.5 — Release v0.5.0
 
-**Status:** ⬜
+**Status:** ✅ Complete — annotated tag `v0.5.0` published from the verified release commit
 
 ```text
 v0.5.0 — Asset-aware SOC Analytics & Resilient AI
 ```
 
-- [ ] M13 complete.
-- [ ] M14 complete.
-- [ ] M15 complete.
-- [ ] CI green.
-- [ ] Docs sync.
-- [ ] Clean clone pass.
-- [ ] Upgrade notes.
-- [ ] Tag `v0.5.0`.
+- [x] M13 complete.
+- [x] M14 complete.
+- [x] M15 complete.
+- [x] CI green.
+- [x] Docs sync.
+- [x] Clean clone pass.
+- [x] Upgrade notes.
+- [x] Tag `v0.5.0`.
+
+### Release verification — 2026-08-20
+
+| Check | Result |
+|---|:---:|
+| M13 asset inventory/risk complete | PASS |
+| M14 metrics/analytics/reporting complete | PASS |
+| M15 provider resilience/evaluation complete | PASS |
+| 37 executable regression modules | PASS |
+| README, CHANGELOG, upgrade/limitations synchronized | PASS |
+| No local image rebuild or model download | PASS |
+| Release commit and annotated tag CI | PASS |
 
 ---
 
@@ -1336,10 +1665,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M11.3 — Commit/push and verify Sigma lifecycle regression
+M16.1 — Connector abstraction (not started; begin only in the next requested batch)
 ```
 
-Không bắt đầu M11.4 corpus trước khi lifecycle CI pass.
+Release `v0.5.0` hoàn tất. Không bắt đầu M16.1 trong cùng batch.
 
 ### Success condition
 
@@ -1442,42 +1771,42 @@ git check-ignore .env
 
 # 10. Definition of Done — v0.4.0
 
-- [ ] GitHub Actions bảo vệ baseline.
-- [ ] Docker smoke CI hoạt động.
-- [ ] Secret/dependency checks hoạt động.
-- [ ] Sigma parser giữ provenance.
-- [ ] Supported Sigma subset được document.
-- [ ] Sigma positive/negative regression chạy trong CI.
-- [ ] Native rules vẫn hoạt động.
-- [ ] Threat Intel abstraction hoàn tất.
-- [ ] GeoIP hoạt động.
-- [ ] AbuseIPDB optional provider hoạt động.
-- [ ] VirusTotal metadata lookup optional hoạt động.
-- [ ] Không có VirusTotal auto-upload.
-- [ ] TI cache/rate-limit/provenance hoạt động.
-- [ ] TI failure không block detection.
-- [ ] TI dashboard panel hoạt động.
-- [ ] STIX offline import hoạt động.
-- [ ] TAXII optional path hoạt động hoặc có documented blocker.
-- [ ] README / `.env.example` sync.
-- [ ] Clean clone pass.
-- [ ] Tag `v0.4.0`.
+- [x] GitHub Actions bảo vệ baseline.
+- [x] Docker smoke CI hoạt động.
+- [x] Secret/dependency checks hoạt động.
+- [x] Sigma parser giữ provenance.
+- [x] Supported Sigma subset được document.
+- [x] Sigma positive/negative regression chạy trong CI.
+- [x] Native rules vẫn hoạt động.
+- [x] Threat Intel abstraction hoàn tất.
+- [x] GeoIP hoạt động.
+- [x] AbuseIPDB optional provider hoạt động.
+- [x] VirusTotal metadata lookup optional hoạt động.
+- [x] Không có VirusTotal auto-upload.
+- [x] TI cache/rate-limit/provenance hoạt động.
+- [x] TI failure không block detection.
+- [x] TI dashboard panel hoạt động.
+- [x] STIX offline import hoạt động.
+- [x] TAXII optional path hoạt động hoặc có documented blocker.
+- [x] README / `.env.example` sync.
+- [x] Clean clone pass.
+- [x] Tag `v0.4.0`.
 
 ---
 
 # 11. Definition of Done — v0.5.0
 
-- [ ] Asset inventory hoạt động.
-- [ ] Alert map được asset.
-- [ ] Risk score deterministic/explainable.
-- [ ] Prometheus metrics hoạt động.
-- [ ] SOC KPI analytics hoạt động.
-- [ ] PDF incident report hoạt động.
-- [ ] AI provider abstraction hoàn tất.
-- [ ] Local Ollama optional.
-- [ ] Bounded fallback hoạt động.
-- [ ] AI evaluation corpus pass.
-- [ ] Tag `v0.5.0`.
+- [x] Asset inventory hoạt động.
+- [x] Alert map được asset.
+- [x] Risk score deterministic/explainable.
+- [x] Prometheus metrics hoạt động.
+- [x] SOC KPI analytics hoạt động.
+- [x] PDF incident report hoạt động.
+- [x] AI provider abstraction hoàn tất.
+- [x] Local Ollama optional.
+- [x] Bounded fallback hoạt động.
+- [x] AI evaluation corpus pass.
+- [x] Tag `v0.5.0`.
 
 ---
 
@@ -1508,8 +1837,20 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-15 | Sigma hỗ trợ theo subset | Tránh implement toàn bộ spec ngay |
 | 2026-08-15 | TI dùng provider abstraction | Tránh coupling provider |
 | 2026-08-15 | Không auto-upload VirusTotal | Tránh rò rỉ dữ liệu |
+| 2026-08-18 | GeoIP chỉ là context, chỉ lookup IP global | Không suy diễn quốc gia là malicious và không gửi địa chỉ local ra ngoài |
+| 2026-08-18 | AbuseIPDB chỉ dùng check endpoint và normalized summary | Không gửi raw log hoặc provider payload sang API/AI |
+| 2026-08-18 | VirusTotal chỉ lookup hash metadata | Không có upload, rescan hoặc download code path |
+| 2026-08-18 | TI dashboard chỉ render normalized allowlist | Tách observed IOC khỏi third-party context và không đổi severity |
+| 2026-08-18 | STIX phase 1 chỉ hỗ trợ exact equality IPv4/domain/hash | Giữ parser explainable; TAXII pull bị giới hạn size/page và feed failure không chặn detection |
+| 2026-08-18 | Tag release chỉ tạo sau release-commit CI xanh | Bảo đảm annotated tag trỏ đúng commit đã qua release gate |
 | 2026-08-15 | Risk tách khỏi severity | Detection semantics rõ ràng |
 | 2026-08-15 | LLM không đặt risk score trực tiếp | Risk phải explainable |
+| 2026-08-19 | PDF report dùng allowlist từ stored incident và không gọi provider | Reproducible, tránh secrets và tách observed evidence khỏi AI/TI |
+| 2026-08-19 | `AIAnalyst` giữ orchestration, adapter giữ transport | Thêm provider mới mà không đổi result/cache/worker contract |
+| 2026-08-20 | Local Ollama chỉ health-check model đã cài | Không tự tải model hoặc làm tăng dung lượng/CPU ngoài ý muốn |
+| 2026-08-20 | AI fallback chỉ gồm primary + một fallback, mỗi provider một lần | Dùng chung một worker, tránh retry storm và lưu đúng provider đã trả kết quả |
+| 2026-08-20 | AI evaluation corpus chạy bằng fixture provider offline | CI ổn định, không chiếm Ollama; live model evaluation chỉ chạy thủ công khi cần |
+| 2026-08-20 | `v0.5.0` chốt M13–M15 | Asset-aware risk, observability/reporting và resilient AI đã qua release gate |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1518,11 +1859,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M11.3 — Commit/push and verify the Sigma lifecycle GitHub Actions run
+M16.1 — Connector abstraction (not started)
 ```
 
-Sau khi GitHub Actions chạy thành công:
-
-1. Đổi M11.3 thành `✅` và ghi GitHub Actions run.
-2. Đổi M11.4 thành batch tiếp theo.
-3. Không bắt đầu regression corpus trước khi lifecycle CI pass.
+Release `v0.5.0` đã hoàn tất. Bắt đầu M16.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

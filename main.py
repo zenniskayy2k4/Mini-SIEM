@@ -12,8 +12,17 @@ from src.handler import LogHandler, WindowsEventHandler
 from src.network_monitor import NetworkMonitor
 from src.honeypot import MiniHoneypot
 from src.ai_analyst import AIAnalyst
+from src.ai_provider import build_ai_provider
 from src.rules import load_detection_rules
 from src.health import write_agent_heartbeat
+from src.threat_intel import (
+    AbuseIPDBProvider,
+    GeoIPProvider,
+    STIXIndicatorStore,
+    ThreatIntelService,
+    VirusTotalProvider,
+    pull_taxii_safe,
+)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
 
@@ -64,7 +73,50 @@ def main():
     print("---------------------------------------------------------")
 
     # Initialize modules
-    ai_analyst = AIAnalyst()
+    ai_analyst = AIAnalyst(build_ai_provider(
+        config.AI_PROVIDER,
+        api_key=config.OLLAMA_API_KEY,
+        base_url=config.OLLAMA_BASE_URL,
+        model=config.OLLAMA_MODEL,
+        local_base_url=config.OLLAMA_LOCAL_BASE_URL,
+        local_model=config.OLLAMA_LOCAL_MODEL,
+        fallback_name=config.AI_FALLBACK_PROVIDER,
+    ))
+    geoip_service = None
+    if config.GEOIP_ENABLED:
+        geoip_service = ThreatIntelService(
+            GeoIPProvider(config.GEOIP_ENDPOINT),
+            cache_ttl_seconds=config.GEOIP_CACHE_TTL_SECONDS,
+            rate_limit_per_second=config.GEOIP_RATE_LIMIT_PER_SECOND,
+            timeout_seconds=config.GEOIP_TIMEOUT_SECONDS,
+            max_attempts=config.GEOIP_MAX_ATTEMPTS,
+        )
+    abuseipdb_service = None
+    if config.ABUSEIPDB_API_KEY:
+        abuseipdb_service = ThreatIntelService(
+            AbuseIPDBProvider(config.ABUSEIPDB_API_KEY),
+            cache_ttl_seconds=86400,
+            rate_limit_per_second=0.2,
+            timeout_seconds=3,
+            max_attempts=2,
+        )
+    virustotal_service = None
+    if config.VIRUSTOTAL_API_KEY:
+        virustotal_service = ThreatIntelService(
+            VirusTotalProvider(config.VIRUSTOTAL_API_KEY),
+            cache_ttl_seconds=86400,
+            rate_limit_per_second=4 / 60,
+            timeout_seconds=3,
+            max_attempts=2,
+        )
+    stix_store = STIXIndicatorStore(config.STIX_INDICATOR_FILE)
+    if config.STIX_BUNDLE_FILE:
+        try:
+            with open(config.STIX_BUNDLE_FILE, "r", encoding="utf-8") as feed:
+                stats = stix_store.import_bundle(json.load(feed), "offline")
+            logging.info("[+] STIX offline bundle imported: %s", stats)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            logging.warning("[-] STIX offline bundle import failed: %s", exc)
 
     detector = ThreatDetector(
         load_detection_rules(config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR),
@@ -76,11 +128,17 @@ def main():
 
     # --- HIDS: file watcher ---
     observer = Observer()
-    event_handler = LogHandler(config.LOG_FILE_TO_WATCH, detector, correlator, responder)
+    event_handler = LogHandler(
+        config.LOG_FILE_TO_WATCH, detector, correlator, responder,
+        geoip_service, abuseipdb_service, virustotal_service,
+    )
 
     log_dir = os.path.dirname(config.LOG_FILE_TO_WATCH) or "."
     observer.schedule(event_handler, path=log_dir, recursive=False)
-    windows_handler = WindowsEventHandler(config.WINDOWS_EVENT_FILE, detector, correlator, responder)
+    windows_handler = WindowsEventHandler(
+        config.WINDOWS_EVENT_FILE, detector, correlator, responder,
+        geoip_service, abuseipdb_service, virustotal_service,
+    )
     observer.schedule(
         windows_handler,
         path=os.path.dirname(config.WINDOWS_EVENT_FILE) or ".",
@@ -99,6 +157,9 @@ def main():
             return
         nids = NetworkMonitor(
             correlator=correlator, responder=responder, ai_analyst=ai_analyst,
+            geoip_service=geoip_service,
+            abuseipdb_service=abuseipdb_service,
+            virustotal_service=virustotal_service,
         )
         threading.Thread(target=nids.start, daemon=True).start()
         print("[+] NIDS enabled.")
@@ -120,6 +181,9 @@ def main():
             bind_ip=getattr(config, "HONEYPOT_BIND_IP", "0.0.0.0"),
             ai_analyst=ai_analyst,
             responder=responder,
+            geoip_service=geoip_service,
+            abuseipdb_service=abuseipdb_service,
+            virustotal_service=virustotal_service,
         )
         threading.Thread(target=hp.start, daemon=True).start()
         print("[+] Honeypot enabled.")
@@ -140,6 +204,20 @@ def main():
 
     # Watch runtime settings changes
     stop_event = threading.Event()
+    if config.TAXII_COLLECTION_URL:
+        def taxii_feed_worker():
+            while not stop_event.is_set():
+                result = pull_taxii_safe(
+                    stix_store,
+                    config.TAXII_COLLECTION_URL,
+                    config.TAXII_FEED_SOURCE,
+                    config.TAXII_BEARER_TOKEN,
+                )
+                if result["status"] == "error":
+                    logging.warning("[-] TAXII feed refresh failed")
+                stop_event.wait(config.TAXII_PULL_INTERVAL_SECONDS)
+
+        threading.Thread(target=taxii_feed_worker, daemon=True).start()
     last_settings_mtime = 0.0
     last_sigma_mtime = 0.0
 
@@ -198,6 +276,12 @@ def main():
         print("\n[+] Monitoring SIEM Agent stopped.")
 
     observer.join()
+    if geoip_service:
+        geoip_service.close()
+    if abuseipdb_service:
+        abuseipdb_service.close()
+    if virustotal_service:
+        virustotal_service.close()
 
 if __name__ == "__main__":
     main()
