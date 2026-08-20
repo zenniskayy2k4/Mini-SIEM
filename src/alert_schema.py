@@ -46,6 +46,10 @@ def ensure_lifecycle(alert: dict) -> dict:
     alert.setdefault("risk_score", 0)
     alert.setdefault("risk_level", "LOW")
     alert["risk_factors"] = list(alert.get("risk_factors") or [])
+    external_cases = alert.get("external_cases") or {}
+    if not isinstance(external_cases, dict):
+        raise ValueError("external_cases must be an object")
+    alert["external_cases"] = dict(external_cases)
     alert["analyst_notes"] = list(alert.get("analyst_notes") or [])
     alert["response_actions"] = list(alert.get("response_actions") or [])
     return alert

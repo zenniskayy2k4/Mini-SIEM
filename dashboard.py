@@ -13,6 +13,7 @@ from config import config
 from src.alert_schema import INCIDENT_STATUSES, utc_iso
 from src.assets import CRITICALITIES, ENVIRONMENTS, build_asset
 from src.audit import append_audit_event
+from src.case_connector import CaseExportService
 from src.health import build_system_status
 from src.incident_report import generate_incident_pdf
 from src.metrics import metrics_unavailable, render_prometheus_metrics
@@ -51,6 +52,11 @@ DETECTION_RULES = load_detection_rules(
 SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
 RULES_LOADED_AT = utc_iso()
 asset_repository = SQLiteAssetRepository()
+case_export_service = CaseExportService(
+    enabled=config.CASE_EXPORT_ENABLED,
+    timeout_seconds=config.CASE_EXPORT_TIMEOUT_SECONDS,
+    max_attempts=config.CASE_EXPORT_MAX_ATTEMPTS,
+)
 
 ALLOWED_SETTINGS = {
     "NIDS_ENABLED",
@@ -417,6 +423,28 @@ def api_incident_report(alert_id):
         BytesIO(report), mimetype="application/pdf", as_attachment=True,
         download_name=f"{filename}.pdf", max_age=0,
     )
+
+
+@app.route("/api/alerts/<alert_id>/external-case", methods=["POST"])
+@role_required("analyst")
+def api_external_case(alert_id):
+    try:
+        result = case_export_service.export(
+            alert_repository, alert_id,
+            actor=session["username"], role=session.get("role"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if result is None:
+        return jsonify({"error": "Alert not found"}), 404
+    status_code = {
+        "EXPORTED": 201,
+        "DEDUPLICATED": 200,
+        "DISABLED": 503,
+        "MISCONFIGURED": 503,
+        "FAILED": 502,
+    }[result["status"]]
+    return jsonify(result), status_code
 
 
 @app.route("/api/windows-events", methods=["POST"])

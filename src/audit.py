@@ -24,6 +24,7 @@ AUDIT_EVENTS = {
     "ASSET_CREATED",
     "ASSET_UPDATED",
     "ASSET_DELETED",
+    "CASE_EXPORT",
 }
 GENESIS_HASH = "0" * 64
 _audit_lock = threading.Lock()

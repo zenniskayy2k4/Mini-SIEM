@@ -102,7 +102,7 @@ M18 — Multi-tenant Architecture
 | M13 | Asset Inventory & Risk Context | v0.5.0 | ✅ Complete |
 | M14 | Reporting & Observability | v0.5.0 | ✅ Complete |
 | M15 | AI Resilience & Provider Abstraction | v0.5.0 | ✅ Complete |
-| M16 | External Case Management | v0.6.0 | ⬜ |
+| M16 | External Case Management | v0.6.0 | 🟠 In Progress |
 | M17 | Role-specific SOC Workspace | v0.6.0 | ⬜ |
 | M18 | Multi-tenant Architecture | Future | ⬜ |
 
@@ -1487,7 +1487,7 @@ v0.5.0 — Asset-aware SOC Analytics & Resilient AI
 
 ## M16.1 — Connector abstraction
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit pending
 
 ```python
 class CaseConnector:
@@ -1500,12 +1500,27 @@ class CaseConnector:
 
 ### Tasks
 
-- [ ] Disabled by default.
-- [ ] External ID.
-- [ ] Idempotency.
-- [ ] Timeout/retry.
-- [ ] Manual analyst export.
-- [ ] Audit export.
+- [x] Disabled by default.
+- [x] External ID.
+- [x] Idempotency.
+- [x] Timeout/retry.
+- [x] Manual analyst export.
+- [x] Audit export.
+
+### Local verification — 2026-08-20
+
+| Check | Result |
+|---|:---:|
+| Abstract create/update connector contract | PASS |
+| Default-disabled manual analyst endpoint | PASS |
+| Allowlisted payload excludes raw log, notes and AI body | PASS |
+| Timeout and maximum three-attempt validation | PASS |
+| One transient failure then bounded success | PASS |
+| Persisted external ID and duplicate suppression | PASS |
+| Immutable success/failure/deduplicated/disabled audit | PASS |
+| 38 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No external provider call, dependency or image build | PASS |
 
 ### Commit
 
@@ -1665,10 +1680,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M16.1 — Connector abstraction (not started; begin only in the next requested batch)
+M16.2 — TheHive (not started; begin only in the next requested batch)
 ```
 
-Release `v0.5.0` hoàn tất. Không bắt đầu M16.1 trong cùng batch.
+M16.1 hoàn tất ở local. Không bắt đầu M16.2 trong cùng batch.
 
 ### Success condition
 
@@ -1851,6 +1866,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-20 | AI fallback chỉ gồm primary + một fallback, mỗi provider một lần | Dùng chung một worker, tránh retry storm và lưu đúng provider đã trả kết quả |
 | 2026-08-20 | AI evaluation corpus chạy bằng fixture provider offline | CI ổn định, không chiếm Ollama; live model evaluation chỉ chạy thủ công khi cần |
 | 2026-08-20 | `v0.5.0` chốt M13–M15 | Asset-aware risk, observability/reporting và resilient AI đã qua release gate |
+| 2026-08-20 | External case export chỉ chạy thủ công qua connector mặc định tắt | Tránh tự động gửi incident; giữ timeout/retry/idempotency/audit ở một service dùng chung |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1859,7 +1875,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M16.1 — Connector abstraction (not started)
+M16.2 — TheHive (not started)
 ```
 
-Release `v0.5.0` đã hoàn tất. Bắt đầu M16.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M16.1 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M16.2 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

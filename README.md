@@ -214,6 +214,18 @@ This repository does not execute arbitrary AI-generated commands. Treat manual o
 
 Optional high-risk notifications can be sent to a generic or Discord webhook. Leave `NOTIFICATION_WEBHOOK_URL` empty to disable them.
 
+## External case connector contract
+
+External case export is disabled by default and M16.1 does not configure a provider. An authenticated analyst can manually `POST /api/alerts/<alert_id>/external-case`; there is no automatic/background export. The shared service passes an allowlisted incident summary, uses `incident_id` as the connector idempotency key, enforces the configured timeout and at most three attempts, stores the returned ID under `external_cases.<provider>`, and writes an immutable `CASE_EXPORT` audit event.
+
+```dotenv
+CASE_EXPORT_ENABLED=false
+CASE_EXPORT_TIMEOUT_SECONDS=5
+CASE_EXPORT_MAX_ATTEMPTS=2
+```
+
+Keep export disabled until a reviewed provider adapter is configured. TheHive and Jira mappings belong to later batches and are not included in this contract-only milestone.
+
 ## Windows and Sysmon collection
 
 Offline exports (`.json`, `.jsonl`, `.ndjson`, `.xml`, or `.evtx`) can be normalized with:
