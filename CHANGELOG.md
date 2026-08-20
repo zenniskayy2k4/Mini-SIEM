@@ -4,6 +4,10 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-20
+
+Asset-aware SOC Analytics and Resilient AI release.
+
 ### Added
 
 - SQLite-backed asset inventory data model with stable IDs, normalized hostname/IP lookup, duplicate constraints, CRUD operations, and immutable audit events.
@@ -22,6 +26,15 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 ### Security
 
 - AI prompt fields now share secret-like text redaction and explicitly treat alert-provided instructions as untrusted evidence.
+
+### Verification
+
+- All 37 executable regression modules pass with Python syntax and Docker Compose validation.
+- GitHub Actions passed baseline, Docker smoke, security, and release gate for the release commit and pushed tag.
+- The live agent/dashboard stack remained healthy without a local image rebuild, Ollama model download, or AI corpus network call.
+- No active Gitleaks exception or tracked `.env`, `data/**`, or `logs/**` runtime file exists.
+
+See the [v0.5.0 release checklist](docs/RELEASE_v0.5.0.md) for setup, verification details, upgrade notes, and known limitations.
 
 ## [0.4.0] - 2026-08-18
 

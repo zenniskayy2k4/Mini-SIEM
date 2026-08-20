@@ -5,8 +5,8 @@
 > **Created:** 2026-08-15
 > **Environment:** Windows + Docker Desktop
 > **Storage:** SQLite primary + JSON dual-write/fallback
-> **AI:** Ollama Cloud (`gemma4:cloud`)
-> **Recommended next release:** `v0.4.0`
+> **AI:** Ollama Cloud with optional bounded local fallback
+> **Recommended next release:** `v0.6.0`
 
 ---
 
@@ -99,9 +99,9 @@ M18 — Multi-tenant Architecture
 | M10 | Engineering Quality & CI | v0.4.0 | ✅ Complete |
 | M11 | Sigma Rule Support | v0.4.0 | ✅ Complete |
 | M12 | Threat Intelligence Layer | v0.4.0 | ✅ Complete |
-| M13 | Asset Inventory & Risk Context | v0.5.0 | 🟠 In Progress |
-| M14 | Reporting & Observability | v0.5.0 | ⬜ |
-| M15 | AI Resilience & Provider Abstraction | v0.5.0 | ⬜ |
+| M13 | Asset Inventory & Risk Context | v0.5.0 | ✅ Complete |
+| M14 | Reporting & Observability | v0.5.0 | ✅ Complete |
+| M15 | AI Resilience & Provider Abstraction | v0.5.0 | ✅ Complete |
 | M16 | External Case Management | v0.6.0 | ⬜ |
 | M17 | Role-specific SOC Workspace | v0.6.0 | ⬜ |
 | M18 | Multi-tenant Architecture | Future | ⬜ |
@@ -1408,7 +1408,7 @@ feat: add bounded AI provider fallback
 
 ## M15.4 — AI evaluation corpus
 
-**Status:** ✅ Complete — local verification passed; commit pending
+**Status:** ✅ Complete — commit `eae1925`; CI run `32329779023` passed
 
 ### Cases
 
@@ -1454,20 +1454,32 @@ test: add AI triage evaluation corpus
 
 ## M15.5 — Release v0.5.0
 
-**Status:** ⬜
+**Status:** ✅ Complete — annotated tag `v0.5.0` published from the verified release commit
 
 ```text
 v0.5.0 — Asset-aware SOC Analytics & Resilient AI
 ```
 
-- [ ] M13 complete.
-- [ ] M14 complete.
-- [ ] M15 complete.
-- [ ] CI green.
-- [ ] Docs sync.
+- [x] M13 complete.
+- [x] M14 complete.
+- [x] M15 complete.
+- [x] CI green.
+- [x] Docs sync.
 - [x] Clean clone pass.
-- [ ] Upgrade notes.
-- [ ] Tag `v0.5.0`.
+- [x] Upgrade notes.
+- [x] Tag `v0.5.0`.
+
+### Release verification — 2026-08-20
+
+```text
+M13 asset inventory/risk complete                  PASS
+M14 metrics/analytics/reporting complete           PASS
+M15 provider resilience/evaluation complete        PASS
+37 executable regression modules                  PASS
+README, CHANGELOG, upgrade/limitations synchronized PASS
+No local image rebuild or model download           PASS
+Release commit and annotated tag CI                PASS
+```
 
 ---
 
@@ -1653,10 +1665,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M15.5 — Release v0.5.0 (not started; begin only in the next requested batch)
+M16.1 — Connector abstraction (not started; begin only in the next requested batch)
 ```
 
-M15.4 hoàn tất ở local. Không bắt đầu M15.5 trong cùng batch.
+Release `v0.5.0` hoàn tất. Không bắt đầu M16.1 trong cùng batch.
 
 ### Success condition
 
@@ -1794,7 +1806,7 @@ git check-ignore .env
 - [x] Local Ollama optional.
 - [x] Bounded fallback hoạt động.
 - [x] AI evaluation corpus pass.
-- [ ] Tag `v0.5.0`.
+- [x] Tag `v0.5.0`.
 
 ---
 
@@ -1838,6 +1850,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-20 | Local Ollama chỉ health-check model đã cài | Không tự tải model hoặc làm tăng dung lượng/CPU ngoài ý muốn |
 | 2026-08-20 | AI fallback chỉ gồm primary + một fallback, mỗi provider một lần | Dùng chung một worker, tránh retry storm và lưu đúng provider đã trả kết quả |
 | 2026-08-20 | AI evaluation corpus chạy bằng fixture provider offline | CI ổn định, không chiếm Ollama; live model evaluation chỉ chạy thủ công khi cần |
+| 2026-08-20 | `v0.5.0` chốt M13–M15 | Asset-aware risk, observability/reporting và resilient AI đã qua release gate |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1846,7 +1859,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M15.5 — Release v0.5.0 (not started)
+M16.1 — Connector abstraction (not started)
 ```
 
-M15.4 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M15.5 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+Release `v0.5.0` đã hoàn tất. Bắt đầu M16.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

@@ -5,14 +5,14 @@
 ![Ollama](https://img.shields.io/badge/Ollama-Cloud_AI-white?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=flat-square)
-![Release](https://img.shields.io/badge/release-v0.4.0-2ea44f?style=flat-square)
+![Release](https://img.shields.io/badge/release-v0.5.0-2ea44f?style=flat-square)
 [![CI](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml/badge.svg)](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml)
 
 A compact, explainable SIEM lab for learning blue-team workflows. It combines YAML signatures, local anomaly models, event correlation, an optional Ollama Cloud analyst, an authenticated incident dashboard, and safe response simulation.
 
 > **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
 
-Current release: **v0.4.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.4.0.md).
+Current release: **v0.5.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.5.0.md).
 
 ## What is implemented
 
@@ -21,7 +21,7 @@ Current release: **v0.4.0** — see the [changelog](CHANGELOG.md) and [release c
 - HIDS log monitoring, Linux-oriented packet capture, honeypot events, and multi-event correlation.
 - Offline Windows/Sysmon import plus authenticated collector ingestion.
 - TF-IDF/Isolation Forest and autoencoder anomaly signals alongside deterministic rules.
-- Ollama Cloud triage through one shared worker; detection continues while the worker is busy or AI is unavailable.
+- Ollama Cloud or optional local triage through one shared worker and bounded fallback; detection continues while AI is busy or unavailable.
 - SQLite as the primary alert store, with JSON dual-write/fallback during migration.
 - Admin-only asset inventory with validated CRUD, hostname/IP lookup, alert links, filters, criticality, ownership, tags, and immutable audit events.
 - Incident lifecycle, notes, assignee, timeline, audit trail, role-based access, and CSRF protection.
@@ -243,7 +243,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
 - Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
-- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.4.0 checklist](docs/RELEASE_v0.4.0.md).
+- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.5.0 checklist](docs/RELEASE_v0.5.0.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
 - The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.4–v0.6 roadmap](docs/MINI_SIEM_CONTINUATION_ROADMAP_v0.4_to_v0.6.md).
 
@@ -285,8 +285,8 @@ Mini-SIEM/
 
 ## Near-term roadmap
 
-- Asset inventory and deterministic, explainable risk context.
-- SOC metrics, incident reporting, and AI provider resilience.
+- Manual external case export with bounded connector behavior.
+- Role-specific analyst, manager, and administrator workspaces.
 - TLS/reverse-proxy deployment guidance and stronger secret management.
 - Production-grade response integrations, after explicit approval and least-privilege design.
 
