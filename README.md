@@ -129,6 +129,20 @@ The analyst uses one shared worker because the configured Ollama service accepts
 
 `AIAnalyst` owns the stable result contract, cache, rate limit, and single-worker behavior; transport is injected through `AIProvider`. The current `OllamaCloudProvider` validates provider name, HTTPS base URL, and model configuration, while an empty API key cleanly disables AI enrichment. Unsupported providers fail configuration validation instead of silently using the wrong backend.
 
+### Local Ollama (optional)
+
+Mini-SIEM does not install Ollama, start its service, or download models. Install Ollama separately and explicitly obtain the model you choose; for the default, the manual command is `ollama pull gemma3:4b`. Then configure:
+
+```dotenv
+AI_PROVIDER=ollama_local
+OLLAMA_LOCAL_BASE_URL=http://host.docker.internal:11434/api
+OLLAMA_LOCAL_MODEL=gemma3:4b
+```
+
+`host.docker.internal` reaches host Ollama from the agent container; use `http://localhost:11434/api` when running the agent directly. At startup the adapter checks `/api/tags` once and enables analysis only when the exact configured model is installed. Restart the agent after starting Ollama or adding the model. It never calls `/api/pull`.
+
+The default `gemma3:4b` artifact is approximately 3.3 GB, so keep more than that amount of free disk plus room for Ollama/runtime data. RAM or VRAM must fit the model weights and context cache; CPU inference works but is slower, while a supported GPU is optional. Larger models and context windows require proportionally more disk and memory. See the [Ollama API documentation](https://docs.ollama.com/api/introduction) and [official model page](https://ollama.com/library/gemma3:4b).
+
 The validated AI payload contains:
 
 ```text

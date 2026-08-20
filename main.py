@@ -78,6 +78,8 @@ def main():
         api_key=config.OLLAMA_API_KEY,
         base_url=config.OLLAMA_BASE_URL,
         model=config.OLLAMA_MODEL,
+        local_base_url=config.OLLAMA_LOCAL_BASE_URL,
+        local_model=config.OLLAMA_LOCAL_MODEL,
     ))
     geoip_service = None
     if config.GEOIP_ENABLED:

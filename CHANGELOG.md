@@ -15,6 +15,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 - Responsive SOC analytics dashboard with range presets, KPI availability states, alert and false-positive trends, incident distribution, and top rule/MITRE charts.
 - Deterministic incident PDF downloads with allowlisted sections, UTC timestamps, explicit AI/TI provenance, and secret/raw-payload exclusion.
 - Provider-neutral AI analyst interface with a validated Ollama Cloud adapter while preserving the existing result, cache, rate-limit, and single-worker contracts.
+- Optional configurable local Ollama adapter with one startup model-health check, no automatic model download, and unchanged AI result/worker behavior.
 
 ## [0.4.0] - 2026-08-18
 

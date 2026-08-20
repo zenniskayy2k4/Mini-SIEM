@@ -17,39 +17,33 @@ class AIProvider(ABC):
         """Return the provider's text response for structured messages."""
 
 
-class OllamaCloudProvider(AIProvider):
-    name = "ollama_cloud"
-
+class _OllamaProvider(AIProvider):
     def __init__(
-        self, api_key: str, base_url: str = "https://ollama.com/api",
-        model: str = "gemma4:cloud", opener=requests.post,
+        self, base_url: str, model: str, *, opener=requests.post, https_only=False,
     ):
-        self._api_key = str(api_key or "").strip()
         self.base_url = str(base_url or "").strip().rstrip("/")
         self.model = str(model or "").strip()
         parsed = urlparse(self.base_url)
-        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.query or parsed.fragment:
-            raise ValueError("Ollama Cloud base URL must be an HTTPS URL without credentials or query")
+        schemes = {"https"} if https_only else {"http", "https"}
+        if parsed.scheme not in schemes or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError("Ollama base URL must be HTTP(S) without credentials, query, or fragment")
         if not self.model or len(self.model) > 200 or any(character.isspace() for character in self.model):
-            raise ValueError("Ollama Cloud model must be a non-empty model identifier")
+            raise ValueError("Ollama model must be a non-empty model identifier")
         self._opener = opener
 
-    def available(self) -> bool:
-        return bool(self._api_key)
+    def _headers(self):
+        return {"Content-Type": "application/json"}
 
     def analyze(self, messages, schema):
         if not self.available():
-            raise RuntimeError("Ollama Cloud API key is not configured")
+            raise RuntimeError(f"AI provider {self.name} is unavailable")
         if not isinstance(messages, list) or not messages:
             raise ValueError("AI messages must be a non-empty list")
         if not isinstance(schema, (str, dict)):
             raise ValueError("AI response schema must be a string or object")
         response = self._opener(
             f"{self.base_url}/chat",
-            headers={
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=self._headers(),
             json={
                 "model": self.model,
                 "stream": False,
@@ -67,8 +61,63 @@ class OllamaCloudProvider(AIProvider):
         return content.strip()
 
 
-def build_ai_provider(name, *, api_key, base_url, model):
+class OllamaCloudProvider(_OllamaProvider):
+    name = "ollama_cloud"
+
+    def __init__(
+        self, api_key: str, base_url: str = "https://ollama.com/api",
+        model: str = "gemma4:cloud", opener=requests.post,
+    ):
+        self._api_key = str(api_key or "").strip()
+        super().__init__(base_url, model, opener=opener, https_only=True)
+
+    def available(self) -> bool:
+        return bool(self._api_key)
+
+    def _headers(self):
+        return {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+
+
+class OllamaLocalProvider(_OllamaProvider):
+    name = "ollama_local"
+
+    def __init__(
+        self, base_url: str = "http://host.docker.internal:11434/api",
+        model: str = "gemma3:4b", *, opener=requests.post, health_opener=requests.get,
+    ):
+        super().__init__(base_url, model, opener=opener)
+        self._health_opener = health_opener
+        self._health_checked = False
+        self._healthy = False
+
+    def available(self) -> bool:
+        if self._health_checked:
+            return self._healthy
+        self._health_checked = True
+        try:
+            response = self._health_opener(f"{self.base_url}/tags", timeout=2)
+            response.raise_for_status()
+            payload = response.json()
+            models = payload.get("models", []) if isinstance(payload, dict) else []
+            self._healthy = any(
+                isinstance(item, dict) and self.model in {item.get("name"), item.get("model")}
+                for item in models
+            )
+        except Exception:
+            self._healthy = False
+        return self._healthy
+
+
+def build_ai_provider(
+    name, *, api_key, base_url, model,
+    local_base_url="http://host.docker.internal:11434/api", local_model="gemma3:4b",
+):
     provider_name = str(name or "").strip().lower()
-    if provider_name != OllamaCloudProvider.name:
-        raise ValueError(f"Unsupported AI provider: {provider_name or 'empty'}")
-    return OllamaCloudProvider(api_key, base_url, model)
+    if provider_name == OllamaCloudProvider.name:
+        return OllamaCloudProvider(api_key, base_url, model)
+    if provider_name == OllamaLocalProvider.name:
+        return OllamaLocalProvider(local_base_url, local_model)
+    raise ValueError(f"Unsupported AI provider: {provider_name or 'empty'}")
