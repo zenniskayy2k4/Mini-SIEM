@@ -73,7 +73,7 @@ class CaseExportService:
         if not isinstance(value, str):
             raise ValueError("Connector must return an external ID string")
         value = value.strip()
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,199}", value):
+        if not re.fullmatch(r"[A-Za-z0-9~][A-Za-z0-9._:~-]{0,199}", value):
             raise ValueError("Connector returned an invalid external ID")
         return value
 

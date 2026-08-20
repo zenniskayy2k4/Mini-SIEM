@@ -216,15 +216,17 @@ Optional high-risk notifications can be sent to a generic or Discord webhook. Le
 
 ## External case connector contract
 
-External case export is disabled by default and M16.1 does not configure a provider. An authenticated analyst can manually `POST /api/alerts/<alert_id>/external-case`; there is no automatic/background export. The shared service passes an allowlisted incident summary, uses `incident_id` as the connector idempotency key, enforces the configured timeout and at most three attempts, stores the returned ID under `external_cases.<provider>`, and writes an immutable `CASE_EXPORT` audit event.
+External case export is disabled by default. After TheHive is configured, an authenticated analyst can use **Export to TheHive** in an incident panel or manually `POST /api/alerts/<alert_id>/external-case`; there is no automatic/background export. The shared service passes an allowlisted incident summary, uses `incident_id` as the connector idempotency key, enforces the configured timeout and at most three attempts, stores the returned ID under `external_cases.thehive`, and writes an immutable `CASE_EXPORT` audit event.
 
 ```dotenv
 CASE_EXPORT_ENABLED=false
 CASE_EXPORT_TIMEOUT_SECONDS=5
 CASE_EXPORT_MAX_ATTEMPTS=2
+THEHIVE_URL=https://thehive.example
+THEHIVE_API_KEY=replace-with-a-dedicated-api-key
 ```
 
-Keep export disabled until a reviewed provider adapter is configured. TheHive and Jira mappings belong to later batches and are not included in this contract-only milestone.
+The adapter uses TheHive API v1 to find or create a uniquely titled case and to add a validated source-IP observable. Detection severity and deterministic risk map to TheHive severity 1–4. The API key is used only in the Bearer header and is excluded from payloads, stored incident data, UI responses, and audit events. Use a least-privilege TheHive service account and HTTPS outside a local trusted network. See the [TheHive API documentation](https://docs.strangebee.com/thehive/api-docs/).
 
 ## Windows and Sysmon collection
 

@@ -7,6 +7,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 ### Added
 
 - Disabled-by-default external case connector contract with manual analyst export, allowlisted payloads, bounded timeout/retries, persisted external IDs, idempotency, and immutable audit events.
+- Optional TheHive 5 API v1 export with deterministic severity/risk mapping, IP observables, remote/local duplicate suppression, stored case IDs, and a manual dashboard action.
 
 ## [0.5.0] - 2026-08-20
 

@@ -40,6 +40,7 @@ from src.rules import build_detection_coverage, load_detection_rules
 from src.sigma import load_sigma_rules, set_sigma_rule_enabled
 from src.storage import alert_repository
 from src.sqlite_store import SQLiteAssetRepository
+from src.thehive import TheHiveConnector
 from src.windows_events import ingest_windows_events
 
 app = Flask(__name__)
@@ -52,7 +53,12 @@ DETECTION_RULES = load_detection_rules(
 SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
 RULES_LOADED_AT = utc_iso()
 asset_repository = SQLiteAssetRepository()
+thehive_connector = (
+    TheHiveConnector(config.THEHIVE_URL, config.THEHIVE_API_KEY)
+    if config.THEHIVE_URL and config.THEHIVE_API_KEY else None
+)
 case_export_service = CaseExportService(
+    thehive_connector,
     enabled=config.CASE_EXPORT_ENABLED,
     timeout_seconds=config.CASE_EXPORT_TIMEOUT_SECONDS,
     max_attempts=config.CASE_EXPORT_MAX_ATTEMPTS,

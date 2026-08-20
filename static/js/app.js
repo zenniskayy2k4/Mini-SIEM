@@ -1113,6 +1113,12 @@ function renderThreatIntelProvider(entry, alert) {
 function renderIncidentPanel(alert) {
   if (!alert.incident_id) return "";
   const canMutate = ["analyst", "admin"].includes(CURRENT_ROLE);
+  const theHiveCase = alert.external_cases?.thehive;
+  const caseExport = theHiveCase?.external_id
+    ? `<span class="incident-status">TheHive ${escapeHTML(theHiveCase.external_id)}</span>`
+    : canMutate
+      ? `<button class="btn btn-ghost incident-case-export-btn" type="button">Export to TheHive</button>`
+      : "";
 
   const statuses = ["NEW", "INVESTIGATING", "CONTAINED", "RESOLVED", "FALSE_POSITIVE"];
   const statusButtons = canMutate ? statuses.map((status) => `
@@ -1150,6 +1156,7 @@ function renderIncidentPanel(alert) {
           <a class="btn btn-ghost" href="/api/alerts/${encodeURIComponent(alert.alert_id)}/report.pdf" download>
             <i class="fa-solid fa-file-pdf"></i> PDF report
           </a>
+          ${caseExport}
           <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
         </div>
       </div>
@@ -1209,6 +1216,23 @@ function bindIncidentActions(row, alert) {
       target: row.querySelector(".incident-action-target").value,
     },
   ));
+  row.querySelector(".incident-case-export-btn")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const error = row.querySelector(".incident-error");
+    error.textContent = "";
+    button.disabled = true;
+    try {
+      const response = await fetch(`${url}/external-case`, {
+        method: "POST", headers: { "X-CSRF-Token": CSRF_TOKEN },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || result.status || "Case export failed");
+      button.textContent = `TheHive ${result.external_id}`;
+    } catch (requestError) {
+      error.textContent = requestError.message || "Case export failed";
+      button.disabled = false;
+    }
+  });
   row.querySelector(".incident-approve-btn")?.addEventListener("click", (event) => mutateIncident(
     row,
     event.currentTarget,

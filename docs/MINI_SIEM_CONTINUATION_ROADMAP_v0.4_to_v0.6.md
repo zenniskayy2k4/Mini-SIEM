@@ -1487,7 +1487,7 @@ v0.5.0 — Asset-aware SOC Analytics & Resilient AI
 
 ## M16.1 — Connector abstraction
 
-**Status:** ✅ Complete — local verification passed; commit pending
+**Status:** ✅ Complete — commit `b3842e2`; CI run `32356906207` passed
 
 ```python
 class CaseConnector:
@@ -1532,14 +1532,29 @@ refactor: add external case connector interface
 
 ## M16.2 — TheHive
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit pending
 
-- [ ] Manual create case.
-- [ ] Map severity/risk.
-- [ ] Include observables.
-- [ ] Store case ID.
-- [ ] Prevent duplicate export.
-- [ ] No secrets.
+- [x] Manual create case.
+- [x] Map severity/risk.
+- [x] Include observables.
+- [x] Store case ID.
+- [x] Prevent duplicate export.
+- [x] No secrets.
+
+### Local verification — 2026-08-20
+
+| Check | Result |
+|---|:---:|
+| Manual analyst dashboard/API export | PASS |
+| TheHive API v1 case create/update contract | PASS |
+| Detection severity and risk mapped to 1–4 | PASS |
+| Validated source-IP observable | PASS |
+| Remote case/observable lookup prevents duplicates | PASS |
+| Tilde-prefixed case ID stored on incident | PASS |
+| Raw logs, analyst notes and API key excluded | PASS |
+| 39 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| Fixture transport only; no live TheHive call or image build | PASS |
 
 ### Commit
 
@@ -1680,10 +1695,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M16.2 — TheHive (not started; begin only in the next requested batch)
+M16.3 — Jira (not started; begin only in the next requested batch)
 ```
 
-M16.1 hoàn tất ở local. Không bắt đầu M16.2 trong cùng batch.
+M16.2 hoàn tất ở local. Không bắt đầu M16.3 trong cùng batch.
 
 ### Success condition
 
@@ -1867,6 +1882,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-20 | AI evaluation corpus chạy bằng fixture provider offline | CI ổn định, không chiếm Ollama; live model evaluation chỉ chạy thủ công khi cần |
 | 2026-08-20 | `v0.5.0` chốt M13–M15 | Asset-aware risk, observability/reporting và resilient AI đã qua release gate |
 | 2026-08-20 | External case export chỉ chạy thủ công qua connector mặc định tắt | Tránh tự động gửi incident; giữ timeout/retry/idempotency/audit ở một service dùng chung |
+| 2026-08-20 | TheHive dùng API v1 trực tiếp qua dependency HTTP sẵn có | Không thêm SDK; giữ mapping, observable, dedupe và secret boundary nhỏ, dễ kiểm thử offline |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1875,7 +1891,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M16.2 — TheHive (not started)
+M16.3 — Jira (not started)
 ```
 
-M16.1 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M16.2 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M16.2 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M16.3 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
