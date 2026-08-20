@@ -166,6 +166,12 @@ ioc_tags, escalate_to_human
 
 Provider, model, analysis time, cache state, and the separate severity recommendation are added by the application. The dashboard system-status view reports AI availability and recent outcomes without making a probe call that would occupy the worker.
 
+The repository-local AI evaluation corpus covers isolated login failure, correlated brute force, benign administration, suspicious PowerShell, malicious and unknown indicators, sparse alerts, and prompt-like raw text. It replays deterministic provider responses, makes no Ollama/network call, and checks JSON shape, evidence grounding, MITRE mapping, secret redaction, unsupported claims, and severity recommendation semantics:
+
+```bash
+docker compose run --rm -v "${PWD}:/app" dashboard python -m tests.test_ai_evaluation_corpus
+```
+
 ## Threat intelligence
 
 Threat intelligence is contextual evidence only and never rewrites detector severity. Public IPs can receive GeoIP context; AbuseIPDB and VirusTotal remain disabled until their API keys are configured. VirusTotal performs hash metadata lookups only and never uploads, rescans, or downloads files.

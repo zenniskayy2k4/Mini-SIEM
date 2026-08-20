@@ -17,6 +17,11 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 - Provider-neutral AI analyst interface with a validated Ollama Cloud adapter while preserving the existing result, cache, rate-limit, and single-worker contracts.
 - Optional configurable local Ollama adapter with one startup model-health check, no automatic model download, and unchanged AI result/worker behavior.
 - Optional two-provider AI fallback with one attempt per provider, actual-provider persistence, and fallback diagnostics on the existing single worker.
+- Offline eight-case AI triage evaluation corpus for output shape, evidence grounding, MITRE consistency, secret leakage, unsupported claims, and severity semantics.
+
+### Security
+
+- AI prompt fields now share secret-like text redaction and explicitly treat alert-provided instructions as untrusted evidence.
 
 ## [0.4.0] - 2026-08-18
 

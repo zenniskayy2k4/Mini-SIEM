@@ -1369,7 +1369,7 @@ feat: add optional local Ollama provider
 
 ## M15.3 — Bounded provider fallback
 
-**Status:** ✅ Complete — local verification passed; commit pending
+**Status:** ✅ Complete — commit `bdb2a3c`; CI run `32329060761` passed
 
 ### Example
 
@@ -1408,7 +1408,7 @@ feat: add bounded AI provider fallback
 
 ## M15.4 — AI evaluation corpus
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit pending
 
 ### Cases
 
@@ -1423,12 +1423,26 @@ feat: add bounded AI provider fallback
 
 ### Evaluate
 
-- [ ] JSON valid.
-- [ ] Evidence grounding.
-- [ ] No unsupported compromise claim.
-- [ ] MITRE consistency.
-- [ ] No secret leakage.
-- [ ] Severity recommendation semantics stable.
+- [x] JSON valid.
+- [x] Evidence grounding.
+- [x] No unsupported compromise claim.
+- [x] MITRE consistency.
+- [x] No secret leakage.
+- [x] Severity recommendation semantics stable.
+
+### Local verification — 2026-08-20
+
+```text
+Eight required deterministic corpus cases          PASS
+JSON types/confidence ranges                       PASS
+Evidence terms and unsupported-claim guards       PASS
+MITRE tactic/technique consistency                 PASS
+Prompt-like text isolated as untrusted evidence   PASS
+Secret-like prompt fields redacted                 PASS
+Severity/disposition semantics                     PASS
+37 executable regression modules                  PASS
+No Ollama/network call, dependency or image build PASS
+```
 
 ### Commit
 
@@ -1639,10 +1653,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M15.4 — AI evaluation corpus (not started; begin only in the next requested batch)
+M15.5 — Release v0.5.0 (not started; begin only in the next requested batch)
 ```
 
-M15.3 hoàn tất ở local. Không bắt đầu M15.4 trong cùng batch.
+M15.4 hoàn tất ở local. Không bắt đầu M15.5 trong cùng batch.
 
 ### Success condition
 
@@ -1779,7 +1793,7 @@ git check-ignore .env
 - [x] AI provider abstraction hoàn tất.
 - [x] Local Ollama optional.
 - [x] Bounded fallback hoạt động.
-- [ ] AI evaluation corpus pass.
+- [x] AI evaluation corpus pass.
 - [ ] Tag `v0.5.0`.
 
 ---
@@ -1823,6 +1837,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-19 | `AIAnalyst` giữ orchestration, adapter giữ transport | Thêm provider mới mà không đổi result/cache/worker contract |
 | 2026-08-20 | Local Ollama chỉ health-check model đã cài | Không tự tải model hoặc làm tăng dung lượng/CPU ngoài ý muốn |
 | 2026-08-20 | AI fallback chỉ gồm primary + một fallback, mỗi provider một lần | Dùng chung một worker, tránh retry storm và lưu đúng provider đã trả kết quả |
+| 2026-08-20 | AI evaluation corpus chạy bằng fixture provider offline | CI ổn định, không chiếm Ollama; live model evaluation chỉ chạy thủ công khi cần |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1831,7 +1846,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M15.4 — AI evaluation corpus (not started)
+M15.5 — Release v0.5.0 (not started)
 ```
 
-M15.3 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M15.4 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M15.4 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M15.5 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
