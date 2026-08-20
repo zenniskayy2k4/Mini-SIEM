@@ -69,7 +69,7 @@ Detection Engineering and Threat Intelligence release.
 - The release path is verified from a clean local clone without rebuilding a duplicate image.
 - No active Gitleaks exception or tracked runtime file exists.
 
-See the [v0.4.0 release checklist](docs/RELEASE_v0.4.0.md) for setup, verification details, upgrade notes, and known limitations.
+See the [v0.4.0 release history](docs/RELEASE_HISTORY.md#mini-siem-v040-release-checklist) for setup, verification details, upgrade notes, and known limitations.
 
 ## [0.3.0] - 2026-08-15
 
@@ -102,4 +102,4 @@ First versioned Blue Team portfolio release.
 - Clean-clone Compose configuration validation passes.
 - No credential pattern or sensitive runtime file was found in the latest 30 commits.
 
-See the [v0.3.0 release checklist](docs/RELEASE_v0.3.0.md) for setup, verification details, and known limitations.
+See the [v0.3.0 release history](docs/RELEASE_HISTORY.md#mini-siem-v030-release-checklist) for setup, verification details, and known limitations.

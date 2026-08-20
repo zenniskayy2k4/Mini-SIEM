@@ -1515,7 +1515,7 @@ docs: add end-to-end Blue Team demo scenario
 ### Xác nhận hoàn tất
 
 - Chọn `v0.3.0` cho bản Blue Team portfolio đầu tiên; repository chưa có tag trước đó.
-- `CHANGELOG.md` và `docs/RELEASE_v0.3.0.md` ghi release scope, clean-clone setup, verification record và known limitations.
+- `CHANGELOG.md` và mục `v0.3.0` trong `docs/RELEASE_HISTORY.md` ghi release scope, clean-clone setup, verification record và known limitations.
 - 14/14 executable regression modules pass trên image hiện có; live stack và `/health` healthy.
 - Local clone tạm có đủ file, worktree sạch và `docker compose --profile train config --quiet` pass mà không rebuild image.
 - Quét 30 commit gần nhất không phát hiện token/private key pattern; `.env`, `data/`, `logs/` không bị track.

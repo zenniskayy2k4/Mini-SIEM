@@ -160,12 +160,12 @@ Checkout
 
 ### Local verification — 2026-08-15
 
-```text
-node --check static/js/app.js                                      PASS
-docker compose --profile train config --quiet                     PASS
-python -m compileall -q config src tools tests dashboard.py main.py PASS
-14 executable regression modules                                  PASS
-```
+| Check | Result |
+|---|:---:|
+| node --check static/js/app.js | PASS |
+| docker compose --profile train config --quiet | PASS |
+| python -m compileall -q config src tools tests dashboard.py main.py | PASS |
+| 14 executable regression modules | PASS |
 
 GitHub Actions [run 31880377953](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31880377953) passed for commit `308d82b`.
 
@@ -201,15 +201,15 @@ ci: add baseline GitHub Actions workflow
 
 ### Local verification — 2026-08-16
 
-```text
-GitHub Actions YAML/contract validation                     PASS
-docker compose config --quiet                              PASS
-docker compose build                                       PASS
-GET /health (agent/dashboard/database/status = healthy)    PASS
-GET /login (HTTP 200)                                      PASS
-SQLite PRAGMA quick_check + alerts table                   PASS
-Failure log artifact + always-run cleanup                  CONFIGURED
-```
+| Check | Result |
+|---|:---:|
+| GitHub Actions YAML/contract validation | PASS |
+| docker compose config --quiet | PASS |
+| docker compose build | PASS |
+| GET /health (agent/dashboard/database/status = healthy) | PASS |
+| GET /login (HTTP 200) | PASS |
+| SQLite PRAGMA quick_check + alerts table | PASS |
+| Failure log artifact + always-run cleanup | CONFIGURED |
 
 GitHub Actions [run 31925484215](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31925484215) passed for commit `be8b718`.
 
@@ -248,14 +248,14 @@ pip-audit
 
 ### Local verification — 2026-08-16
 
-```text
-GitHub Actions YAML/security contract validation            PASS
-Gitleaks full Git history (40 commits)                      PASS — no leaks
-Gitleaks documented dummy-secret fixture                    PASS — detected
-pip-audit requirements.txt                                  PASS — no known vulnerabilities
-.env, data/** and logs/** tracking guard                    PASS
-.gitleaksignore reviewed-fingerprint policy                 PASS — 0 exceptions
-```
+| Check | Result |
+|---|:---:|
+| GitHub Actions YAML/security contract validation | PASS |
+| Gitleaks full Git history (40 commits) | PASS — no leaks |
+| Gitleaks documented dummy-secret fixture | PASS — detected |
+| pip-audit requirements.txt | PASS — no known vulnerabilities |
+| .env, data/** and logs/** tracking guard | PASS |
+| .gitleaksignore reviewed-fingerprint policy | PASS — 0 exceptions |
 
 GitHub Actions [run 31925849592](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31925849592) passed for commit `e3a7c47`.
 
@@ -282,14 +282,14 @@ ci: add secret and dependency security checks
 
 ### Local verification — 2026-08-16
 
-```text
-GitHub Actions YAML/release-gate contract validation         PASS
-M10.1 baseline GitHub run                                   PASS
-M10.2 Docker smoke GitHub run                               PASS
-M10.3 security GitHub run                                   PASS
-CHANGELOG semantic-version/date format                      PASS
-Clean-clone Compose and tracked-runtime checks              PASS
-```
+| Check | Result |
+|---|:---:|
+| GitHub Actions YAML/release-gate contract validation | PASS |
+| M10.1 baseline GitHub run | PASS |
+| M10.2 Docker smoke GitHub run | PASS |
+| M10.3 security GitHub run | PASS |
+| CHANGELOG semantic-version/date format | PASS |
+| Clean-clone Compose and tracked-runtime checks | PASS |
 
 GitHub Actions [run 31926399008](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31926399008) passed for commit `1953a63`.
 
@@ -364,14 +364,14 @@ config/sigma/
 
 ### Local verification — 2026-08-16
 
-```text
-Sigma loader/schema/adapter syntax                           PASS
-Sample metadata, severity and ATT&CK mapping                 PASS
-Invalid rule isolation                                      PASS
-Duplicate Sigma UUID detection                              PASS
-Native/Sigma alert provenance contract                      PASS
-15 executable regression modules                            PASS
-```
+| Check | Result |
+|---|:---:|
+| Sigma loader/schema/adapter syntax | PASS |
+| Sample metadata, severity and ATT&CK mapping | PASS |
+| Invalid rule isolation | PASS |
+| Duplicate Sigma UUID detection | PASS |
+| Native/Sigma alert provenance contract | PASS |
+| 15 executable regression modules | PASS |
 
 GitHub Actions [run 31926912963](https://github.com/zenniskayy2k4/Mini-SIEM/actions/runs/31926912963) passed for commit `b29c39e`.
 
@@ -419,12 +419,12 @@ selection1 or selection2
 
 ### Local verification — 2026-08-16
 
-```text
-Sigma loader and selection mapping regression                PASS
-Windows/native rule compatibility                            PASS
-16 executable regression modules                            PASS
-Docker Compose validation                                    PASS
-```
+| Check | Result |
+|---|:---:|
+| Sigma loader and selection mapping regression | PASS |
+| Windows/native rule compatibility | PASS |
+| 16 executable regression modules | PASS |
+| Docker Compose validation | PASS |
 
 Unsupported fields, modifiers, wildcards and complex conditions remain disabled with an explicit `skip_reason`.
 
@@ -454,15 +454,15 @@ feat: translate supported Sigma selections into Mini-SIEM rules
 
 ### Local verification — 2026-08-16
 
-```text
-Admin lifecycle API and CSRF/RBAC path                       PASS
-Persistent enable/disable override and agent reload          PASS
-Source, validation, loaded time, hit/never-hit metadata      PASS
-Immutable enable/disable audit events                        PASS
-JavaScript syntax and Python compile                         PASS
-17 executable regression modules                            PASS
-Docker Compose validation                                    PASS
-```
+| Check | Result |
+|---|:---:|
+| Admin lifecycle API and CSRF/RBAC path | PASS |
+| Persistent enable/disable override and agent reload | PASS |
+| Source, validation, loaded time, hit/never-hit metadata | PASS |
+| Immutable enable/disable audit events | PASS |
+| JavaScript syntax and Python compile | PASS |
+| 17 executable regression modules | PASS |
+| Docker Compose validation | PASS |
 
 Sigma YAML remains read-only; runtime overrides are stored atomically under `data/`.
 
@@ -498,15 +498,15 @@ feat: manage Sigma rule lifecycle and coverage
 
 ### Local verification — 2026-08-18
 
-```text
-Sysmon process creation positive/negative corpus             PASS
-PowerShell positive/negative corpus                          PASS
-Security Event 4720 account creation corpus                  PASS
-Unsupported Sigma syntax remains disabled                   PASS
-Sigma UUID/provenance on positive alerts                     PASS
-18 executable regression modules                            PASS
-Docker Compose validation                                    PASS
-```
+| Check | Result |
+|---|:---:|
+| Sysmon process creation positive/negative corpus | PASS |
+| PowerShell positive/negative corpus | PASS |
+| Security Event 4720 account creation corpus | PASS |
+| Unsupported Sigma syntax remains disabled | PASS |
+| Sigma UUID/provenance on positive alerts | PASS |
+| 18 executable regression modules | PASS |
+| Docker Compose validation | PASS |
 
 The corpus is entirely repository-local and is discovered by the existing CI test glob.
 
@@ -534,15 +534,15 @@ test: add Sigma detection regression corpus
 
 ### Local verification — 2026-08-18
 
-```text
-Supported operators, conditions and field aliases documented PASS
-Unsupported behavior and limitations documented              PASS
-Import/lifecycle/provenance paths matched implementation      PASS
-Sample and repository-local links verified                   PASS
-Documented Sigma loader command                              PASS
-Documented offline corpus command                            PASS
-Docker Compose validation                                    PASS
-```
+| Check | Result |
+|---|:---:|
+| Supported operators, conditions and field aliases documented | PASS |
+| Unsupported behavior and limitations documented | PASS |
+| Import/lifecycle/provenance paths matched implementation | PASS |
+| Sample and repository-local links verified | PASS |
+| Documented Sigma loader command | PASS |
+| Documented offline corpus command | PASS |
+| Docker Compose validation | PASS |
 
 Runtime code is unchanged.
 
@@ -613,16 +613,16 @@ md5
 
 ### Local verification — 2026-08-18
 
-```text
-IP/domain/URL/SHA-256/MD5 normalization                       PASS
-Dummy provider and normalized result contract                PASS
-TTL cache hit and provider rate limiter                      PASS
-Bounded retry and enforced timeout/error state               PASS
-Async lookup returns before alert persistence path continues PASS
-No network, file persistence or API-secret handling          PASS
-19 executable regression modules                            PASS
-Docker Compose validation                                    PASS
-```
+| Check | Result |
+|---|:---:|
+| IP/domain/URL/SHA-256/MD5 normalization | PASS |
+| Dummy provider and normalized result contract | PASS |
+| TTL cache hit and provider rate limiter | PASS |
+| Bounded retry and enforced timeout/error state | PASS |
+| Async lookup returns before alert persistence path continues | PASS |
+| No network, file persistence or API-secret handling | PASS |
+| 19 executable regression modules | PASS |
+| Docker Compose validation | PASS |
 
 The phase-1 abstraction uses stdlib only and one bounded provider worker. External providers and alert enrichment are deferred to later M12 batches.
 
@@ -663,16 +663,16 @@ refactor: add threat intelligence provider abstraction
 
 ### Local verification — 2026-08-18
 
-```text
-Private/loopback/link-local classification without HTTP call PASS
-Public IPv4 normalization and live HTTPS provider smoke      PASS
-TTL cache hit avoids repeated provider lookup                PASS
-Alert persisted before asynchronous GeoIP enrichment         PASS
-Dashboard renders normalized GeoIP context safely            PASS
-Foreign location does not change severity or disposition     PASS
-20 executable regression modules                             PASS
-Python/JavaScript syntax and Docker Compose validation        PASS
-```
+| Check | Result |
+|---|:---:|
+| Private/loopback/link-local classification without HTTP call | PASS |
+| Public IPv4 normalization and live HTTPS provider smoke | PASS |
+| TTL cache hit avoids repeated provider lookup | PASS |
+| Alert persisted before asynchronous GeoIP enrichment | PASS |
+| Dashboard renders normalized GeoIP context safely | PASS |
+| Foreign location does not change severity or disposition | PASS |
+| 20 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
 
 The agent shares one bounded GeoIP service across HIDS, Windows, NIDS and honeypot sensors. Public lookups use the configurable keyless HTTPS endpoint; local and special-use addresses never leave the host.
 
@@ -711,18 +711,18 @@ feat: add GeoIP context enrichment
 
 ### Local verification — 2026-08-18
 
-```text
-Missing API key disables provider construction               PASS
-Private/loopback/link-local lookup skips HTTP                PASS
-GET /api/v2/check request uses API key header only           PASS
-Normalized confidence/reports/time/ISP/domain/usage fields   PASS
-TTL cache and bounded shared provider worker                 PASS
-HTTP 429 structured rate_limited state without retry         PASS
-Raw provider payload/API key excluded from persisted result  PASS
-AI receives normalized allowlisted threat-intel summary      PASS
-21 executable regression modules                             PASS
-Python/JavaScript syntax and Docker Compose validation        PASS
-```
+| Check | Result |
+|---|:---:|
+| Missing API key disables provider construction | PASS |
+| Private/loopback/link-local lookup skips HTTP | PASS |
+| GET /api/v2/check request uses API key header only | PASS |
+| Normalized confidence/reports/time/ISP/domain/usage fields | PASS |
+| TTL cache and bounded shared provider worker | PASS |
+| HTTP 429 structured rate_limited state without retry | PASS |
+| Raw provider payload/API key excluded from persisted result | PASS |
+| AI receives normalized allowlisted threat-intel summary | PASS |
+| 21 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
 
 No live AbuseIPDB request was made because the repository intentionally contains no API key; the HTTP contract is covered with an offline fake response.
 
@@ -758,18 +758,18 @@ Never auto-upload internal files.
 
 ### Local verification — 2026-08-18
 
-```text
-Missing API key disables provider construction               PASS
-SHA-256 preferred over MD5; other IOC types rejected         PASS
-GET /api/v3/files/{hash} uses x-apikey header only           PASS
-Public quota limited to 4 requests/minute with 24-hour cache PASS
-Malicious/suspicious and aggregate metadata normalized       PASS
-HTTP 404 not-found and 429 rate-limit behavior bounded       PASS
-Raw engine response/API key excluded from persisted result   PASS
-No upload, rescan or download code path                      PASS
-22 executable regression modules                             PASS
-Python/JavaScript syntax and Docker Compose validation        PASS
-```
+| Check | Result |
+|---|:---:|
+| Missing API key disables provider construction | PASS |
+| SHA-256 preferred over MD5; other IOC types rejected | PASS |
+| GET /api/v3/files/{hash} uses x-apikey header only | PASS |
+| Public quota limited to 4 requests/minute with 24-hour cache | PASS |
+| Malicious/suspicious and aggregate metadata normalized | PASS |
+| HTTP 404 not-found and 429 rate-limit behavior bounded | PASS |
+| Raw engine response/API key excluded from persisted result | PASS |
+| No upload, rescan or download code path | PASS |
+| 22 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
 
 No live VirusTotal request was made because the repository intentionally contains no API key; the metadata-only HTTP contract is covered with an offline fake response.
 
@@ -811,18 +811,18 @@ Threat Intelligence
 
 ### Local verification — 2026-08-18
 
-```text
-Pending/loading state persisted before provider lookup       PASS
-Missing provider rendered as unavailable                     PASS
-IOC/type and GeoIP/reputation/provider cards                 PASS
-Confidence/reports, lookup time and cache state              PASS
-Observed evidence separated from third-party intelligence   PASS
-Raw provider JSON excluded from rendering                   PASS
-System severity remains unchanged                           PASS
-Legacy GeoIP alert display compatibility                    PASS
-23 executable regression modules                            PASS
-Python/JavaScript syntax and Docker Compose validation       PASS
-```
+| Check | Result |
+|---|:---:|
+| Pending/loading state persisted before provider lookup | PASS |
+| Missing provider rendered as unavailable | PASS |
+| IOC/type and GeoIP/reputation/provider cards | PASS |
+| Confidence/reports, lookup time and cache state | PASS |
+| Observed evidence separated from third-party intelligence | PASS |
+| Raw provider JSON excluded from rendering | PASS |
+| System severity remains unchanged | PASS |
+| Legacy GeoIP alert display compatibility | PASS |
+| 23 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
 
 The panel reuses the existing normalized alert payload and search API; it adds no endpoint, frontend framework or raw-provider rendering path.
 
@@ -870,19 +870,19 @@ feat: show threat intelligence context on dashboard
 
 ### Local verification — 2026-08-18
 
-```text
-Offline STIX 2.1 bundle import for IPv4/domain/hash           PASS
-Normalized JSON persistence and reload                       PASS
-Same-feed IOC deduplication                                   PASS
-valid_until expiry excludes inactive indicators              PASS
-Alert IOC match preserves source/confidence/labels            PASS
-Dashboard STIX/TAXII source card uses normalized fields       PASS
-Optional bounded TAXII collection pull with bearer header     PASS
-Manual import and scheduled safe refresh paths                PASS
-Feed failure leaves detection/store operational               PASS
-24 executable regression modules                              PASS
-Python/JavaScript syntax and Docker Compose validation         PASS
-```
+| Check | Result |
+|---|:---:|
+| Offline STIX 2.1 bundle import for IPv4/domain/hash | PASS |
+| Normalized JSON persistence and reload | PASS |
+| Same-feed IOC deduplication | PASS |
+| valid_until expiry excludes inactive indicators | PASS |
+| Alert IOC match preserves source/confidence/labels | PASS |
+| Dashboard STIX/TAXII source card uses normalized fields | PASS |
+| Optional bounded TAXII collection pull with bearer header | PASS |
+| Manual import and scheduled safe refresh paths | PASS |
+| Feed failure leaves detection/store operational | PASS |
+| 24 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
 
 The phase-1 parser accepts exact STIX equality patterns for IPv4, domain, SHA-256 and MD5. TAXII uses the configured collection objects URL, a 5 MiB response cap and at most 10 pages; no additional package or database is required.
 
@@ -923,17 +923,17 @@ v0.4.0 — Detection Engineering & Threat Intelligence
 
 ### Local verification — 2026-08-18
 
-```text
-README, CHANGELOG and v0.4.0 release checklist synchronized  PASS
-.env.example covers all optional Threat Intelligence config PASS
-Release artifact and local Markdown link validation          PASS
-24 executable regression modules in release snapshot         PASS
-Clean-clone Docker Compose validation                         PASS
-Clean-clone 24/24 regression using existing image             PASS
-No tracked .env/data/logs runtime files                       PASS
-Release diff secret-pattern review                            PASS
-No active Gitleaks exception                                  PASS
-```
+| Check | Result |
+|---|:---:|
+| README, CHANGELOG and v0.4.0 release checklist synchronized | PASS |
+| .env.example covers all optional Threat Intelligence config | PASS |
+| Release artifact and local Markdown link validation | PASS |
+| 24 executable regression modules in release snapshot | PASS |
+| Clean-clone Docker Compose validation | PASS |
+| Clean-clone 24/24 regression using existing image | PASS |
+| No tracked .env/data/logs runtime files | PASS |
+| Release diff secret-pattern review | PASS |
+| No active Gitleaks exception | PASS |
 
 The local clean-clone verification reused the existing image to avoid a duplicate multi-gigabyte build; GitHub Actions performs the independent clean build and Docker smoke after the release commit is pushed.
 
@@ -989,13 +989,13 @@ docs: prepare v0.4.0 release
 
 ### Local verification — 2026-08-18
 
-```text
-M13.1 focused asset inventory regression        PASS
-Python syntax                                    PASS
-26 executable regression modules                PASS
-Docker Compose validation                        PASS
-No image rebuild                                 PASS
-```
+| Check | Result |
+|---|:---:|
+| M13.1 focused asset inventory regression | PASS |
+| Python syntax | PASS |
+| 26 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -1020,15 +1020,15 @@ feat: add asset inventory data model
 
 ### Local verification — 2026-08-18
 
-```text
-M13.2 focused API/UI regression                PASS
-M13.1 asset repository regression              PASS
-Authentication and responsive contracts        PASS
-Python and JavaScript syntax                    PASS
-27 executable regression modules               PASS
-Docker Compose validation                       PASS
-No image rebuild                                PASS
-```
+| Check | Result |
+|---|:---:|
+| M13.2 focused API/UI regression | PASS |
+| M13.1 asset repository regression | PASS |
+| Authentication and responsive contracts | PASS |
+| Python and JavaScript syntax | PASS |
+| 27 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -1050,14 +1050,14 @@ feat: add asset inventory management
 
 ### Local verification — 2026-08-18
 
-```text
-M13.3 focused enrichment/UI regression          PASS
-M13.1/M13.2 asset regressions                   PASS
-Python and JavaScript syntax                    PASS
-28 executable regression modules               PASS
-Docker Compose validation                       PASS
-No image rebuild                                PASS
-```
+| Check | Result |
+|---|:---:|
+| M13.3 focused enrichment/UI regression | PASS |
+| M13.1/M13.2 asset regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 28 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -1100,14 +1100,14 @@ feat: enrich alerts with asset context
 
 ### Local verification — 2026-08-19
 
-```text
-M13.4 focused scoring/pipeline/UI regression     PASS
-M13 asset and M12 TI regressions                 PASS
-Python and JavaScript syntax                     PASS
-29 executable regression modules                PASS
-Docker Compose validation                        PASS
-No image rebuild                                 PASS
-```
+| Check | Result |
+|---|:---:|
+| M13.4 focused scoring/pipeline/UI regression | PASS |
+| M13 asset and M12 TI regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 29 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -1144,14 +1144,14 @@ feat: add explainable asset-aware risk scoring
 
 ### Local verification — 2026-08-19
 
-```text
-M14.1 focused metrics/auth/security regression   PASS
-Health/notification/detection regressions        PASS
-Python and JavaScript syntax                     PASS
-30 executable regression modules                PASS
-Docker Compose validation                        PASS
-No image rebuild                                 PASS
-```
+| Check | Result |
+|---|:---:|
+| M14.1 focused metrics/auth/security regression | PASS |
+| Health/notification/detection regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 30 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -1188,14 +1188,14 @@ AI enrichment success rate
 
 ### Local verification — 2026-08-19
 
-```text
-M14.2 focused KPI/API/availability regression    PASS
-M14.1 metrics and incident/audit regressions     PASS
-Python and JavaScript syntax                     PASS
-31 executable regression modules                PASS
-Docker Compose validation                        PASS
-No image rebuild                                 PASS
-```
+| Check | Result |
+|---|:---:|
+| M14.2 focused KPI/API/availability regression | PASS |
+| M14.1 metrics and incident/audit regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 31 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -1219,14 +1219,14 @@ feat: add SOC KPI analytics
 
 ### Local verification — 2026-08-19
 
-```text
-M14.3 focused aggregation/API/UI regression      PASS
-M14.2 KPI and responsive dashboard regressions   PASS
-Python and JavaScript syntax                     PASS
-32 executable regression modules                 PASS
-Docker Compose validation                        PASS
-No image rebuild                                 PASS
-```
+| Check | Result |
+|---|:---:|
+| M14.3 focused aggregation/API/UI regression | PASS |
+| M14.2 KPI and responsive dashboard regressions | PASS |
+| Python and JavaScript syntax | PASS |
+| 32 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| No image rebuild | PASS |
 
 ### Commit
 
@@ -1266,16 +1266,16 @@ Appendix
 
 ### Local verification — 2026-08-19
 
-```text
-M14.4 PDF structure/auth/redaction regression     PASS
-M8 incident/audit and M14 analytics regressions  PASS
-Deterministic stored-record generation           PASS
-Python and JavaScript syntax                     PASS
-33 executable regression modules                 PASS
-Docker Compose validation                        PASS
-Live authenticated PDF endpoint and health       PASS
-No dependency or image rebuild                   PASS
-```
+| Check | Result |
+|---|:---:|
+| M14.4 PDF structure/auth/redaction regression | PASS |
+| M8 incident/audit and M14 analytics regressions | PASS |
+| Deterministic stored-record generation | PASS |
+| Python and JavaScript syntax | PASS |
+| 33 executable regression modules | PASS |
+| Docker Compose validation | PASS |
+| Live authenticated PDF endpoint and health | PASS |
+| No dependency or image rebuild | PASS |
 
 ### Commit
 
@@ -1314,15 +1314,15 @@ class AIProvider:
 
 ### Local verification — 2026-08-19
 
-```text
-M15.1 adapter/interface/config regression         PASS
-Existing AI result/cache/error/health contract    PASS
-Single worker and zero-backlog behavior retained  PASS
-34 executable regression modules                 PASS
-Python syntax and Docker Compose validation       PASS
-Live adapter factory/heartbeat/health             PASS
-No provider probe, dependency or image rebuild    PASS
-```
+| Check | Result |
+|---|:---:|
+| M15.1 adapter/interface/config regression | PASS |
+| Existing AI result/cache/error/health contract | PASS |
+| Single worker and zero-backlog behavior retained | PASS |
+| 34 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| Live adapter factory/heartbeat/health | PASS |
+| No provider probe, dependency or image rebuild | PASS |
 
 ### Commit
 
@@ -1348,16 +1348,16 @@ refactor: add pluggable AI provider interface
 
 ### Local verification — 2026-08-20
 
-```text
-M15.2 local tags/chat/config regression           PASS
-No bearer token sent to local Ollama              PASS
-No install/start/pull code path                    PASS
-Existing cloud adapter and AI contract            PASS
-35 executable regression modules                 PASS
-Python syntax and Docker Compose validation       PASS
-Host Ollama absent; no model download attempted   PASS
-No dependency or image rebuild                    PASS
-```
+| Check | Result |
+|---|:---:|
+| M15.2 local tags/chat/config regression | PASS |
+| No bearer token sent to local Ollama | PASS |
+| No install/start/pull code path | PASS |
+| Existing cloud adapter and AI contract | PASS |
+| 35 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| Host Ollama absent; no model download attempted | PASS |
+| No dependency or image rebuild | PASS |
 
 ### Commit
 
@@ -1389,14 +1389,14 @@ Ollama Cloud
 
 ### Local verification — 2026-08-20
 
-```text
-Cloud failure -> local success                      PASS
-One attempt per provider / one completion callback PASS
-Actual provider/model persisted                    PASS
-Fallback diagnostics and sanitized terminal error PASS
-36 executable regression modules                  PASS
-Single worker retained; no dependency/image build PASS
-```
+| Check | Result |
+|---|:---:|
+| Cloud failure -> local success | PASS |
+| One attempt per provider / one completion callback | PASS |
+| Actual provider/model persisted | PASS |
+| Fallback diagnostics and sanitized terminal error | PASS |
+| 36 executable regression modules | PASS |
+| Single worker retained; no dependency/image build | PASS |
 
 ### Commit
 
@@ -1432,17 +1432,17 @@ feat: add bounded AI provider fallback
 
 ### Local verification — 2026-08-20
 
-```text
-Eight required deterministic corpus cases          PASS
-JSON types/confidence ranges                       PASS
-Evidence terms and unsupported-claim guards       PASS
-MITRE tactic/technique consistency                 PASS
-Prompt-like text isolated as untrusted evidence   PASS
-Secret-like prompt fields redacted                 PASS
-Severity/disposition semantics                     PASS
-37 executable regression modules                  PASS
-No Ollama/network call, dependency or image build PASS
-```
+| Check | Result |
+|---|:---:|
+| Eight required deterministic corpus cases | PASS |
+| JSON types/confidence ranges | PASS |
+| Evidence terms and unsupported-claim guards | PASS |
+| MITRE tactic/technique consistency | PASS |
+| Prompt-like text isolated as untrusted evidence | PASS |
+| Secret-like prompt fields redacted | PASS |
+| Severity/disposition semantics | PASS |
+| 37 executable regression modules | PASS |
+| No Ollama/network call, dependency or image build | PASS |
 
 ### Commit
 
@@ -1471,15 +1471,15 @@ v0.5.0 — Asset-aware SOC Analytics & Resilient AI
 
 ### Release verification — 2026-08-20
 
-```text
-M13 asset inventory/risk complete                  PASS
-M14 metrics/analytics/reporting complete           PASS
-M15 provider resilience/evaluation complete        PASS
-37 executable regression modules                  PASS
-README, CHANGELOG, upgrade/limitations synchronized PASS
-No local image rebuild or model download           PASS
-Release commit and annotated tag CI                PASS
-```
+| Check | Result |
+|---|:---:|
+| M13 asset inventory/risk complete | PASS |
+| M14 metrics/analytics/reporting complete | PASS |
+| M15 provider resilience/evaluation complete | PASS |
+| 37 executable regression modules | PASS |
+| README, CHANGELOG, upgrade/limitations synchronized | PASS |
+| No local image rebuild or model download | PASS |
+| Release commit and annotated tag CI | PASS |
 
 ---
 

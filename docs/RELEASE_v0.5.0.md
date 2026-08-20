@@ -2,6 +2,8 @@
 
 `v0.5.0` adds asset-aware risk, SOC analytics/reporting, operational metrics, and resilient AI providers to the single-node Blue Team lab. Detector evidence and severity remain authoritative; assets, threat intelligence, and AI add explainable context without automatically changing incident outcomes.
 
+Older release notes are consolidated in [Release History](RELEASE_HISTORY.md).
+
 ## Upgrade from v0.4.0
 
 - Back up `data/mini_siem.db` before upgrading. The release adds tables/indexes and optional JSON fields without requiring a manual migration command.
