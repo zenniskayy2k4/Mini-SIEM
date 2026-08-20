@@ -1,6 +1,7 @@
 import os
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama_cloud").strip().lower()
+AI_FALLBACK_PROVIDER = os.getenv("AI_FALLBACK_PROVIDER", "").strip().lower()
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "").strip()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "https://ollama.com/api").strip()
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:cloud").strip()

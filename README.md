@@ -51,7 +51,7 @@ flowchart LR
     Correlation --> TI["Threat intelligence<br/>GeoIP + reputation + STIX/TAXII"]
     TI --> SQLite[(SQLite)]
     TI --> JSON[(JSON fallback)]
-    Correlation --> AI["Ollama Cloud<br/>shared 1-worker analyst"]
+    Correlation --> AI["Ollama providers<br/>bounded fallback / shared 1-worker analyst"]
     Correlation --> Response[Safe response workflow]
     Correlation --> Webhook[Optional webhook]
 
@@ -120,6 +120,7 @@ Copy `.env.example` to `.env` and set:
 
 ```dotenv
 AI_PROVIDER=ollama_cloud
+AI_FALLBACK_PROVIDER=
 OLLAMA_API_KEY=your_ollama_cloud_key
 OLLAMA_BASE_URL=https://ollama.com/api
 OLLAMA_MODEL=gemma4:cloud
@@ -142,6 +143,17 @@ OLLAMA_LOCAL_MODEL=gemma3:4b
 `host.docker.internal` reaches host Ollama from the agent container; use `http://localhost:11434/api` when running the agent directly. At startup the adapter checks `/api/tags` once and enables analysis only when the exact configured model is installed. Restart the agent after starting Ollama or adding the model. It never calls `/api/pull`.
 
 The default `gemma3:4b` artifact is approximately 3.3 GB, so keep more than that amount of free disk plus room for Ollama/runtime data. RAM or VRAM must fit the model weights and context cache; CPU inference works but is slower, while a supported GPU is optional. Larger models and context windows require proportionally more disk and memory. See the [Ollama API documentation](https://docs.ollama.com/api/introduction) and [official model page](https://ollama.com/library/gemma3:4b).
+
+### Bounded provider fallback (optional)
+
+Keep Ollama Cloud as the primary and enable the installed local model as fallback:
+
+```dotenv
+AI_PROVIDER=ollama_cloud
+AI_FALLBACK_PROVIDER=ollama_local
+```
+
+Each incident stays inside the existing single-worker task: the primary is attempted once and the fallback at most once, with no retry loop or second queue. The actual provider/model is stored in `ai_analysis`; `/api/system/status` reports the configured chain, last provider, whether fallback was used, and the bounded attempt outcomes. If both providers fail, alert processing continues with AI marked unavailable. Leave `AI_FALLBACK_PROVIDER` empty to retain single-provider behavior.
 
 The validated AI payload contains:
 

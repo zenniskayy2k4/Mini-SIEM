@@ -16,6 +16,17 @@ class AIProvider(ABC):
     def analyze(self, messages, schema):
         """Return the provider's text response for structured messages."""
 
+    @property
+    def used_name(self):
+        return self.name
+
+    @property
+    def used_model(self):
+        return self.model
+
+    def diagnostics(self):
+        return {}
+
 
 class _OllamaProvider(AIProvider):
     def __init__(
@@ -111,13 +122,83 @@ class OllamaLocalProvider(_OllamaProvider):
         return self._healthy
 
 
+class FallbackAIProvider(AIProvider):
+    """Try one primary and one fallback provider once per analysis."""
+
+    name = "fallback"
+
+    def __init__(self, primary: AIProvider, fallback: AIProvider):
+        if not isinstance(primary, AIProvider) or not isinstance(fallback, AIProvider):
+            raise TypeError("Fallback providers must implement AIProvider")
+        if primary.name == fallback.name:
+            raise ValueError("Primary and fallback AI providers must be different")
+        self._providers = (primary, fallback)
+        self.model = " -> ".join(provider.model for provider in self._providers)
+        self._last_provider = None
+        self._last_attempts = []
+
+    def available(self) -> bool:
+        return any(provider.available() for provider in self._providers)
+
+    def analyze(self, messages, schema):
+        self._last_provider = None
+        self._last_attempts = []
+        for provider in self._providers:
+            if not provider.available():
+                self._last_attempts.append({"provider": provider.name, "status": "unavailable"})
+                continue
+            try:
+                result = provider.analyze(messages, schema)
+            except Exception:
+                self._last_attempts.append({"provider": provider.name, "status": "failed"})
+                continue
+            self._last_provider = provider
+            self._last_attempts.append({"provider": provider.name, "status": "success"})
+            return result
+        raise RuntimeError("All configured AI providers are unavailable")
+
+    @property
+    def used_name(self):
+        return self._last_provider.name if self._last_provider else self.name
+
+    @property
+    def used_model(self):
+        return self._last_provider.model if self._last_provider else self.model
+
+    def diagnostics(self):
+        return {
+            "chain": [provider.name for provider in self._providers],
+            "last_provider": self._last_provider.name if self._last_provider else None,
+            "used": bool(self._last_provider and self._last_provider is self._providers[1]),
+            "attempts": list(self._last_attempts),
+        }
+
+
+def _build_ai_provider(
+    name, *, api_key, base_url, model, local_base_url, local_model,
+):
+    if name == OllamaCloudProvider.name:
+        return OllamaCloudProvider(api_key, base_url, model)
+    if name == OllamaLocalProvider.name:
+        return OllamaLocalProvider(local_base_url, local_model)
+    raise ValueError(f"Unsupported AI provider: {name or 'empty'}")
+
+
 def build_ai_provider(
     name, *, api_key, base_url, model,
     local_base_url="http://host.docker.internal:11434/api", local_model="gemma3:4b",
+    fallback_name="",
 ):
     provider_name = str(name or "").strip().lower()
-    if provider_name == OllamaCloudProvider.name:
-        return OllamaCloudProvider(api_key, base_url, model)
-    if provider_name == OllamaLocalProvider.name:
-        return OllamaLocalProvider(local_base_url, local_model)
-    raise ValueError(f"Unsupported AI provider: {provider_name or 'empty'}")
+    fallback_name = str(fallback_name or "").strip().lower()
+    primary = _build_ai_provider(
+        provider_name, api_key=api_key, base_url=base_url, model=model,
+        local_base_url=local_base_url, local_model=local_model,
+    )
+    if not fallback_name:
+        return primary
+    fallback = _build_ai_provider(
+        fallback_name, api_key=api_key, base_url=base_url, model=model,
+        local_base_url=local_base_url, local_model=local_model,
+    )
+    return FallbackAIProvider(primary, fallback)

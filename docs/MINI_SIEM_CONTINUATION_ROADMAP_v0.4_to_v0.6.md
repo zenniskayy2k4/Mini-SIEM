@@ -1334,7 +1334,7 @@ refactor: add pluggable AI provider interface
 
 ## M15.2 — Local Ollama optional provider
 
-**Status:** ✅ Complete — local verification passed; commit CI pending
+**Status:** ✅ Complete — commit `7a977fd`; CI run `32328249756` passed
 
 ### Tasks
 
@@ -1369,7 +1369,7 @@ feat: add optional local Ollama provider
 
 ## M15.3 — Bounded provider fallback
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit pending
 
 ### Example
 
@@ -1381,11 +1381,22 @@ Ollama Cloud
 
 ### Rules
 
-- [ ] Bounded failover.
-- [ ] Không retry storm.
-- [ ] Persist provider used.
-- [ ] Diagnostics hiển thị fallback.
-- [ ] Không gửi incident lặp vô hạn.
+- [x] Bounded failover.
+- [x] Không retry storm.
+- [x] Persist provider used.
+- [x] Diagnostics hiển thị fallback.
+- [x] Không gửi incident lặp vô hạn.
+
+### Local verification — 2026-08-20
+
+```text
+Cloud failure -> local success                      PASS
+One attempt per provider / one completion callback PASS
+Actual provider/model persisted                    PASS
+Fallback diagnostics and sanitized terminal error PASS
+36 executable regression modules                  PASS
+Single worker retained; no dependency/image build PASS
+```
 
 ### Commit
 
@@ -1628,10 +1639,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M15.3 — Bounded provider fallback (not started; begin only in the next requested batch)
+M15.4 — AI evaluation corpus (not started; begin only in the next requested batch)
 ```
 
-M15.2 hoàn tất ở local. Không bắt đầu M15.3 trong cùng batch.
+M15.3 hoàn tất ở local. Không bắt đầu M15.4 trong cùng batch.
 
 ### Success condition
 
@@ -1767,7 +1778,7 @@ git check-ignore .env
 - [x] PDF incident report hoạt động.
 - [x] AI provider abstraction hoàn tất.
 - [x] Local Ollama optional.
-- [ ] Bounded fallback hoạt động.
+- [x] Bounded fallback hoạt động.
 - [ ] AI evaluation corpus pass.
 - [ ] Tag `v0.5.0`.
 
@@ -1811,6 +1822,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-19 | PDF report dùng allowlist từ stored incident và không gọi provider | Reproducible, tránh secrets và tách observed evidence khỏi AI/TI |
 | 2026-08-19 | `AIAnalyst` giữ orchestration, adapter giữ transport | Thêm provider mới mà không đổi result/cache/worker contract |
 | 2026-08-20 | Local Ollama chỉ health-check model đã cài | Không tự tải model hoặc làm tăng dung lượng/CPU ngoài ý muốn |
+| 2026-08-20 | AI fallback chỉ gồm primary + một fallback, mỗi provider một lần | Dùng chung một worker, tránh retry storm và lưu đúng provider đã trả kết quả |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1819,7 +1831,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M15.3 — Bounded provider fallback (not started)
+M15.4 — AI evaluation corpus (not started)
 ```
 
-M15.2 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M15.3 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M15.3 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M15.4 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

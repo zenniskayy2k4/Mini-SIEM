@@ -241,7 +241,7 @@ class AIAnalyst:
         self._executor.shutdown(wait=False)
 
     def health_status(self) -> dict:
-        return {
+        status = {
             "enabled": self._enabled,
             "provider": self._provider,
             "model": self._model,
@@ -251,6 +251,10 @@ class AIAnalyst:
             "busy": self._single_flight.locked(),
             "backlog": 0,
         }
+        diagnostics = self._provider_client.diagnostics()
+        if diagnostics:
+            status["fallback"] = diagnostics
+        return status
 
     # ------------------------------------------------------------------
     # Internal
@@ -366,8 +370,8 @@ class AIAnalyst:
         analysis = self._parse_response(raw_text)
         analysis.setdefault("observed_facts", [])
         analysis.setdefault("analyst_inferences", [])
-        analysis["provider"] = self._provider
-        analysis["model"] = self._model
+        analysis["provider"] = self._provider_client.used_name
+        analysis["model"] = self._provider_client.used_model
         analysis["analysed_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         analysis["cached"]      = False
 

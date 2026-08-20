@@ -80,6 +80,7 @@ def main():
         model=config.OLLAMA_MODEL,
         local_base_url=config.OLLAMA_LOCAL_BASE_URL,
         local_model=config.OLLAMA_LOCAL_MODEL,
+        fallback_name=config.AI_FALLBACK_PROVIDER,
     ))
     geoip_service = None
     if config.GEOIP_ENABLED:
