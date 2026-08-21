@@ -1,12 +1,13 @@
 import json
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
 import dashboard
 from config import config
 from src.audit import verify_audit_log
-from src.dashboard_auth import authenticate, get_user
+from src.dashboard_auth import authenticate, get_user, load_users, save_user, user_auth_version
 from tests.auth_helpers import login_as
 
 
@@ -39,6 +40,7 @@ def test_admin_workspace():
         try:
             admin = dashboard.app.test_client()
             login_as(admin, directory, role="admin", username="soc-admin")
+            assert dashboard.app.config["MAX_CONTENT_LENGTH"] == 2 * 1024 * 1024
             with patch.object(dashboard, "build_system_status", return_value=health):
                 page = admin.get("/settings")
                 assert page.status_code == 200
@@ -70,14 +72,42 @@ def test_admin_workspace():
                 assert created.status_code == 201 and created.get_json() == {
                     "username": "tier-1", "role": "viewer",
                 }
+                tier_one = dashboard.app.test_client()
+                with tier_one.session_transaction() as user_session:
+                    user_session.update(
+                        username="tier-1",
+                        role="viewer",
+                        auth_version=user_auth_version(get_user("tier-1")),
+                        csrf_token="tier-one-csrf",
+                    )
+                assert tier_one.get("/api/admin/workspace").status_code == 403
+                with patch.object(dashboard, "append_audit_event", side_effect=OSError):
+                    assert admin.delete("/api/admin/users/tier-1").status_code == 503
+                assert get_user("tier-1") is not None
                 updated = admin.post("/api/admin/users", json={
                     "username": "tier-1", "password": "second-password-123", "role": "analyst",
                 })
                 assert updated.status_code == 200
                 assert authenticate("tier-1", "second-password-123")[1]["role"] == "analyst"
+                assert tier_one.get("/api/admin/workspace").status_code == 401
                 assert admin.post("/api/admin/users", json={
                     "username": "short", "password": "too-short", "role": "viewer",
                 }).status_code == 400
+                assert admin.post("/api/admin/users", json={
+                    "username": "too-long", "password": "x" * 257, "role": "viewer",
+                }).status_code == 400
+                assert admin.post(
+                    "/api/admin/users",
+                    data=b"x" * (2 * 1024 * 1024 + 1),
+                    content_type="application/json",
+                ).status_code == 413
+                with patch.object(dashboard, "append_audit_event", side_effect=OSError):
+                    assert admin.post("/api/admin/users", json={
+                        "username": "audit-failure",
+                        "password": "audit-failure-password",
+                        "role": "viewer",
+                    }).status_code == 503
+                assert get_user("audit-failure") is None
                 assert admin.post("/api/admin/users", json={
                     "username": "soc-admin", "password": "admin-password-reset", "role": "viewer",
                 }).status_code == 400
@@ -103,6 +133,17 @@ def test_admin_workspace():
             assert analyst.post("/api/admin/users", json={
                 "username": "blocked", "password": "blocked-password-123", "role": "viewer",
             }).status_code == 403
+
+            config.DASHBOARD_USERS_FILE = str(directory / "concurrent-users.json")
+            with patch("src.dashboard_auth.generate_password_hash", side_effect=lambda value: f"hash:{value}"):
+                with ThreadPoolExecutor(max_workers=16) as executor:
+                    list(executor.map(
+                        lambda index: save_user(
+                            f"concurrent-{index}", "concurrent-password", "analyst"
+                        ),
+                        range(40),
+                    ))
+            assert len(load_users()) == 40
         finally:
             (
                 config.DASHBOARD_USERS_FILE,

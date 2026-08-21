@@ -32,6 +32,7 @@ from src.dashboard_auth import (
     record_login_failure,
     role_required,
     save_user,
+    user_auth_version,
 )
 from src.alert_store import (
     add_analyst_note,
@@ -290,7 +291,9 @@ def require_dashboard_authentication():
         return None
     username = session.get("username")
     user = get_user(username) if username else None
-    if not user:
+    if not user or not hmac.compare_digest(
+        str(session.get("auth_version", "")), user_auth_version(user)
+    ):
         session.clear()
         return _auth_error()
     session["role"] = user["role"]
@@ -342,7 +345,12 @@ def login():
     if not destination.startswith("/") or destination.startswith("//"):
         destination = url_for("dashboard")
     session.clear()
-    session.update(username=username, role=user["role"], csrf_token=os.urandom(32).hex())
+    session.update(
+        username=username,
+        role=user["role"],
+        auth_version=user_auth_version(user),
+        csrf_token=os.urandom(32).hex(),
+    )
     session.permanent = True
     append_audit_event("LOGIN", username, role=user["role"])
     return redirect(destination)
@@ -477,17 +485,22 @@ def api_admin_user_save():
     role = str(body.get("role") or "").strip().lower()
     if username == session["username"] and role != "admin":
         return jsonify({"error": "The active admin account cannot be demoted"}), 400
-    existed = get_user(username) is not None
     try:
-        save_user(username, body.get("password"), role)
+        existed = save_user(
+            username,
+            body.get("password"),
+            role,
+            audit=lambda existed: append_audit_event(
+                "USER_UPDATED" if existed else "USER_CREATED",
+                session["username"], role=session.get("role"),
+                target_type="dashboard_user", target_id=username,
+                details={"assigned_role": role},
+            ),
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    append_audit_event(
-        "USER_UPDATED" if existed else "USER_CREATED",
-        session["username"], role=session.get("role"),
-        target_type="dashboard_user", target_id=username,
-        details={"assigned_role": role},
-    )
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
     return jsonify({"username": username, "role": role}), 200 if existed else 201
 
 
@@ -498,15 +511,19 @@ def api_admin_user_delete(username):
     if normalized == session["username"]:
         return jsonify({"error": "The active admin account cannot be deleted"}), 400
     try:
-        deleted = delete_user(normalized)
+        deleted = delete_user(
+            normalized,
+            audit=lambda: append_audit_event(
+                "USER_DELETED", session["username"], role=session.get("role"),
+                target_type="dashboard_user", target_id=normalized,
+            ),
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
     if not deleted:
         return jsonify({"error": "User not found"}), 404
-    append_audit_event(
-        "USER_DELETED", session["username"], role=session.get("role"),
-        target_type="dashboard_user", target_id=normalized,
-    )
     return jsonify({"ok": True})
 
 @app.route("/api/settings/update", methods=["POST"])

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -20,6 +21,9 @@ _USERNAME = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 _DUMMY_HASH = generate_password_hash("not-a-real-password")
 _FAILURES = defaultdict(deque)
 _FAILURE_LOCK = threading.Lock()
+# ponytail: process-local locking fits the single dashboard process; use DB transactions if scaled out.
+_USERS_LOCK = threading.RLock()
+MAX_PASSWORD_LENGTH = 256
 
 
 def _secure_file(path, value):
@@ -45,6 +49,7 @@ def init_auth(app):
         raise RuntimeError("DASHBOARD_SESSION_SECRET must contain at least 32 characters")
     app.config.update(
         SECRET_KEY=secret,
+        MAX_CONTENT_LENGTH=2 * 1024 * 1024,
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Strict",
@@ -53,11 +58,12 @@ def init_auth(app):
 
 
 def load_users():
-    try:
-        payload = json.loads(Path(config.DASHBOARD_USERS_FILE).read_text(encoding="utf-8"))
-        return payload if isinstance(payload, dict) else {}
-    except (OSError, json.JSONDecodeError):
-        return {}
+    with _USERS_LOCK:
+        try:
+            payload = json.loads(Path(config.DASHBOARD_USERS_FILE).read_text(encoding="utf-8"))
+            return payload if isinstance(payload, dict) else {}
+        except (OSError, json.JSONDecodeError):
+            return {}
 
 
 def _write_users(users):
@@ -72,30 +78,52 @@ def _write_users(users):
         pass
 
 
-def save_user(username, password, role):
+def save_user(username, password, role, audit=None):
     username = str(username).strip().lower()
     role = str(role).strip().lower()
     if not _USERNAME.fullmatch(username):
         raise ValueError("Username must contain only letters, numbers, dot, dash or underscore")
     if role not in ROLES:
         raise ValueError("Role must be viewer, analyst or admin")
-    if not isinstance(password, str) or len(password) < 12:
-        raise ValueError("Password must contain at least 12 characters")
-    users = load_users()
-    users[username] = {"password_hash": generate_password_hash(password), "role": role}
-    _write_users(users)
+    if not isinstance(password, str) or not 12 <= len(password) <= MAX_PASSWORD_LENGTH:
+        raise ValueError(f"Password must contain between 12 and {MAX_PASSWORD_LENGTH} characters")
+    with _USERS_LOCK:
+        users = load_users()
+        previous = users.get(username)
+        existed = previous is not None
+        users[username] = {"password_hash": generate_password_hash(password), "role": role}
+        _write_users(users)
+        try:
+            if audit:
+                audit(existed)
+        except Exception as exc:
+            if existed:
+                users[username] = previous
+            else:
+                users.pop(username, None)
+            _write_users(users)
+            raise RuntimeError("User change was rolled back because audit logging failed") from exc
+        return existed
 
 
-def delete_user(username):
+def delete_user(username, audit=None):
     username = str(username).strip().lower()
     if not _USERNAME.fullmatch(username):
         raise ValueError("Invalid username")
-    users = load_users()
-    if username not in users:
-        return False
-    users.pop(username)
-    _write_users(users)
-    return True
+    with _USERS_LOCK:
+        users = load_users()
+        if username not in users:
+            return False
+        previous = users.pop(username)
+        _write_users(users)
+        try:
+            if audit:
+                audit()
+        except Exception as exc:
+            users[username] = previous
+            _write_users(users)
+            raise RuntimeError("User deletion was rolled back because audit logging failed") from exc
+        return True
 
 
 def get_user(username):
@@ -109,6 +137,8 @@ def get_user(username):
 
 def authenticate(username, password):
     username = str(username).strip().lower()
+    if not isinstance(password, str) or len(password) > MAX_PASSWORD_LENGTH:
+        return None, None
     user = get_user(username)
     password_hash = user["password_hash"] if user else _DUMMY_HASH
     try:
@@ -116,6 +146,10 @@ def authenticate(username, password):
     except ValueError:
         valid = False
     return (username, user) if user and valid else (None, None)
+
+
+def user_auth_version(user):
+    return hashlib.sha256(user["password_hash"].encode("utf-8")).hexdigest()
 
 
 def csrf_token():

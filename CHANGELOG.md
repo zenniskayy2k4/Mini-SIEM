@@ -13,6 +13,10 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 - Analyst workspace with human-review, assigned, unassigned, and open-incident queues plus the existing investigation, notes, response proposal, and TI/AI context workflows.
 - Admin workspace with audited user management, runtime and rule controls, health, secret-safe integration readiness, audit-chain verification, and retention/backup status.
 
+### Security
+
+- Dashboard user changes are serialized and audit-safe, password resets revoke existing sessions, and bounded request/password sizes reduce resource-exhaustion risk.
+
 ## [0.5.0] - 2026-08-20
 
 Asset-aware SOC Analytics and Resilient AI release.
