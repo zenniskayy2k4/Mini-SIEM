@@ -234,11 +234,11 @@ For Jira Cloud, select `jira` and configure its project and dedicated account:
 
 ```dotenv
 CASE_EXPORT_PROVIDER=jira
-JIRA_URL=https://example.atlassian.net
-JIRA_USER_EMAIL=analyst@example.com
-JIRA_API_TOKEN=replace-with-an-api-token
-JIRA_PROJECT_KEY=SOC
-JIRA_ISSUE_TYPE=Task
+JIRA_URL=
+JIRA_USER_EMAIL=
+JIRA_API_TOKEN=
+JIRA_PROJECT_KEY=
+JIRA_ISSUE_TYPE=
 ```
 
 The TheHive adapter uses API v1 to find/create cases and validated source-IP observables, mapping detection severity and deterministic risk to severity 1–4. The Jira adapter uses REST v3 enhanced JQL search, a stable incident label, and an Atlassian Document Format description. Provider credentials are used only in authorization headers and are excluded from payloads, stored incidents, UI responses, and audit events. Use least-privilege service accounts and HTTPS. See the [TheHive API documentation](https://docs.strangebee.com/thehive/api-docs/) and [Jira Cloud REST documentation](https://developer.atlassian.com/cloud/jira/platform/rest/v3/intro/).
