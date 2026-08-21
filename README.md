@@ -216,17 +216,29 @@ Optional high-risk notifications can be sent to a generic or Discord webhook. Le
 
 ## External case connector contract
 
-External case export is disabled by default. After TheHive is configured, an authenticated analyst can use **Export to TheHive** in an incident panel or manually `POST /api/alerts/<alert_id>/external-case`; there is no automatic/background export. The shared service passes an allowlisted incident summary, uses `incident_id` as the connector idempotency key, enforces the configured timeout and at most three attempts, stores the returned ID under `external_cases.thehive`, and writes an immutable `CASE_EXPORT` audit event.
+External case export is disabled by default. After one provider is selected and configured, an authenticated analyst can use **Export external case** in an incident panel or manually `POST /api/alerts/<alert_id>/external-case`; there is no automatic/background export. The shared service passes an allowlisted incident summary, uses `incident_id` as the idempotency key, enforces the configured timeout and at most three attempts, stores the returned ID under `external_cases.<provider>`, and writes an immutable `CASE_EXPORT` audit event.
 
 ```dotenv
 CASE_EXPORT_ENABLED=false
+CASE_EXPORT_PROVIDER=thehive
 CASE_EXPORT_TIMEOUT_SECONDS=5
 CASE_EXPORT_MAX_ATTEMPTS=2
 THEHIVE_URL=https://thehive.example
 THEHIVE_API_KEY=replace-with-a-dedicated-api-key
 ```
 
-The adapter uses TheHive API v1 to find or create a uniquely titled case and to add a validated source-IP observable. Detection severity and deterministic risk map to TheHive severity 1–4. The API key is used only in the Bearer header and is excluded from payloads, stored incident data, UI responses, and audit events. Use a least-privilege TheHive service account and HTTPS outside a local trusted network. See the [TheHive API documentation](https://docs.strangebee.com/thehive/api-docs/).
+For Jira Cloud, select `jira` and configure its project and dedicated account:
+
+```dotenv
+CASE_EXPORT_PROVIDER=jira
+JIRA_URL=https://example.atlassian.net
+JIRA_USER_EMAIL=analyst@example.com
+JIRA_API_TOKEN=replace-with-an-api-token
+JIRA_PROJECT_KEY=SOC
+JIRA_ISSUE_TYPE=Task
+```
+
+The TheHive adapter uses API v1 to find/create cases and validated source-IP observables, mapping detection severity and deterministic risk to severity 1–4. The Jira adapter uses REST v3 enhanced JQL search, a stable incident label, and an Atlassian Document Format description. Provider credentials are used only in authorization headers and are excluded from payloads, stored incidents, UI responses, and audit events. Use least-privilege service accounts and HTTPS. See the [TheHive API documentation](https://docs.strangebee.com/thehive/api-docs/) and [Jira Cloud REST documentation](https://developer.atlassian.com/cloud/jira/platform/rest/v3/intro/).
 
 ## Windows and Sysmon collection
 

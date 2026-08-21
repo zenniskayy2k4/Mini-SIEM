@@ -16,6 +16,7 @@ from src.audit import append_audit_event
 from src.case_connector import CaseExportService
 from src.health import build_system_status
 from src.incident_report import generate_incident_pdf
+from src.jira import JiraConnector
 from src.metrics import metrics_unavailable, render_prometheus_metrics
 from src.dashboard_auth import (
     authenticate,
@@ -53,12 +54,19 @@ DETECTION_RULES = load_detection_rules(
 SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
 RULES_LOADED_AT = utc_iso()
 asset_repository = SQLiteAssetRepository()
-thehive_connector = (
-    TheHiveConnector(config.THEHIVE_URL, config.THEHIVE_API_KEY)
-    if config.THEHIVE_URL and config.THEHIVE_API_KEY else None
-)
+case_connector = None
+if config.CASE_EXPORT_PROVIDER == "thehive" and config.THEHIVE_URL and config.THEHIVE_API_KEY:
+    case_connector = TheHiveConnector(config.THEHIVE_URL, config.THEHIVE_API_KEY)
+elif config.CASE_EXPORT_PROVIDER == "jira" and all((
+    config.JIRA_URL, config.JIRA_USER_EMAIL,
+    config.JIRA_API_TOKEN, config.JIRA_PROJECT_KEY,
+)):
+    case_connector = JiraConnector(
+        config.JIRA_URL, config.JIRA_USER_EMAIL, config.JIRA_API_TOKEN,
+        config.JIRA_PROJECT_KEY, config.JIRA_ISSUE_TYPE,
+    )
 case_export_service = CaseExportService(
-    thehive_connector,
+    case_connector,
     enabled=config.CASE_EXPORT_ENABLED,
     timeout_seconds=config.CASE_EXPORT_TIMEOUT_SECONDS,
     max_attempts=config.CASE_EXPORT_MAX_ATTEMPTS,

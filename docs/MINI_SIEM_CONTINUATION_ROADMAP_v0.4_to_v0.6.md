@@ -102,7 +102,7 @@ M18 — Multi-tenant Architecture
 | M13 | Asset Inventory & Risk Context | v0.5.0 | ✅ Complete |
 | M14 | Reporting & Observability | v0.5.0 | ✅ Complete |
 | M15 | AI Resilience & Provider Abstraction | v0.5.0 | ✅ Complete |
-| M16 | External Case Management | v0.6.0 | 🟠 In Progress |
+| M16 | External Case Management | v0.6.0 | ✅ Complete |
 | M17 | Role-specific SOC Workspace | v0.6.0 | ⬜ |
 | M18 | Multi-tenant Architecture | Future | ⬜ |
 
@@ -1532,7 +1532,7 @@ refactor: add external case connector interface
 
 ## M16.2 — TheHive
 
-**Status:** ✅ Complete — local verification passed; commit pending
+**Status:** ✅ Complete — commit `3993012`; CI run `32476255852` passed
 
 - [x] Manual create case.
 - [x] Map severity/risk.
@@ -1566,14 +1566,30 @@ feat: add TheHive case export integration
 
 ## M16.3 — Jira
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit pending
 
-- [ ] Manual create issue.
-- [ ] Config project/key.
-- [ ] Map title/description/labels.
-- [ ] Store issue key.
-- [ ] Prevent duplicate export.
-- [ ] Audit.
+- [x] Manual create issue.
+- [x] Config project/key.
+- [x] Map title/description/labels.
+- [x] Store issue key.
+- [x] Prevent duplicate export.
+- [x] Audit.
+
+### Local verification — 2026-08-21
+
+| Check | Result |
+|---|:---:|
+| Manual shared dashboard/API export | PASS |
+| Explicit TheHive/Jira provider selection | PASS |
+| Jira Cloud REST v3 create/update contract | PASS |
+| Project, issue type, summary, ADF description and labels | PASS |
+| Stable incident-label JQL duplicate lookup | PASS |
+| Jira issue key stored under `external_cases.jira` | PASS |
+| Immutable exported/deduplicated audit events | PASS |
+| Raw logs, analyst notes and API token excluded | PASS |
+| 40 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Fixture transport only; no live Jira call or image build | PASS |
 
 ### Commit
 
@@ -1695,10 +1711,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M16.3 — Jira (not started; begin only in the next requested batch)
+M17.1 — Viewer workspace (not started; begin only in the next requested batch)
 ```
 
-M16.2 hoàn tất ở local. Không bắt đầu M16.3 trong cùng batch.
+M16 hoàn tất ở local. Không bắt đầu M17.1 trong cùng batch.
 
 ### Success condition
 
@@ -1883,6 +1899,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-20 | `v0.5.0` chốt M13–M15 | Asset-aware risk, observability/reporting và resilient AI đã qua release gate |
 | 2026-08-20 | External case export chỉ chạy thủ công qua connector mặc định tắt | Tránh tự động gửi incident; giữ timeout/retry/idempotency/audit ở một service dùng chung |
 | 2026-08-20 | TheHive dùng API v1 trực tiếp qua dependency HTTP sẵn có | Không thêm SDK; giữ mapping, observable, dedupe và secret boundary nhỏ, dễ kiểm thử offline |
+| 2026-08-21 | Jira dùng REST v3 và ADF qua dependency HTTP sẵn có | Không thêm SDK; provider được chọn tường minh và incident label giữ remote dedupe ổn định |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1891,7 +1908,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M16.3 — Jira (not started)
+M17.1 — Viewer workspace (not started)
 ```
 
-M16.2 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M16.3 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M16.3 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M17.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

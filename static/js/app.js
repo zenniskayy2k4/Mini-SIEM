@@ -1113,12 +1113,14 @@ function renderThreatIntelProvider(entry, alert) {
 function renderIncidentPanel(alert) {
   if (!alert.incident_id) return "";
   const canMutate = ["analyst", "admin"].includes(CURRENT_ROLE);
-  const theHiveCase = alert.external_cases?.thehive;
-  const caseExport = theHiveCase?.external_id
-    ? `<span class="incident-status">TheHive ${escapeHTML(theHiveCase.external_id)}</span>`
-    : canMutate
-      ? `<button class="btn btn-ghost incident-case-export-btn" type="button">Export to TheHive</button>`
-      : "";
+  const externalCases = Object.entries(alert.external_cases || {})
+    .filter(([, record]) => record?.external_id)
+    .map(([provider, record]) => `<span class="incident-status">` +
+      `${provider === "thehive" ? "TheHive" : provider === "jira" ? "Jira" : "External"} ` +
+      `${escapeHTML(record.external_id)}</span>`).join("");
+  const caseExport = canMutate
+    ? `<button class="btn btn-ghost incident-case-export-btn" type="button">Export external case</button>`
+    : "";
 
   const statuses = ["NEW", "INVESTIGATING", "CONTAINED", "RESOLVED", "FALSE_POSITIVE"];
   const statusButtons = canMutate ? statuses.map((status) => `
@@ -1156,7 +1158,7 @@ function renderIncidentPanel(alert) {
           <a class="btn btn-ghost" href="/api/alerts/${encodeURIComponent(alert.alert_id)}/report.pdf" download>
             <i class="fa-solid fa-file-pdf"></i> PDF report
           </a>
-          ${caseExport}
+          ${externalCases}${caseExport}
           <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
         </div>
       </div>
@@ -1227,7 +1229,8 @@ function bindIncidentActions(row, alert) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || result.status || "Case export failed");
-      button.textContent = `TheHive ${result.external_id}`;
+      const provider = result.provider === "thehive" ? "TheHive" : result.provider === "jira" ? "Jira" : "External";
+      button.textContent = `${provider} ${result.external_id}`;
     } catch (requestError) {
       error.textContent = requestError.message || "Case export failed";
       button.disabled = false;
