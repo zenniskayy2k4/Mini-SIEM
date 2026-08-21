@@ -200,11 +200,13 @@ Levels are `LOW` below 25, `MEDIUM` from 25, `HIGH` from 50, and `CRITICAL` from
 
 | Role | Access |
 |---|---|
-| `viewer` | View alerts, incidents, graphs, logs, and diagnostics |
+| `viewer` | Read-only workspace with alerts, incident status, SOC metrics, rule coverage, graphs, and logs |
 | `analyst` | Viewer access plus incident status, assignee, notes, and response workflow |
 | `admin` | Analyst access plus settings, rule administration, diagnostics, and maintenance-sensitive controls |
 
 Sessions use HTTP-only cookies, server-side role checks, CSRF protection for mutations, and an append-only analyst audit log. Set `DASHBOARD_SESSION_SECRET` explicitly for stable deployments and enable `DASHBOARD_COOKIE_SECURE=true` only behind HTTPS.
+
+Viewer accounts land on a read-only overview that reuses the same bounded alert, KPI, and coverage APIs as the other workspaces. Mutation controls are omitted in the browser and analyst/admin authorization remains enforced on every mutation endpoint, so hiding controls is not the security boundary.
 
 ## Response safety
 

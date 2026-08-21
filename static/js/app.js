@@ -11,6 +11,21 @@ const API_ASSETS = "/api/assets";
 const API_ANALYTICS = "/api/analytics/kpis";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
 const CURRENT_ROLE = document.querySelector('meta[name="current-role"]')?.content || "";
+const SOC_METRIC_FORMATS = {
+  mttd_seconds: "duration", mtta_seconds: "duration", mttr_seconds: "duration",
+  false_positive_rate_percent: "percent", human_review_rate_percent: "percent",
+  ai_enrichment_success_rate_percent: "percent",
+};
+
+function formatSocMetric(key, metric) {
+  if (!metric?.available) return "Insufficient data";
+  if (SOC_METRIC_FORMATS[key] === "percent") return `${metric.value}%`;
+  if (SOC_METRIC_FORMATS[key] === "duration") {
+    const seconds = Math.round(metric.value);
+    return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
+  }
+  return Number(metric.value).toLocaleString();
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   const path = window.location.pathname;
@@ -31,22 +46,6 @@ function initAnalytics() {
   let charts = [];
 
   const colors = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#ef4444", "#38bdf8"];
-  const metricFormats = {
-    mttd_seconds: "duration", mtta_seconds: "duration", mttr_seconds: "duration",
-    false_positive_rate_percent: "percent", human_review_rate_percent: "percent",
-    ai_enrichment_success_rate_percent: "percent",
-  };
-
-  function formatMetric(key, metric) {
-    if (!metric?.available) return "Insufficient data";
-    if (metricFormats[key] === "percent") return `${metric.value}%`;
-    if (metricFormats[key] === "duration") {
-      const seconds = Math.round(metric.value);
-      return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
-    }
-    return Number(metric.value).toLocaleString();
-  }
-
   function chart(id, type, labels, values, label, options = {}) {
     const canvas = document.getElementById(id);
     if (!canvas) return;
@@ -70,7 +69,7 @@ function initAnalytics() {
       if (key === "alerts_per_rule") return;
       const value = document.getElementById(`kpi-${key}`);
       const sample = document.getElementById(`sample-${key}`);
-      if (value) value.textContent = formatMetric(key, metric);
+      if (value) value.textContent = formatSocMetric(key, metric);
       if (sample) sample.textContent = metric.available ? `Sample: ${metric.sample_size}` : "No qualifying samples";
     });
     document.getElementById("analytics-period").textContent =
@@ -739,6 +738,7 @@ function initDashboard() {
                 <td style="font-weight:bold">${escapeHTML(alert.alert_name || "")}</td>
                 <td class="font-mono">${escapeHTML(alert.rule_id || "-")}</td>
                 <td><span style="color:${getColor(alert.severity)}">${escapeHTML(alert.severity || "")}</span></td>
+                <td><span class="incident-status">${escapeHTML(alert.incident_status || "-")}</span></td>
                 <td>${escapeHTML(alert.ip_address || "N/A")}</td>
                 <td>${renderAssetReference(alert.asset_id)}</td>
               </tr>`;
@@ -782,6 +782,26 @@ function initDashboard() {
   // Stats refresh stays frequent; graph refresh is separate
   setInterval(updateDashboard, 3000);
   updateDashboard();
+
+  function updateViewerKpis() {
+    const root = document.getElementById("viewer-kpis");
+    if (!root) return;
+    const status = document.getElementById("viewer-kpi-status");
+    fetch(API_ANALYTICS, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("SOC metrics unavailable")))
+      .then((payload) => {
+        Object.entries(payload.kpis || {}).forEach(([key, metric]) => {
+          const value = document.getElementById(`viewer-kpi-${key}`);
+          const sample = document.getElementById(`viewer-sample-${key}`);
+          if (value) value.textContent = formatSocMetric(key, metric);
+          if (sample) sample.textContent = metric.available ? `Sample: ${metric.sample_size}` : "No qualifying samples";
+        });
+        status.textContent = "";
+      })
+      .catch((error) => { status.textContent = error.message; });
+  }
+  updateViewerKpis();
+  if (document.getElementById("viewer-kpis")) setInterval(updateViewerKpis, 60000);
 
   loadGraphSettings();
 

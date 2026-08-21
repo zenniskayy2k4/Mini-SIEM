@@ -103,7 +103,7 @@ M18 — Multi-tenant Architecture
 | M14 | Reporting & Observability | v0.5.0 | ✅ Complete |
 | M15 | AI Resilience & Provider Abstraction | v0.5.0 | ✅ Complete |
 | M16 | External Case Management | v0.6.0 | ✅ Complete |
-| M17 | Role-specific SOC Workspace | v0.6.0 | ⬜ |
+| M17 | Role-specific SOC Workspace | v0.6.0 | 🟠 In Progress |
 | M18 | Multi-tenant Architecture | Future | ⬜ |
 
 ---
@@ -1566,7 +1566,7 @@ feat: add TheHive case export integration
 
 ## M16.3 — Jira
 
-**Status:** ✅ Complete — local verification passed; commit pending
+**Status:** ✅ Complete — commit `ab1e9a1`; CI run `32477046723` passed
 
 - [x] Manual create issue.
 - [x] Config project/key.
@@ -1603,13 +1603,35 @@ feat: add Jira incident export integration
 
 ## M17.1 — Viewer workspace
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit pending
 
-- Read-only alerts.
-- SOC metrics.
-- Rule coverage.
-- Incident status.
-- No mutation controls.
+- [x] Read-only alerts.
+- [x] SOC metrics.
+- [x] Rule coverage.
+- [x] Incident status.
+- [x] No mutation controls.
+
+### Local verification — 2026-08-21
+
+| Check | Result |
+|---|:---:|
+| Viewer-specific read-only workspace heading | PASS |
+| 24-hour MTTD/MTTA/MTTR and incident KPIs | PASS |
+| Recent alerts include incident status | PASS |
+| Detection coverage remains visible | PASS |
+| Admin navigation omitted | PASS |
+| Alert/search/stats/coverage/KPI read APIs | PASS |
+| Notes/status/assignment/response/export/settings mutations return 403 | PASS |
+| Stored incident remains unchanged after denied mutations | PASS |
+| 41 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| No dependency, external call or image build | PASS |
+
+### Commit
+
+```text
+feat: add viewer SOC workspace
+```
 
 ## M17.2 — Analyst workspace
 
@@ -1711,10 +1733,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M17.1 — Viewer workspace (not started; begin only in the next requested batch)
+M17.2 — Analyst workspace (not started; begin only in the next requested batch)
 ```
 
-M16 hoàn tất ở local. Không bắt đầu M17.1 trong cùng batch.
+M17.1 hoàn tất ở local. Không bắt đầu M17.2 trong cùng batch.
 
 ### Success condition
 
@@ -1900,6 +1922,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-20 | External case export chỉ chạy thủ công qua connector mặc định tắt | Tránh tự động gửi incident; giữ timeout/retry/idempotency/audit ở một service dùng chung |
 | 2026-08-20 | TheHive dùng API v1 trực tiếp qua dependency HTTP sẵn có | Không thêm SDK; giữ mapping, observable, dedupe và secret boundary nhỏ, dễ kiểm thử offline |
 | 2026-08-21 | Jira dùng REST v3 và ADF qua dependency HTTP sẵn có | Không thêm SDK; provider được chọn tường minh và incident label giữ remote dedupe ổn định |
+| 2026-08-21 | Viewer workspace tái sử dụng read APIs và server-side RBAC hiện có | Tránh API/route song song; UI read-only không thay thế authorization boundary |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1908,7 +1931,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M17.1 — Viewer workspace (not started)
+M17.2 — Analyst workspace (not started)
 ```
 
-M16.3 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M17.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M17.1 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M17.2 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

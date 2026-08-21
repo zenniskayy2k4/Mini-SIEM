@@ -9,6 +9,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 - Disabled-by-default external case connector contract with manual analyst export, allowlisted payloads, bounded timeout/retries, persisted external IDs, idempotency, and immutable audit events.
 - Optional TheHive 5 API v1 export with deterministic severity/risk mapping, IP observables, remote/local duplicate suppression, stored case IDs, and a manual dashboard action.
 - Optional Jira Cloud REST v3 export with provider selection, ADF descriptions, deterministic labels, remote/local duplicate suppression, stored issue keys, and immutable audit events.
+- Read-only viewer workspace with 24-hour SOC KPIs, alert and incident visibility, detection coverage, role-aware navigation, and server-enforced mutation denial.
 
 ## [0.5.0] - 2026-08-20
 
