@@ -7,6 +7,8 @@ const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
 const API_DETECTION_RULES = "/api/detection-rules";
+const API_ADMIN_WORKSPACE = "/api/admin/workspace";
+const API_ADMIN_USERS = "/api/admin/users";
 const API_ASSETS = "/api/assets";
 const API_ANALYTICS = "/api/analytics/kpis";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
@@ -103,6 +105,118 @@ function initAnalytics() {
 // --- SETTINGS PAGE LOGIC ---
 function initSettings() {
   const elStatus = document.getElementById("settings-save-status");
+  const userForm = document.getElementById("admin-user-form");
+  const userBody = document.getElementById("admin-users-body");
+  const userStatus = document.getElementById("admin-user-status");
+
+  const formatBytes = (value) => {
+    const bytes = Number(value || 0);
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KiB`;
+    return `${(bytes / 1048576).toFixed(1)} MiB`;
+  };
+
+  function adminState(value) {
+    return `admin-state-${String(value || "unknown").replace(/[^a-z_]/gi, "_").toLowerCase()}`;
+  }
+
+  function renderAdminWorkspace(data) {
+    const health = data.health || {};
+    const agent = health.agent || {};
+    const database = health.database || {};
+    const queue = health.queue || {};
+    const summaries = {
+      "admin-health-platform": health.status || "unknown",
+      "admin-health-agent": `${agent.status || "unknown"}${agent.age_seconds == null ? "" : ` · ${agent.age_seconds}s`}`,
+      "admin-health-database": `${database.status || "unknown"} · ${database.check || "not checked"}`,
+      "admin-health-ai": `${queue.busy ? "busy" : "idle"} · backlog ${queue.backlog || 0}`,
+    };
+    Object.entries(summaries).forEach(([id, value]) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    });
+
+    const integrations = document.getElementById("admin-integrations");
+    if (integrations) integrations.innerHTML = (data.integrations || []).map((item) => `
+      <div class="admin-status-row">
+        <strong>${escapeHTML(item.name)}</strong>
+        <span><b class="${adminState(item.status)}">${escapeHTML(item.status)}</b><br>${escapeHTML(item.detail)}</span>
+      </div>`).join("") || "No integration status available.";
+
+    const audit = data.audit || {};
+    const auditState = document.getElementById("admin-audit-state");
+    const auditDetail = document.getElementById("admin-audit-detail");
+    if (auditState) {
+      auditState.className = audit.valid ? "admin-state-valid" : "admin-state-unhealthy";
+      auditState.textContent = audit.valid ? "VALID" : "INVALID";
+    }
+    if (auditDetail) auditDetail.textContent = `${audit.message || "Audit unavailable"} · ${audit.events || 0} events`;
+
+    const maintenance = data.maintenance || {};
+    const maintenanceElement = document.getElementById("admin-maintenance");
+    if (maintenanceElement) maintenanceElement.innerHTML = [
+      ["Retention", `${maintenance.retention_days || 0} days`],
+      ["Database", `${maintenance.database?.exists ? "available" : "missing"} · ${formatBytes(maintenance.database?.size_bytes)}`],
+      ["Backups", `${maintenance.backups?.count || 0} · latest ${maintenance.backups?.latest_at || "never"}`],
+      ["Archives", `${maintenance.archives?.count || 0} · latest ${maintenance.archives?.latest_at || "never"}`],
+      ["Log rotation", `${formatBytes(maintenance.log_rotate_max_bytes)} · ${maintenance.log_rotate_backups || 0} copies`],
+    ].map(([label, value]) => `<div class="admin-status-row"><strong>${label}</strong><span>${escapeHTML(value)}</span></div>`).join("");
+
+    if (userBody) userBody.innerHTML = (data.users || []).map((user) => `
+      <tr>
+        <td>${escapeHTML(user.username)}</td>
+        <td>${escapeHTML(user.role)}</td>
+        <td><button class="btn btn-ghost admin-user-delete" type="button" data-username="${escapeAttr(user.username)}"
+          ${user.username === data.current_username ? "disabled" : ""}>Delete</button></td>
+      </tr>`).join("");
+  }
+
+  function loadAdminWorkspace() {
+    return fetch(API_ADMIN_WORKSPACE, { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Admin workspace unavailable");
+        renderAdminWorkspace(data);
+      })
+      .catch((error) => { if (userStatus) userStatus.textContent = error.message; });
+  }
+
+  userForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const body = {
+      username: document.getElementById("admin-user-name").value,
+      password: document.getElementById("admin-user-password").value,
+      role: document.getElementById("admin-user-role").value,
+    };
+    userStatus.textContent = "Saving user...";
+    fetch(API_ADMIN_USERS, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify(body),
+    }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "User update failed");
+      userForm.reset();
+      userStatus.textContent = `${data.username} saved.`;
+      return loadAdminWorkspace();
+    }).catch((error) => { userStatus.textContent = error.message; });
+  });
+
+  userBody?.addEventListener("click", (event) => {
+    const button = event.target.closest(".admin-user-delete");
+    if (!button || !window.confirm(`Delete ${button.dataset.username}?`)) return;
+    button.disabled = true;
+    fetch(`${API_ADMIN_USERS}/${encodeURIComponent(button.dataset.username)}`, {
+      method: "DELETE", headers: { "X-CSRF-Token": CSRF_TOKEN },
+    }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "User deletion failed");
+      userStatus.textContent = `${button.dataset.username} deleted.`;
+      return loadAdminWorkspace();
+    }).catch((error) => { userStatus.textContent = error.message; button.disabled = false; });
+  });
+
+  loadAdminWorkspace();
 
   const elNids = document.getElementById("set-nids-enabled");
   const elHp = document.getElementById("set-honeypot-enabled");

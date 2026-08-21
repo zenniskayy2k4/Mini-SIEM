@@ -60,19 +60,9 @@ def load_users():
         return {}
 
 
-def save_user(username, password, role):
-    username = str(username).strip().lower()
-    role = str(role).strip().lower()
-    if not _USERNAME.fullmatch(username):
-        raise ValueError("Username must contain only letters, numbers, dot, dash or underscore")
-    if role not in ROLES:
-        raise ValueError("Role must be viewer, analyst or admin")
-    if len(password) < 12:
-        raise ValueError("Password must contain at least 12 characters")
+def _write_users(users):
     path = Path(config.DASHBOARD_USERS_FILE)
     path.parent.mkdir(parents=True, exist_ok=True)
-    users = load_users()
-    users[username] = {"password_hash": generate_password_hash(password), "role": role}
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(users, indent=2, sort_keys=True), encoding="utf-8")
     os.replace(temporary, path)
@@ -80,6 +70,32 @@ def save_user(username, password, role):
         os.chmod(path, 0o600)
     except OSError:
         pass
+
+
+def save_user(username, password, role):
+    username = str(username).strip().lower()
+    role = str(role).strip().lower()
+    if not _USERNAME.fullmatch(username):
+        raise ValueError("Username must contain only letters, numbers, dot, dash or underscore")
+    if role not in ROLES:
+        raise ValueError("Role must be viewer, analyst or admin")
+    if not isinstance(password, str) or len(password) < 12:
+        raise ValueError("Password must contain at least 12 characters")
+    users = load_users()
+    users[username] = {"password_hash": generate_password_hash(password), "role": role}
+    _write_users(users)
+
+
+def delete_user(username):
+    username = str(username).strip().lower()
+    if not _USERNAME.fullmatch(username):
+        raise ValueError("Invalid username")
+    users = load_users()
+    if username not in users:
+        return False
+    users.pop(username)
+    _write_users(users)
+    return True
 
 
 def get_user(username):

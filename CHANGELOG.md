@@ -11,6 +11,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 - Optional Jira Cloud REST v3 export with provider selection, ADF descriptions, deterministic labels, remote/local duplicate suppression, stored issue keys, and immutable audit events.
 - Read-only viewer workspace with 24-hour SOC KPIs, alert and incident visibility, detection coverage, role-aware navigation, and server-enforced mutation denial.
 - Analyst workspace with human-review, assigned, unassigned, and open-incident queues plus the existing investigation, notes, response proposal, and TI/AI context workflows.
+- Admin workspace with audited user management, runtime and rule controls, health, secret-safe integration readiness, audit-chain verification, and retention/backup status.
 
 ## [0.5.0] - 2026-08-20
 

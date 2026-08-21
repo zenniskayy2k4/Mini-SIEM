@@ -1,10 +1,78 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="page-header">
-    <h2><i class="fa-solid fa-sliders"></i> System Configuration</h2>
+    <div>
+        <h2><i class="fa-solid fa-user-shield"></i> Admin workspace</h2>
+        <p class="workspace-subtitle">Manage access, runtime controls, integrations, integrity, and operational readiness.</p>
+    </div>
 </div>
 
-<div class="settings-container">
+<div class="admin-overview" aria-label="System health summary">
+    <article class="settings-card admin-overview-card">
+        <span>Platform</span><strong id="admin-health-platform">Loading...</strong>
+    </article>
+    <article class="settings-card admin-overview-card">
+        <span>Agent</span><strong id="admin-health-agent">Loading...</strong>
+    </article>
+    <article class="settings-card admin-overview-card">
+        <span>Database</span><strong id="admin-health-database">Loading...</strong>
+    </article>
+    <article class="settings-card admin-overview-card">
+        <span>AI queue</span><strong id="admin-health-ai">Loading...</strong>
+    </article>
+</div>
+
+<div class="settings-container admin-settings-container">
+
+    <div class="settings-card admin-wide-card">
+        <h3><i class="fa-solid fa-users-gear"></i> User Management</h3>
+        <form id="admin-user-form" class="admin-user-form">
+            <div>
+                <label class="input-label" for="admin-user-name">Username</label>
+                <input id="admin-user-name" class="styled-input" maxlength="64" required autocomplete="off">
+            </div>
+            <div>
+                <label class="input-label" for="admin-user-password">New password</label>
+                <input id="admin-user-password" class="styled-input" type="password" minlength="12" required autocomplete="new-password">
+            </div>
+            <div>
+                <label class="input-label" for="admin-user-role">Role</label>
+                <select id="admin-user-role" class="styled-input">
+                    <option value="viewer">Viewer</option>
+                    <option value="analyst">Analyst</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Create / reset</button>
+        </form>
+        <p class="admin-action-status muted" id="admin-user-status" role="status"></p>
+        <div class="table-responsive">
+            <table class="mini-table admin-users-table">
+                <thead><tr><th>Username</th><th>Role</th><th>Action</th></tr></thead>
+                <tbody id="admin-users-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="settings-card">
+        <h3><i class="fa-solid fa-plug-circle-check"></i> Integrations</h3>
+        <div id="admin-integrations" class="admin-status-list">Loading integrations...</div>
+    </div>
+
+    <div class="settings-card">
+        <h3><i class="fa-solid fa-link"></i> Audit Integrity</h3>
+        <div class="setting-item">
+            <div class="setting-info">
+                <label id="admin-audit-state">Loading...</label>
+                <p id="admin-audit-detail">Verifying hash chain.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-card">
+        <h3><i class="fa-solid fa-box-archive"></i> Retention & Backup</h3>
+        <div id="admin-maintenance" class="admin-status-list">Loading maintenance status...</div>
+    </div>
 
     <!-- Card 1: Sensors -->
     <div class="settings-card">
@@ -96,7 +164,7 @@
         </div>
     </div>
 
-    <div class="settings-card" style="grid-column:1 / -1;">
+    <div class="settings-card admin-wide-card">
         <h3><i class="fa-solid fa-shield-halved"></i> Detection Rules</h3>
         <div class="muted" id="rule-lifecycle-status">Loading rules...</div>
         <div class="table-responsive" style="margin-top:10px;">

@@ -25,7 +25,7 @@ Current release: **v0.5.0** — see the [changelog](CHANGELOG.md) and [release c
 - SQLite as the primary alert store, with JSON dual-write/fallback during migration.
 - Admin-only asset inventory with validated CRUD, hostname/IP lookup, alert links, filters, criticality, ownership, tags, and immutable audit events.
 - Incident lifecycle, notes, assignee, timeline, audit trail, role-based access, and CSRF protection.
-- Role-focused workspaces: read-only viewer KPIs and analyst queues for human review, active assignments, investigation, and response proposals.
+- Role-focused workspaces: read-only viewer KPIs, analyst investigation queues, and an admin control/status workspace.
 - Proposed response actions, approvals, simulation, rollback metadata, and optional webhook notifications.
 - Normalized GeoIP, optional AbuseIPDB/VirusTotal metadata, and offline STIX/TAXII indicator matching.
 - Health/status diagnostics, retention, SQLite backup, and log rotation tooling.

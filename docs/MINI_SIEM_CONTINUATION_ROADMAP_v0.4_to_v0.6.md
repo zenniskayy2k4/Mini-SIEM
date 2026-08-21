@@ -1635,7 +1635,7 @@ feat: add viewer SOC workspace
 
 ## M17.2 — Analyst workspace
 
-**Status:** ✅ Complete — local verification passed; commit pending
+**Status:** ✅ Complete — commit `d7fc1b3`; CI `32482334641` passed
 
 - [x] Human-review queue.
 - [x] Assigned incidents.
@@ -1669,15 +1669,34 @@ feat: add analyst SOC workspace
 
 ## M17.3 — Admin workspace
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit pending
 
-- User management.
-- Runtime settings.
-- Rule/Sigma management.
-- Health.
-- Integrations.
-- Audit verification.
-- Retention/backup status.
+- [x] User management.
+- [x] Runtime settings.
+- [x] Rule/Sigma management.
+- [x] Health.
+- [x] Integrations.
+- [x] Audit verification.
+- [x] Retention/backup status.
+
+### Local verification — 2026-08-21
+
+| Check | Result |
+|---|:---:|
+| Responsive admin-specific workspace | PASS |
+| Admin-only user create/reset/delete | PASS |
+| Active admin cannot self-demote or self-delete | PASS |
+| User changes append secret-free hash-chain audit events | PASS |
+| Runtime sensor and graph controls remain available | PASS |
+| Native/Sigma rule lifecycle remains available | PASS |
+| Platform, agent, database and AI queue health | PASS |
+| Secret-free integration readiness | PASS |
+| Audit-chain verification and event count | PASS |
+| Retention, database, backup, archive and rotation status | PASS |
+| Analyst access to admin APIs returns 403 | PASS |
+| 43 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| No dependency, external call or image build | PASS |
 
 ### Commit
 
@@ -1756,10 +1775,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M17.3 — Admin workspace (not started; begin only in the next requested batch)
+M17.4 — Release v0.6.0 (not started; begin only in the next requested batch)
 ```
 
-M17.2 hoàn tất ở local. Không bắt đầu M17.3 trong cùng batch.
+M17.3 hoàn tất ở local. Không bắt đầu M17.4 trong cùng batch.
 
 ### Success condition
 
@@ -1947,6 +1966,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-21 | Jira dùng REST v3 và ADF qua dependency HTTP sẵn có | Không thêm SDK; provider được chọn tường minh và incident label giữ remote dedupe ổn định |
 | 2026-08-21 | Viewer workspace tái sử dụng read APIs và server-side RBAC hiện có | Tránh API/route song song; UI read-only không thay thế authorization boundary |
 | 2026-08-21 | Analyst workspace mở rộng bộ lọc Logs hiện có | Giữ một incident panel chung cho triage, note, response và TI/AI; không tạo API/route song song |
+| 2026-08-21 | Admin workspace tổng hợp trạng thái từ auth, health, audit và maintenance hiện có | Một control plane nhỏ, không thêm secret store hoặc maintenance executor qua web |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1955,7 +1975,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M17.3 — Admin workspace (not started)
+M17.4 — Release v0.6.0 (not started)
 ```
 
-M17.2 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M17.3 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M17.3 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M17.4 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

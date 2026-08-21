@@ -6,13 +6,14 @@ from collections import defaultdict
 from io import BytesIO
 import hashlib
 import re
+from pathlib import Path
 
 from flask import Flask, render_template, jsonify, redirect, request, send_file, session, url_for
 
 from config import config
 from src.alert_schema import INCIDENT_STATUSES, utc_iso
 from src.assets import CRITICALITIES, ENVIRONMENTS, build_asset
-from src.audit import append_audit_event
+from src.audit import append_audit_event, verify_audit_log
 from src.case_connector import CaseExportService
 from src.health import build_system_status
 from src.incident_report import generate_incident_pdf
@@ -23,11 +24,14 @@ from src.dashboard_auth import (
     clear_login_failures,
     csrf_token,
     csrf_valid,
+    delete_user,
     get_user,
     init_auth,
     login_allowed,
+    load_users,
     record_login_failure,
     role_required,
+    save_user,
 )
 from src.alert_store import (
     add_analyst_note,
@@ -155,6 +159,99 @@ def _detection_rule_records() -> list[dict]:
         "never_hit": int(counts.get(rule["id"], 0)) == 0,
         "skip_reason": rule.get("skip_reason"),
     } for rule in rules]
+
+
+def _directory_status(path, pattern):
+    try:
+        files = sorted(
+            (item for item in Path(path).glob(pattern) if item.is_file()),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        )
+        latest = files[0] if files else None
+        return {
+            "count": len(files),
+            "latest": latest.name if latest else None,
+            "latest_at": utc_iso(datetime.fromtimestamp(latest.stat().st_mtime, timezone.utc)) if latest else None,
+        }
+    except OSError as exc:
+        return {"count": 0, "latest": None, "latest_at": None, "error": type(exc).__name__}
+
+
+def _admin_workspace_payload():
+    health = build_system_status(_effective_settings())
+    audit_valid, audit_message = verify_audit_log()
+    try:
+        with Path(config.ANALYST_AUDIT_FILE).open(encoding="utf-8") as audit_file:
+            audit_events = sum(1 for line in audit_file if line.strip())
+    except OSError:
+        audit_events = 0
+    database = Path(config.SQLITE_ALERT_DB)
+    try:
+        database_status = {
+            "exists": database.is_file(),
+            "size_bytes": database.stat().st_size if database.is_file() else 0,
+        }
+    except OSError as exc:
+        database_status = {"exists": False, "size_bytes": 0, "error": type(exc).__name__}
+    users = [
+        {"username": username, "role": record.get("role")}
+        for username, record in sorted(load_users().items())
+        if isinstance(record, dict) and record.get("role") in {"viewer", "analyst", "admin"}
+    ]
+    ai = health.get("ai") or {}
+    ti_providers = [
+        name for name, configured in (
+            ("GeoIP", config.GEOIP_ENABLED),
+            ("AbuseIPDB", bool(config.ABUSEIPDB_API_KEY)),
+            ("VirusTotal", bool(config.VIRUSTOTAL_API_KEY)),
+            ("STIX", bool(config.STIX_BUNDLE_FILE)),
+            ("TAXII", bool(config.TAXII_COLLECTION_URL)),
+        ) if configured
+    ]
+    external_ready = case_connector is not None
+    integrations = [
+        {
+            "name": "External case",
+            "status": "ready" if config.CASE_EXPORT_ENABLED and external_ready else "disabled" if not config.CASE_EXPORT_ENABLED else "needs_configuration",
+            "detail": config.CASE_EXPORT_PROVIDER,
+        },
+        {
+            "name": "AI analyst",
+            "status": "ready" if ai.get("enabled") and ai.get("available") is not False else "disabled" if not ai.get("enabled") else "unavailable",
+            "detail": str(ai.get("provider") or config.AI_PROVIDER),
+        },
+        {
+            "name": "Threat intelligence",
+            "status": "ready" if ti_providers else "disabled",
+            "detail": ", ".join(ti_providers) or "No provider configured",
+        },
+        {
+            "name": "Notifications",
+            "status": "ready" if bool(config.NOTIFICATION_WEBHOOK_URL) else "disabled",
+            "detail": config.NOTIFICATION_WEBHOOK_FORMAT,
+        },
+        {
+            "name": "Windows collector",
+            "status": "ready" if bool(config.WINDOWS_COLLECTOR_SECRET) else "disabled",
+            "detail": "Shared secret configured" if config.WINDOWS_COLLECTOR_SECRET else "Not configured",
+        },
+    ]
+    return {
+        "current_username": session["username"],
+        "users": users,
+        "health": health,
+        "integrations": integrations,
+        "audit": {"valid": audit_valid, "message": audit_message, "events": audit_events},
+        "maintenance": {
+            "retention_days": config.ALERT_RETENTION_DAYS,
+            "log_rotate_max_bytes": config.LOG_ROTATE_MAX_BYTES,
+            "log_rotate_backups": config.LOG_ROTATE_BACKUPS,
+            "database": database_status,
+            "backups": _directory_status(config.SQLITE_BACKUP_DIR, "*.db"),
+            "archives": _directory_status(config.ALERT_ARCHIVE_DIR, "*.jsonl"),
+        },
+    }
 
 def _parse_ts_maybe(value: str):
     """
@@ -362,6 +459,55 @@ def settings():
 @role_required("admin")
 def api_settings_get():
     return jsonify(_effective_settings())
+
+
+@app.route("/api/admin/workspace")
+@role_required("admin")
+def api_admin_workspace():
+    return jsonify(_admin_workspace_payload())
+
+
+@app.route("/api/admin/users", methods=["POST"])
+@role_required("admin")
+def api_admin_user_save():
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"error": "JSON body must be an object"}), 400
+    username = str(body.get("username") or "").strip().lower()
+    role = str(body.get("role") or "").strip().lower()
+    if username == session["username"] and role != "admin":
+        return jsonify({"error": "The active admin account cannot be demoted"}), 400
+    existed = get_user(username) is not None
+    try:
+        save_user(username, body.get("password"), role)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    append_audit_event(
+        "USER_UPDATED" if existed else "USER_CREATED",
+        session["username"], role=session.get("role"),
+        target_type="dashboard_user", target_id=username,
+        details={"assigned_role": role},
+    )
+    return jsonify({"username": username, "role": role}), 200 if existed else 201
+
+
+@app.route("/api/admin/users/<username>", methods=["DELETE"])
+@role_required("admin")
+def api_admin_user_delete(username):
+    normalized = str(username).strip().lower()
+    if normalized == session["username"]:
+        return jsonify({"error": "The active admin account cannot be deleted"}), 400
+    try:
+        deleted = delete_user(normalized)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if not deleted:
+        return jsonify({"error": "User not found"}), 404
+    append_audit_event(
+        "USER_DELETED", session["username"], role=session.get("role"),
+        target_type="dashboard_user", target_id=normalized,
+    )
+    return jsonify({"ok": True})
 
 @app.route("/api/settings/update", methods=["POST"])
 @role_required("admin")
