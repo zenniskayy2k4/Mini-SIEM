@@ -840,6 +840,7 @@ function initLogs() {
   const inpIp = document.getElementById("filter-ip");
   const inpMitre = document.getElementById("filter-mitre");
   const inpQ = document.getElementById("filter-q");
+  const queueButtons = [...document.querySelectorAll(".analyst-queue")];
 
   const btnApply = document.getElementById("filter-apply");
   const btnClear = document.getElementById("filter-clear");
@@ -860,6 +861,7 @@ function initLogs() {
     ip: "",
     mitre: "",
     q: "",
+    queue: "",
     live: true,
     timer: null,
     totalPages: 1,
@@ -916,6 +918,16 @@ function initLogs() {
     if (state.ip) params.set("ip", state.ip);
     if (state.mitre) params.set("mitre", state.mitre);
     if (state.q) params.set("q", state.q);
+    if (state.queue === "human-review") params.set("human_review", "true");
+    if (state.queue === "assigned") {
+      params.set("assigned_to", "me");
+      params.set("open_incidents", "true");
+    }
+    if (state.queue === "unassigned") {
+      params.set("unassigned", "true");
+      params.set("open_incidents", "true");
+    }
+    if (state.queue === "open") params.set("open_incidents", "true");
 
     return params.toString();
   }
@@ -995,6 +1007,17 @@ function initLogs() {
     setLive(!state.live);
     if (!state.live) fetchPage(1);
   });
+
+  queueButtons.forEach((button) => button.addEventListener("click", () => {
+    state.queue = button.dataset.queue || "";
+    queueButtons.forEach((item) => {
+      const selected = item === button;
+      item.classList.toggle("is-active", selected);
+      item.setAttribute("aria-pressed", String(selected));
+    });
+    setLive(false);
+    fetchPage(1);
+  }));
 
   tableBody.addEventListener("focusin", () => setLive(false));
 

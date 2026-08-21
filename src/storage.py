@@ -113,8 +113,14 @@ class JsonAlertRepository:
     @staticmethod
     def _matches(alert, filters):
         filters = filters or {}
-        for key in ("severity", "incident_status", "ai_disposition"):
+        for key in ("severity", "incident_status", "ai_disposition", "assigned_to"):
             if filters.get(key) and str(alert.get(key) or "").upper() != str(filters[key]).upper():
+                return False
+        if filters.get("unassigned") and str(alert.get("assigned_to") or "").strip():
+            return False
+        if filters.get("open_incidents"):
+            status = str(alert.get("incident_status") or "").upper()
+            if not alert.get("incident_id") or status in {"RESOLVED", "FALSE_POSITIVE"}:
                 return False
         if filters.get("ip") and str(filters["ip"]) not in str(alert.get("ip_address") or ""):
             return False
@@ -141,7 +147,10 @@ class JsonAlertRepository:
                     boundary = boundary.replace(tzinfo=timezone.utc)
                 if operator(timestamp, boundary.astimezone(timezone.utc)):
                     return False
-        handled = {"severity", "incident_status", "ai_disposition", "ip", "mitre", "q", "from", "to"}
+        handled = {
+            "severity", "incident_status", "ai_disposition", "assigned_to", "unassigned",
+            "open_incidents", "ip", "mitre", "q", "from", "to",
+        }
         return all(alert.get(key) == value for key, value in filters.items() if key not in handled)
 
     def search_alerts(

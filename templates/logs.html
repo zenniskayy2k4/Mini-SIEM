@@ -1,7 +1,12 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="page-header">
-    <h2><i class="fa-solid fa-list-ul"></i> Security Event Logs</h2>
+    <div>
+        <h2><i class="fa-solid fa-list-ul"></i> {{ 'Analyst workspace' if current_role == 'analyst' else 'Security Event Logs' }}</h2>
+        {% if current_role == 'analyst' %}
+        <p class="workspace-subtitle">Triage incidents, record investigation notes, and review response proposals.</p>
+        {% endif %}
+    </div>
     <div class="actions">
         <button id="btn-filter-toggle" class="btn btn-ghost">
             <i class="fa-solid fa-filter"></i> Filter
@@ -9,6 +14,16 @@
         <button id="btn-live-toggle" class="badge-live" type="button">LIVE STREAM</button>
     </div>
 </div>
+
+{% if current_role == 'analyst' %}
+<nav class="analyst-queues" aria-label="Analyst work queues">
+    <button class="btn btn-ghost analyst-queue is-active" type="button" data-queue="" aria-pressed="true">All alerts</button>
+    <button class="btn btn-ghost analyst-queue" type="button" data-queue="human-review" aria-pressed="false">Human review</button>
+    <button class="btn btn-ghost analyst-queue" type="button" data-queue="assigned" aria-pressed="false">Assigned to me</button>
+    <button class="btn btn-ghost analyst-queue" type="button" data-queue="unassigned" aria-pressed="false">Unassigned</button>
+    <button class="btn btn-ghost analyst-queue" type="button" data-queue="open" aria-pressed="false">Open incidents</button>
+</nav>
+{% endif %}
 
 <!-- Filter dropdown container -->
 <div class="logs-controls">

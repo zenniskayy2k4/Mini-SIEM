@@ -1153,6 +1153,25 @@ input:checked + .slider:before {
   box-shadow: 0 10px 30px rgba(0,0,0,0.35);
 }
 
+.workspace-subtitle {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.analyst-queues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -6px 0 16px;
+}
+
+.analyst-queue.is-active {
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.7);
+  background: rgba(14, 165, 233, 0.14);
+}
+
 .filter-row {
   display: flex;
   flex-wrap: wrap;
@@ -1571,8 +1590,13 @@ select.styled-input {
   }
 
   .actions,
-  .filter-buttons {
+  .filter-buttons,
+  .analyst-queues {
     flex-wrap: wrap;
+  }
+
+  .analyst-queue {
+    flex: 1 1 calc(50% - 8px);
   }
 
   .card,

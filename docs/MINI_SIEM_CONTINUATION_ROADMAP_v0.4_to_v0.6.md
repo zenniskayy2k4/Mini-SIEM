@@ -1603,7 +1603,7 @@ feat: add Jira incident export integration
 
 ## M17.1 — Viewer workspace
 
-**Status:** ✅ Complete — local verification passed; commit pending
+**Status:** ✅ Complete — commit `0dae4ed`; CI `32478000147` passed
 
 - [x] Read-only alerts.
 - [x] SOC metrics.
@@ -1635,14 +1635,37 @@ feat: add viewer SOC workspace
 
 ## M17.2 — Analyst workspace
 
-**Status:** ⬜
+**Status:** ✅ Complete — local verification passed; commit pending
 
-- Human-review queue.
-- Assigned incidents.
-- Investigation actions.
-- Notes.
-- Response proposals.
-- TI/AI context.
+- [x] Human-review queue.
+- [x] Assigned incidents.
+- [x] Investigation actions.
+- [x] Notes.
+- [x] Response proposals.
+- [x] TI/AI context.
+
+### Local verification — 2026-08-21
+
+| Check | Result |
+|---|:---:|
+| Analyst-specific workspace heading and responsive work queues | PASS |
+| Human-review queue | PASS |
+| Current-analyst active assignment queue | PASS |
+| Unassigned and open-incident queues | PASS |
+| SQLite and JSON fallback filter semantics | PASS |
+| Status, assignment and analyst note workflow | PASS |
+| Response simulation/proposal workflow | PASS |
+| Threat-intelligence and AI context remain visible | PASS |
+| Admin navigation omitted for analyst | PASS |
+| 42 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| No dependency, external call or image build | PASS |
+
+### Commit
+
+```text
+feat: add analyst SOC workspace
+```
 
 ## M17.3 — Admin workspace
 
@@ -1659,7 +1682,7 @@ feat: add viewer SOC workspace
 ### Commit
 
 ```text
-feat: add role-specific SOC workspaces
+feat: add admin SOC workspace
 ```
 
 ---
@@ -1733,10 +1756,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M17.2 — Analyst workspace (not started; begin only in the next requested batch)
+M17.3 — Admin workspace (not started; begin only in the next requested batch)
 ```
 
-M17.1 hoàn tất ở local. Không bắt đầu M17.2 trong cùng batch.
+M17.2 hoàn tất ở local. Không bắt đầu M17.3 trong cùng batch.
 
 ### Success condition
 
@@ -1923,6 +1946,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-20 | TheHive dùng API v1 trực tiếp qua dependency HTTP sẵn có | Không thêm SDK; giữ mapping, observable, dedupe và secret boundary nhỏ, dễ kiểm thử offline |
 | 2026-08-21 | Jira dùng REST v3 và ADF qua dependency HTTP sẵn có | Không thêm SDK; provider được chọn tường minh và incident label giữ remote dedupe ổn định |
 | 2026-08-21 | Viewer workspace tái sử dụng read APIs và server-side RBAC hiện có | Tránh API/route song song; UI read-only không thay thế authorization boundary |
+| 2026-08-21 | Analyst workspace mở rộng bộ lọc Logs hiện có | Giữ một incident panel chung cho triage, note, response và TI/AI; không tạo API/route song song |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1931,7 +1955,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 
 ```text
 START HERE:
-M17.2 — Analyst workspace (not started)
+M17.3 — Admin workspace (not started)
 ```
 
-M17.1 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M17.2 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+M17.2 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M17.3 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.

@@ -730,6 +730,9 @@ def api_alerts_search():
       - mitre (substring match)
       - incident_status
       - human_review (true/false)
+      - assigned_to (username or "me")
+      - unassigned (true/false)
+      - open_incidents (true/false)
     """
     try:
         page = int(request.args.get("page", 1))
@@ -751,6 +754,11 @@ def api_alerts_search():
     ai_disposition = (request.args.get("ai_disposition") or "").strip() or None
     if not ai_disposition and (request.args.get("human_review") or "").lower() in {"1", "true", "yes"}:
         ai_disposition = "REQUIRES_HUMAN_REVIEW"
+    assigned_to = (request.args.get("assigned_to") or "").strip() or None
+    if assigned_to and assigned_to.lower() == "me":
+        assigned_to = session.get("username")
+    unassigned = (request.args.get("unassigned") or "").lower() in {"1", "true", "yes"}
+    open_incidents = (request.args.get("open_incidents") or "").lower() in {"1", "true", "yes"}
 
     from_ts = _parse_ts_maybe(request.args.get("from"))
     to_ts = _parse_ts_maybe(request.args.get("to"))
@@ -763,6 +771,9 @@ def api_alerts_search():
             "mitre": mitre,
             "incident_status": incident_status,
             "ai_disposition": ai_disposition,
+            "assigned_to": assigned_to,
+            "unassigned": unassigned,
+            "open_incidents": open_incidents,
             "from": from_ts.isoformat() if from_ts else None,
             "to": to_ts.isoformat() if to_ts else None,
         },
