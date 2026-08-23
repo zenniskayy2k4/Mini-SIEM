@@ -1,6 +1,7 @@
 """Deterministic, side-effect-free replay for detection scenario manifests."""
 
 import argparse
+import ipaddress
 import json
 import math
 import sys
@@ -11,7 +12,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import config
+from src.alert_schema import build_alert
+from src.correlator import AlertCorrelator
 from src.detector import ThreatDetector
+from src.network_monitor import NetworkMonitor
 from src.rules import load_rules, validate_rules
 from src.scenario_manifest import (
     ScenarioManifestError,
@@ -26,11 +30,15 @@ from src.windows_events import normalize_windows_event
 MAX_FIXTURE_BYTES = 10 * 1024 * 1024
 MAX_EVENTS = 10_000
 MAX_RELATIVE_SECONDS = 365 * 24 * 60 * 60
-REPLAY_SOURCES = {"linux_auth", "windows_event"}
+REPLAY_SOURCES = {"linux_auth", "windows_event", "network", "cross_source"}
 OUTPUT_FIELDS = {
     "computer", "correlation_type", "event_count", "mitre_attck_id",
     "rule_source", "sigma_rule_id", "source_type", "suppressed_count",
-    "windows_event_id", "window_seconds",
+    "sources", "trigger_event_count", "windows_event_id", "window_seconds",
+}
+CORRELATION_INPUT_FIELDS = {
+    "alert_name", "event_count", "ip_address", "mitre_attck_id", "severity",
+    "source_type",
 }
 
 
@@ -96,7 +104,12 @@ def _read_fixture(path, source):
             raise ScenarioReplayError(
                 f"event {index} relative_seconds must be ordered within 0..{MAX_RELATIVE_SECONDS}"
             )
-        required = "message" if source == "linux_auth" else "record"
+        required = {
+            "linux_auth": "message",
+            "windows_event": "record",
+            "network": "packet",
+            "cross_source": "alert",
+        }[source]
         if required not in event:
             raise ScenarioReplayError(f"event {index} requires {required}")
         if source == "linux_auth" and (
@@ -105,14 +118,83 @@ def _read_fixture(path, source):
             raise ScenarioReplayError(f"event {index} message must be a non-empty string")
         if source == "windows_event" and not isinstance(event[required], (dict, str)):
             raise ScenarioReplayError(f"event {index} record must be an object or XML string")
+        if source in {"network", "cross_source"} and not isinstance(event[required], dict):
+            raise ScenarioReplayError(f"event {index} {required} must be an object")
         previous = relative
     return events
 
 
-def _rules(state_file):
+def _rules(state_file, sources):
     native = load_rules(config.RULES_DIR, config.SIGNATURES)
     sigma, _ = load_sigma_rules(config.SIGMA_RULES_DIR, state_file)
-    return validate_rules(native + [rule for rule in sigma if rule["enabled"]])
+    combined = native + [rule for rule in sigma if rule["enabled"]]
+    return validate_rules([
+        rule for rule in combined if rule.get("rule_source", "native") in sources
+    ])
+
+
+def _network_event(monitor, packet):
+    unknown = set(packet) - {"protocol", "flags", "source_ip", "destination_port", "sender_mac"}
+    if unknown:
+        raise ScenarioReplayError(f"unknown network packet fields: {', '.join(sorted(unknown))}")
+    protocol = str(packet.get("protocol", "")).upper()
+    source_ip = packet.get("source_ip")
+    if not isinstance(source_ip, str) or not source_ip.strip():
+        raise ScenarioReplayError("network packet requires source_ip")
+    try:
+        ipaddress.ip_address(source_ip)
+    except ValueError as exc:
+        raise ScenarioReplayError("network packet source_ip is invalid") from exc
+    if protocol == "TCP":
+        flags = packet.get("flags")
+        if not isinstance(flags, str) or not flags.strip():
+            raise ScenarioReplayError("TCP packet requires flags")
+        flags = flags.upper()
+        port = packet.get("destination_port")
+        if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+            raise ScenarioReplayError("TCP packet requires destination_port 1..65535")
+        if "S" in flags and "A" not in flags:
+            monitor._process_syn(source_ip, port)
+    elif protocol == "ARP":
+        sender_mac = packet.get("sender_mac")
+        if not isinstance(sender_mac, str) or not sender_mac.strip():
+            raise ScenarioReplayError("ARP packet requires sender_mac")
+        monitor._process_arp_reply(source_ip, sender_mac)
+    else:
+        raise ScenarioReplayError("network packet protocol must be TCP or ARP")
+
+
+def _correlation_event(correlator, payload, clock):
+    unknown = set(payload) - CORRELATION_INPUT_FIELDS
+    if unknown:
+        raise ScenarioReplayError(f"unknown correlation alert fields: {', '.join(sorted(unknown))}")
+    required = CORRELATION_INPUT_FIELDS - {"event_count"}
+    missing = required - set(payload)
+    if missing:
+        raise ScenarioReplayError(f"correlation alert missing fields: {', '.join(sorted(missing))}")
+    for field in ("alert_name", "ip_address", "mitre_attck_id"):
+        if not isinstance(payload[field], str) or not payload[field].strip():
+            raise ScenarioReplayError(f"correlation alert {field} must be a non-empty string")
+    try:
+        ipaddress.ip_address(payload["ip_address"])
+    except ValueError as exc:
+        raise ScenarioReplayError("correlation alert ip_address is invalid") from exc
+    event_count = payload.get("event_count", 1)
+    if not isinstance(event_count, int) or isinstance(event_count, bool) or event_count < 1:
+        raise ScenarioReplayError("correlation alert event_count must be a positive integer")
+    if payload["source_type"] not in {"HIDS_LOG", "WINDOWS_EVENT", "NIDS", "HONEYPOT"}:
+        raise ScenarioReplayError("correlation input has invalid source_type")
+    return correlator.correlate(build_alert(
+        alert_name=payload["alert_name"],
+        severity=payload["severity"],
+        source_type=payload["source_type"],
+        description="Offline correlation scenario event.",
+        raw_log=None,
+        ip_address=payload["ip_address"],
+        mitre_attck_id=payload["mitre_attck_id"],
+        event_count=event_count,
+        timestamp=clock(),
+    ))
 
 
 def _constraint_matches(value, constraints):
@@ -180,18 +262,39 @@ def replay_manifest(manifest, fixture_root, state_file):
         resolve_scenario_fixture(manifest, fixture_root), manifest["source"]
     )
     clock = ReplayClock()
-    detector = ThreatDetector(_rules(state_file), load_models=False, clock=clock)
+    detector = None
+    monitor = None
+    correlator = None
+    emitted = []
+    if manifest["source"] in {"linux_auth", "windows_event"}:
+        detector = ThreatDetector(
+            _rules(state_file, manifest.get("rule_sources", ["native", "sigma"])),
+            load_models=False,
+            clock=clock,
+        )
+    elif manifest["source"] == "network":
+        monitor = NetworkMonitor(emitter=emitted.append, clock=lambda: clock().timestamp())
+    else:
+        correlator = AlertCorrelator(config.CORRELATION_WINDOW_MINUTES)
     found = {}
     for index, event in enumerate(events, 1):
         try:
             clock.set(event["relative_seconds"])
-            if manifest["source"] == "linux_auth":
+            source = manifest["source"]
+            if source == "linux_auth":
                 alert = detector.analyze(event["message"])
-            else:
+            elif source == "windows_event":
                 record = event["record"]
                 if not isinstance(record, dict) or "event_uid" not in record:
                     record = normalize_windows_event(record)
                 alert = detector.analyze_windows_event(record) if record else None
+            elif source == "network":
+                before = len(emitted)
+                _network_event(monitor, event["packet"])
+                alert = emitted[-1] if len(emitted) > before else None
+            else:
+                correlated = _correlation_event(correlator, event["alert"], clock)
+                alert = correlated if correlated.get("source_type") == "CORRELATION" else None
         except (KeyError, TypeError, ValueError, OverflowError) as exc:
             raise ScenarioReplayError(f"event {index} cannot be replayed: {exc}") from exc
         if alert:

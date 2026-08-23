@@ -15,11 +15,12 @@ SCENARIOS = Path(__file__).parent / "scenarios"
 
 def test_scenario_manifest_contract():
     manifests = load_scenario_manifests(SCENARIOS)
-    assert [manifest["id"] for manifest in manifests] == [
-        "SCN-SSH-BRUTE-001",
-        "SCN-WIN-POWERSHELL-001",
-    ]
-    assert {manifest["source"] for manifest in manifests} == {"linux_auth", "windows_event"}
+    assert {"SCN-SSH-BRUTE-001", "SCN-WIN-POWERSHELL-001"} <= {
+        manifest["id"] for manifest in manifests
+    }
+    assert {manifest["source"] for manifest in manifests} == {
+        "cross_source", "linux_auth", "network", "windows_event",
+    }
 
     with tempfile.TemporaryDirectory() as directory_name:
         root = Path(directory_name)
@@ -42,6 +43,12 @@ def test_scenario_manifest_contract():
         first = scenarios / "first.yml"
         first.write_text(yaml.safe_dump(valid), encoding="utf-8")
         assert load_scenario_manifest(first, root)["id"] == "SCN-TEST-VALID-001"
+
+        negative_only = dict(valid)
+        negative_only["expected"] = dict(valid["expected"], rule_ids=[])
+        negative_only["rule_sources"] = ["native"]
+        first.write_text(yaml.safe_dump(negative_only), encoding="utf-8")
+        assert load_scenario_manifest(first, root)["expected"]["rule_ids"] == []
 
         invalid = scenarios / "invalid.yml"
         invalid.write_text("schema_version: 1\nid: invalid\n", encoding="utf-8")

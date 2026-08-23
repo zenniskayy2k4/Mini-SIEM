@@ -1,0 +1,4 @@
+{"relative_seconds":0,"packet":{"protocol":"ARP","source_ip":"192.0.2.90","sender_mac":"02:00:00:00:00:01"}}
+{"relative_seconds":1,"packet":{"protocol":"ARP","source_ip":"192.0.2.90","sender_mac":"02:00:00:00:00:02"}}
+{"relative_seconds":2,"packet":{"protocol":"ARP","source_ip":"192.0.2.90","sender_mac":"02:00:00:00:00:03"}}
+{"relative_seconds":3,"packet":{"protocol":"ARP","source_ip":"192.0.2.90","sender_mac":"02:00:00:00:00:04"}}

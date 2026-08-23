@@ -12,7 +12,7 @@ MAX_MANIFEST_BYTES = 256 * 1024
 FIXTURE_SUFFIXES = {".json", ".jsonl", ".ndjson", ".xml", ".log", ".txt"}
 _TOP_LEVEL_FIELDS = {
     "schema_version", "id", "title", "source", "events", "expected",
-    "negative_expectations",
+    "negative_expectations", "rule_sources",
 }
 _EXPECTED_FIELDS = {"rule_ids", "alert_count", "severity", "fields"}
 _FIELD_OPERATORS = {"min", "max", "equals", "contains"}
@@ -59,7 +59,7 @@ def validate_scenario_manifest(document, path, fixture_root):
     unknown = set(document) - _TOP_LEVEL_FIELDS
     if unknown:
         _fail(path, f"unknown fields: {', '.join(sorted(unknown))}")
-    required = _TOP_LEVEL_FIELDS - {"negative_expectations"}
+    required = _TOP_LEVEL_FIELDS - {"negative_expectations", "rule_sources"}
     missing = required - set(document)
     if missing:
         _fail(path, f"missing fields: {', '.join(sorted(missing))}")
@@ -77,6 +77,10 @@ def validate_scenario_manifest(document, path, fixture_root):
         _fail(path, f"source must be one of: {', '.join(sorted(SCENARIO_SOURCES))}")
     if not isinstance(document["events"], str) or not document["events"].strip():
         _fail(path, "events must be a non-empty relative path")
+    rule_sources = document.get("rule_sources", ["native", "sigma"])
+    _string_list(path, rule_sources, "rule_sources")
+    if set(rule_sources) - {"native", "sigma"}:
+        _fail(path, "rule_sources may contain only native and sigma")
     try:
         resolve_scenario_fixture(document, fixture_root)
     except ScenarioManifestError as exc:
@@ -93,7 +97,7 @@ def validate_scenario_manifest(document, path, fixture_root):
             if unknown else f"missing fields: {', '.join(sorted(missing))}"
         )
         _fail(path, f"expected has {detail}")
-    _string_list(path, expected["rule_ids"], "expected.rule_ids")
+    _string_list(path, expected["rule_ids"], "expected.rule_ids", allow_empty=True)
     if not isinstance(expected["severity"], str) or expected["severity"] not in SEVERITIES:
         _fail(path, f"expected.severity must be one of: {', '.join(sorted(SEVERITIES))}")
 

@@ -19,11 +19,24 @@ def test_offline_scenario_replay():
         second = replay_path(SCENARIOS)
     assert first == second
     assert first["passed"] is True
-    assert [result["scenario_id"] for result in first["results"]] == [
-        "SCN-SSH-BRUTE-001", "SCN-WIN-POWERSHELL-001",
-    ]
-    assert first["results"][0]["matched_rule_ids"] == ["DET-SSH-001"]
-    assert first["results"][1]["matched_rule_ids"] == ["DET-WIN-001"]
+    assert first["scenario_count"] == 18
+    by_id = {result["scenario_id"]: result for result in first["results"]}
+    assert by_id["SCN-SSH-BRUTE-001"]["matched_rule_ids"] == ["DET-SSH-001"]
+    assert by_id["SCN-WIN-POWERSHELL-001"]["matched_rule_ids"] == ["DET-WIN-001"]
+    assert by_id["SCN-NET-SYN-001"]["matched_rule_ids"] == ["DET-NET-001"]
+    assert by_id["SCN-NET-ARP-001"]["matched_rule_ids"] == ["DET-NET-002"]
+    assert by_id["SCN-CROSS-SOURCE-001"]["matched_rule_ids"] == ["DET-CORR-001"]
+    assert by_id["SCN-WIN-SIGMA-001"]["alerts"][0]["rule_source"] == "sigma"
+    assert {
+        rule_id
+        for result in first["results"]
+        for rule_id in result["matched_rule_ids"]
+    } == {
+        "DET-CORR-001", "DET-LNX-001", "DET-LNX-002", "DET-NET-001",
+        "DET-NET-002", "DET-SSH-001", "DET-WIN-001", "DET-WIN-002",
+        "DET-WIN-003", "DET-WIN-004", "DET-WIN-005", "DET-WIN-006",
+        "DET-WIN-007", "7c4f8f2e-1e7b-4d95-9f76-8c731fef60a3",
+    }
 
     with tempfile.TemporaryDirectory() as directory_name:
         root = Path(directory_name)

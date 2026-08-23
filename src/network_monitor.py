@@ -1,6 +1,7 @@
 import time
 import threading
 from collections import defaultdict, deque
+from datetime import datetime, timezone
 
 from config import config
 from src.elk_forwarder import ELKForwarder
@@ -21,6 +22,7 @@ class NetworkMonitor:
     def __init__(
         self, correlator=None, responder=None, ai_analyst=None,
         geoip_service=None, abuseipdb_service=None, virustotal_service=None,
+        emitter=None, clock=None,
     ):
         self.correlator = correlator
         self.responder = responder
@@ -28,7 +30,9 @@ class NetworkMonitor:
         self.geoip_service = geoip_service
         self.abuseipdb_service = abuseipdb_service
         self.virustotal_service = virustotal_service
-        self.elk = ELKForwarder()
+        self._emitter = emitter
+        self._clock = clock or time.time
+        self.elk = None if emitter else ELKForwarder()
 
         self._lock = threading.Lock()
 
@@ -45,6 +49,9 @@ class NetworkMonitor:
         self._stop.set()
 
     def _emit(self, alert: dict) -> None:
+        if self._emitter is not None:
+            self._emitter(alert)
+            return
         # Optional: reuse responder/correlator pipeline if injected from main
         if self.correlator:
             alert = self.correlator.correlate(alert)
@@ -60,7 +67,7 @@ class NetworkMonitor:
         print(f"\n[!] NETWORK ALERT: {alert['alert_name']} [{alert['severity']}] src={alert.get('ip_address')}")
 
     def _process_syn(self, src_ip: str, dst_port: int | None):
-        now = time.time()
+        now = self._clock()
         window = getattr(config, "NIDS_WINDOW_SECONDS", 5)
         threshold = getattr(config, "NIDS_SYN_THRESHOLD", 20)
 
@@ -75,6 +82,7 @@ class NetworkMonitor:
 
         if count >= threshold:
             alert = build_alert(
+                rule_id="DET-NET-001",
                 alert_name="Network Port Scanning (SYN flood heuristic)",
                 severity="HIGH",
                 source_type="NIDS",
@@ -85,6 +93,7 @@ class NetworkMonitor:
                 event_count=count,
                 window_seconds=window,
                 correlation_key=f"Network Port Scanning|{src_ip}",
+                timestamp=datetime.fromtimestamp(now, timezone.utc),
             )
             # Reset to reduce alert spam
             with self._lock:
@@ -92,7 +101,7 @@ class NetworkMonitor:
             self._emit(alert)
 
     def _process_arp_reply(self, psrc_ip: str, hwsrc: str):
-        now = time.time()
+        now = self._clock()
         window = getattr(config, "NIDS_ARP_WINDOW_SECONDS", 30)
         changes_threshold = getattr(config, "NIDS_ARP_CHANGES_THRESHOLD", 3)
 
@@ -113,6 +122,7 @@ class NetworkMonitor:
 
                 if len(dq) >= changes_threshold:
                     alert = build_alert(
+                        rule_id="DET-NET-002",
                         alert_name="ARP Spoofing Suspected (MAC flapping)",
                         severity="CRITICAL",
                         source_type="NIDS",
@@ -123,6 +133,7 @@ class NetworkMonitor:
                         event_count=len(dq),
                         window_seconds=window,
                         correlation_key=f"ARP Spoofing Suspected|{psrc_ip}",
+                        timestamp=datetime.fromtimestamp(now, timezone.utc),
                     )
                     dq.clear()
                     self._emit(alert)

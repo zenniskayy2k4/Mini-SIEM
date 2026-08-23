@@ -1,0 +1,17 @@
+schema_version: 1
+id: SCN-LNX-BENIGN-001
+title: Benign Linux authentication
+source: linux_auth
+events: scenarios/fixtures/linux_benign_authentication.jsonl
+expected:
+  rule_ids: []
+  alert_count:
+    min: 0
+    max: 0
+  severity: LOW
+  fields: {}
+negative_expectations:
+  rule_ids:
+    - DET-SSH-001
+    - DET-LNX-001
+    - DET-LNX-002

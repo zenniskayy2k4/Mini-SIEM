@@ -1,0 +1,16 @@
+schema_version: 1
+id: SCN-LNX-ACCOUNT-001
+title: Linux local account creation
+source: linux_auth
+events: scenarios/fixtures/linux_account_creation.jsonl
+expected:
+  rule_ids:
+    - DET-LNX-002
+  alert_count:
+    min: 1
+    max: 1
+  severity: LOW
+  fields: {}
+negative_expectations:
+  rule_ids:
+    - DET-LNX-001

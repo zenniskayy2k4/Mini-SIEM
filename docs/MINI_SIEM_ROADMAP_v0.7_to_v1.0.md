@@ -291,43 +291,57 @@ test: add offline detection scenario replay engine
 
 ## M19.3 — Detection Validation Corpus
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Linux
 
-- [ ] SSH brute-force positive.
-- [ ] Single failed SSH negative.
-- [ ] Suspicious sudo.
-- [ ] Account creation.
-- [ ] Benign authentication.
+- [x] SSH brute-force positive.
+- [x] Single failed SSH negative.
+- [x] Suspicious sudo.
+- [x] Account creation.
+- [x] Benign authentication.
 
 ### Windows
 
-- [ ] Encoded PowerShell.
-- [ ] Suspicious LOLBin.
-- [ ] Benign LOLBin negative.
-- [ ] Account creation.
-- [ ] Scheduled task.
-- [ ] Defender tampering.
-- [ ] LSASS access.
-- [ ] Office child process.
+- [x] Encoded PowerShell.
+- [x] Suspicious LOLBin.
+- [x] Benign LOLBin negative.
+- [x] Account creation.
+- [x] Scheduled task.
+- [x] Defender tampering.
+- [x] LSASS access.
+- [x] Office child process.
 
 ### Network
 
-- [ ] Existing NIDS positive case.
-- [ ] Benign network negative case.
+- [x] Existing NIDS positive cases for SYN scanning and ARP spoofing.
+- [x] Benign network negative case.
 
 ### Cross-source
 
-- [ ] Same source IP across multiple telemetry sources.
-- [ ] Correlation produces one campaign instead of duplicate alerts.
+- [x] Same source IP across multiple telemetry sources.
+- [x] Correlation produces one campaign instead of duplicate alerts.
 
 ### Definition of Done
 
-- [ ] Every high-value rule has a positive scenario.
-- [ ] Noisy rules have negative scenarios.
-- [ ] Sigma-backed detections are represented.
-- [ ] Corpus requires no Internet.
+- [x] Every high-value rule has a positive scenario.
+- [x] Noisy rules have negative scenarios.
+- [x] Sigma-backed detections are represented.
+- [x] Corpus requires no Internet.
+
+### Local verification — 2026-08-23
+
+| Check | Result |
+|---|:---:|
+| 18 deterministic scenario manifests | PASS |
+| 14 positive native, Sigma, NIDS, and correlation rule outcomes | PASS |
+| Four Linux/Windows/network negative scenarios | PASS |
+| Existing detector, NetworkMonitor, and AlertCorrelator paths | PASS |
+| Sigma provenance and negative expectations | PASS |
+| Same corpus produces identical results twice | PASS |
+| 45 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No Internet/provider call, response action, runtime write, or image build | PASS |
 
 ### Suggested commit
 
@@ -1841,20 +1855,19 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M19.3 — Detection Validation Corpus
+M19.4 — Validation Coverage Matrix
 ```
 
-M19.2 is complete and isolated from runtime services:
+M19.3 is complete and isolated from runtime services:
 
 ```text
-manifest + fixture
-→ existing detection paths
-→ isolated temporary state
-→ deterministic JSON/summary
+18 scenario manifests + fixtures
+→ Linux / Windows / Sigma / NIDS / correlation paths
+→ deterministic positive and negative outcomes
 → regression check
 ```
 
-Next, expand only the M19.3 validation corpus; keep dashboard changes and new detection rules out of that batch.
+Next, generate only the M19.4 validation coverage matrix from the committed corpus; do not add dashboard state or runtime persistence.
 
 ---
 
@@ -2042,14 +2055,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M19.3 — Detection Validation Corpus
+M19.4 — Validation Coverage Matrix
 ```
 
-M19.2 established deterministic, side-effect-free replay. Success for the next batch is:
+M19.3 established deterministic coverage cases. Success for the next batch is:
 
 ```text
-positive + negative Linux, Windows, network, and cross-source fixtures
-+ explicit expected/forbidden rule outcomes
-+ deterministic replay
-= CI-ready detection validation corpus
+enabled rule inventory
++ scenario-to-rule mappings
++ validated/unvalidated state
+= Markdown and JSON coverage artifacts
 ```

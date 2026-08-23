@@ -230,9 +230,12 @@ class AlertCorrelator:
             active["sources"] = sorted(sources)
             return active
 
-        logger.warning(f"[Correlator] Cross-source alert: {ip}  sources={sources}")
+        logger.warning(
+            "[Correlator] Cross-source alert: %s  sources=%s", ip, sorted(sources)
+        )
 
         result = build_alert(
+            rule_id="DET-CORR-001",
             alert_name="Cross-Sensor Correlated Threat",
             severity="CRITICAL",
             source_type="CORRELATION",

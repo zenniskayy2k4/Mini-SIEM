@@ -1,0 +1,18 @@
+schema_version: 1
+id: SCN-NET-ARP-001
+title: ARP sender MAC flapping
+source: network
+events: scenarios/fixtures/network_arp_spoof.jsonl
+expected:
+  rule_ids:
+    - DET-NET-002
+  alert_count:
+    min: 1
+    max: 1
+  severity: CRITICAL
+  fields:
+    event_count:
+      min: 3
+negative_expectations:
+  rule_ids:
+    - DET-NET-001
