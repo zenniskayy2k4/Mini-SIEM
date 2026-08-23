@@ -3,6 +3,7 @@ import os
 import sqlite3
 import threading
 from datetime import datetime, timedelta
+from uuid import uuid4
 
 from config import config
 from src.alert_schema import utc_iso
@@ -53,6 +54,22 @@ CREATE TABLE IF NOT EXISTS analyst_notes (
     note_text TEXT NOT NULL,
     timestamp TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS detection_feedback (
+    feedback_id TEXT PRIMARY KEY,
+    alert_id TEXT NOT NULL REFERENCES alerts(alert_id) ON DELETE CASCADE,
+    rule_id TEXT NOT NULL,
+    classification TEXT NOT NULL CHECK(
+        classification IN ('TRUE_POSITIVE', 'FALSE_POSITIVE', 'BENIGN_EXPECTED')
+    ),
+    reason TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_detection_feedback_alert
+ON detection_feedback(alert_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_detection_feedback_rule
+ON detection_feedback(rule_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS response_actions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,6 +134,11 @@ class _SQLiteRepository:
 
 
 class SQLiteAlertRepository(_SQLiteRepository):
+
+    FEEDBACK_CLASSIFICATIONS = {
+        "TRUE_POSITIVE", "FALSE_POSITIVE", "BENIGN_EXPECTED",
+    }
+    MAX_FEEDBACK_REASON_LENGTH = 2000
 
     def create_alert(self, alert: dict) -> dict:
         self.ensure_schema()
@@ -324,7 +346,28 @@ class SQLiteAlertRepository(_SQLiteRepository):
             total = connection.execute(
                 "SELECT COUNT(*)" + source + where, values,
             ).fetchone()[0]
-        return {"items": [json.loads(row[0]) for row in rows], "total": total}
+            items = [json.loads(row[0]) for row in rows]
+            if items:
+                placeholders = ", ".join("?" for _ in items)
+                feedback_rows = connection.execute(
+                    f"""
+                    SELECT feedback_id, alert_id, rule_id, classification, reason, actor, created_at
+                    FROM detection_feedback
+                    WHERE rowid IN (
+                        SELECT MAX(rowid) FROM detection_feedback
+                        WHERE alert_id IN ({placeholders}) GROUP BY alert_id
+                    )
+                    """,
+                    [item["alert_id"] for item in items],
+                ).fetchall()
+                feedback = {row[1]: dict(zip(
+                    ("feedback_id", "alert_id", "rule_id", "classification", "reason", "actor", "created_at"),
+                    row,
+                )) for row in feedback_rows}
+                for item in items:
+                    if item["alert_id"] in feedback:
+                        item["detection_feedback"] = feedback[item["alert_id"]]
+        return {"items": items, "total": total}
 
     def count_alerts(self, filters: dict | None = None) -> int:
         return self.search_alerts(filters, limit=0)["total"]
@@ -345,6 +388,65 @@ class SQLiteAlertRepository(_SQLiteRepository):
                 rule_ids,
             ).fetchall()
         return {rule_id: int(count) for rule_id, count in rows}
+
+    def create_detection_feedback(
+        self, alert_id: str, classification: str, reason: str, actor: str, role=None,
+    ) -> dict | None:
+        if not isinstance(classification, str):
+            raise ValueError("Invalid feedback classification")
+        classification = classification.strip().upper()
+        if classification not in self.FEEDBACK_CLASSIFICATIONS:
+            raise ValueError("Invalid feedback classification")
+        if not isinstance(reason, str):
+            raise ValueError("Feedback reason must be text")
+        reason = reason.strip()
+        if classification == "FALSE_POSITIVE" and not reason:
+            raise ValueError("Reason is required for false positive feedback")
+        if len(reason) > self.MAX_FEEDBACK_REASON_LENGTH:
+            raise ValueError(
+                f"Feedback reason exceeds {self.MAX_FEEDBACK_REASON_LENGTH} characters"
+            )
+        if not isinstance(actor, str) or not actor.strip() or len(actor.strip()) > 100:
+            raise ValueError("Invalid feedback actor")
+
+        self.ensure_schema()
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM alerts WHERE alert_id = ?", (alert_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            rule_id = json.loads(row[0]).get("rule_id")
+            if not isinstance(rule_id, str) or not rule_id.strip() or len(rule_id.strip()) > 200:
+                raise ValueError("Alert has no valid detection rule")
+            feedback = {
+                "feedback_id": f"FB-{uuid4()}",
+                "alert_id": alert_id,
+                "rule_id": rule_id.strip(),
+                "classification": classification,
+                "reason": reason,
+                "actor": actor.strip(),
+                "created_at": utc_iso(),
+            }
+            connection.execute(
+                """
+                INSERT INTO detection_feedback (
+                    feedback_id, alert_id, rule_id, classification, reason, actor, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                tuple(feedback.values()),
+            )
+            append_audit_event(
+                "DETECTION_FEEDBACK_CREATED", feedback["actor"], role=role,
+                target_type="detection_feedback", target_id=feedback["feedback_id"],
+                details={
+                    "alert_id": alert_id,
+                    "rule_id": feedback["rule_id"],
+                    "classification": classification,
+                    "reason_length": len(reason),
+                },
+            )
+        return feedback
 
     def stats(self) -> dict:
         self.ensure_schema()

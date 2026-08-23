@@ -133,7 +133,7 @@ M31 — Multi-tenancy Discovery
 | Milestone | Scope | Target | Status |
 |---|---|---|---|
 | M19 | Adversary Replay & Detection Validation | v0.7.0 | ✅ Complete |
-| M20 | Detection Tuning & Exception Management | v0.7.0 | ⬜ |
+| M20 | Detection Tuning & Exception Management | v0.7.0 | 🟠 In Progress |
 | M21 | Event Quality & Ingestion Reliability | v0.7.0 | ⬜ |
 | M22 | Secure Deployment Profile | v0.8.0 | ⬜ |
 | M23 | Software Supply-chain Security | v0.8.0 | ⬜ |
@@ -430,7 +430,7 @@ ci: gate detection changes with replay scenarios
 
 ## M20.1 — Analyst Detection Feedback
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Contract
 
@@ -448,13 +448,28 @@ ci: gate detection changes with replay scenarios
 
 ### Tasks
 
-- [ ] Add SQLite feedback table.
-- [ ] Analyst/Admin can classify.
-- [ ] Viewer remains read-only.
-- [ ] Reason required for false positive.
-- [ ] Store actor from session.
-- [ ] Add immutable audit event.
-- [ ] Do not mutate original evidence.
+- [x] Add SQLite feedback table.
+- [x] Analyst/Admin can classify.
+- [x] Viewer remains read-only.
+- [x] Reason required for false positive.
+- [x] Store actor from session.
+- [x] Add immutable audit event.
+- [x] Do not mutate original evidence.
+
+### Local verification — 2026-08-23
+
+| Check | Result |
+|---|:---:|
+| SQLite feedback contract and alert/rule linkage | PASS |
+| Analyst/Admin creation with session-derived actor | PASS |
+| Viewer mutation blocked; latest classification remains visible | PASS |
+| False-positive reason and request-field validation | PASS |
+| Hash-chained audit event excludes reason text | PASS |
+| Audit failure rolls back feedback transaction | PASS |
+| Original alert evidence payload remains byte-for-byte unchanged | PASS |
+| 47 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Dashboard-only rollout and health smoke test | PASS |
 
 ### Suggested commit
 
@@ -1880,19 +1895,19 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M20.1 — Analyst Detection Feedback
+M20.2 — Rule Quality Metrics
 ```
 
-M19 is complete with an offline CI gate:
+M20.1 established auditable analyst ground truth:
 
 ```text
-manifest contract + 18-case corpus
-→ deterministic replay and coverage artifacts
-→ required CI gate with failure diagnostics
-→ no provider/runtime side effects
+alert + detection rule
+→ session-bound analyst classification
+→ separate SQLite feedback record + audit event
+→ unchanged original evidence
 ```
 
-Next, start only M20.1 analyst detection feedback; keep exception matching and tuning proposals in later M20 batches.
+Next, add only M20.2 rule quality metrics from stored feedback; do not infer precision or recall.
 
 ---
 
@@ -2080,14 +2095,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M20.1 — Analyst Detection Feedback
+M20.2 — Rule Quality Metrics
 ```
 
-M19 now provides a CI-gated deterministic detection baseline. Success for the next batch is:
+M20.1 now provides session-attributed analyst classifications. Success for the next batch is:
 
 ```text
-validated analyst feedback records
-+ immutable actor/time context
-+ alert and rule linkage
-= auditable detection feedback contract
+alert counts + latest analyst feedback per alert
++ explicit unclassified sample size
++ time-range and validation context
+= honest rule quality metrics
 ```

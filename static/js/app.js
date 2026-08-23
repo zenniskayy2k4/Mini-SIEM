@@ -1267,9 +1267,40 @@ function renderThreatIntelProvider(entry, alert) {
   </article>`;
 }
 
+function renderDetectionFeedback(feedback) {
+  if (!feedback) return "";
+  const reason = feedback.reason ? ` · ${escapeHTML(feedback.reason)}` : "";
+  return `<div class="incident-history incident-feedback-current">
+    <strong>Detection feedback</strong>
+    <div>${escapeHTML(feedback.classification)} · ${escapeHTML(feedback.actor)} · ` +
+      `${escapeHTML(feedback.created_at)}${reason}</div>
+  </div>`;
+}
+
+function renderDetectionFeedbackForm(alert, canMutate) {
+  if (!canMutate || !alert.rule_id) return "";
+  const options = ["TRUE_POSITIVE", "FALSE_POSITIVE", "BENIGN_EXPECTED"]
+    .map((value) => `<option value="${value}">${value}</option>`).join("");
+  return `<div class="incident-form-row">
+    <select class="styled-input incident-feedback-classification" aria-label="Detection classification">
+      ${options}
+    </select>
+    <textarea class="styled-input incident-feedback-reason" maxlength="2000"
+      aria-label="Detection feedback reason" placeholder="Reason (required for false positive)"></textarea>
+    <button class="btn btn-primary incident-feedback-btn" type="button">Classify</button>
+  </div>`;
+}
+
 function renderIncidentPanel(alert) {
-  if (!alert.incident_id) return "";
   const canMutate = ["analyst", "admin"].includes(CURRENT_ROLE);
+  const feedbackForm = renderDetectionFeedbackForm(alert, canMutate);
+  const feedback = renderDetectionFeedback(alert.detection_feedback);
+  if (!alert.incident_id) {
+    if (!feedbackForm && !feedback) return "";
+    return `<section class="incident-panel" aria-label="Detection feedback">
+      ${feedbackForm}${feedback}<div class="incident-error" role="alert"></div>
+    </section>`;
+  }
   const externalCases = Object.entries(alert.external_cases || {})
     .filter(([, record]) => record?.external_id)
     .map(([provider, record]) => `<span class="incident-status">` +
@@ -1320,6 +1351,7 @@ function renderIncidentPanel(alert) {
         </div>
       </div>
       ${canMutate ? `<div class="incident-actions">${statusButtons}</div>
+      ${feedbackForm}
       <div class="incident-form-row">
         <input class="styled-input incident-assignee" maxlength="100" aria-label="Assignee"
           value="${escapeAttr(alert.assigned_to || "")}" placeholder="Assignee">
@@ -1337,6 +1369,7 @@ function renderIncidentPanel(alert) {
         <button class="btn btn-primary incident-response-btn" type="button">Request action</button>
       </div>` : ""}
       ${responseWorkflow ? `<div class="incident-actions">${responseWorkflow}</div>` : ""}
+      ${feedback}
       ${notes ? `<div class="incident-history"><strong>Notes</strong><ul>${notes}</ul></div>` : ""}
       ${timeline ? `<div class="incident-history"><strong>Timeline</strong><ul>${timeline}</ul></div>` : ""}
       <div class="incident-error" role="alert"></div>
@@ -1344,8 +1377,13 @@ function renderIncidentPanel(alert) {
 }
 
 function bindIncidentActions(row, alert) {
-  if (!alert.incident_id) return;
   const url = `/api/alerts/${encodeURIComponent(alert.alert_id)}`;
+  row.querySelector(".incident-feedback-btn")?.addEventListener("click", (event) => {
+    const classification = row.querySelector(".incident-feedback-classification").value;
+    const reason = row.querySelector(".incident-feedback-reason").value;
+    submitDetectionFeedback(row, event.currentTarget, url, alert, classification, reason);
+  });
+  if (!alert.incident_id) return;
   row.querySelectorAll(".incident-status-btn").forEach((button) => {
     button.addEventListener("click", () => mutateIncident(
       row, button, `${url}/status`, "PATCH", { status: button.dataset.status },
@@ -1407,6 +1445,25 @@ function bindIncidentActions(row, alert) {
     "POST",
     { analyst: "analyst" },
   ));
+}
+
+async function submitDetectionFeedback(row, button, url, alert, classification, reason) {
+  const error = row.querySelector(".incident-error");
+  error.textContent = "";
+  button.disabled = true;
+  try {
+    const response = await fetch(`${url}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify({ classification, reason }),
+    });
+    const feedback = await response.json();
+    if (!response.ok) throw new Error(feedback.error || `Request failed (${response.status})`);
+    row.replaceWith(createRow({ ...alert, detection_feedback: feedback }));
+  } catch (requestError) {
+    error.textContent = requestError.message || "Detection feedback failed";
+    button.disabled = false;
+  }
 }
 
 async function mutateIncident(row, button, url, method, body) {

@@ -788,6 +788,29 @@ def api_alert_note(alert_id):
     return jsonify(alert)
 
 
+@app.route("/api/alerts/<alert_id>/feedback", methods=["POST"])
+@role_required("analyst")
+def api_alert_feedback(alert_id):
+    if request.content_length and request.content_length > 8 * 1024:
+        return jsonify({"error": "Feedback request exceeds 8 KiB"}), 413
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Request body must be a JSON object"}), 400
+    unknown = set(body) - {"classification", "reason"}
+    if unknown:
+        return jsonify({"error": f"Unsupported feedback fields: {', '.join(sorted(unknown))}"}), 400
+    try:
+        feedback = alert_repository.create_detection_feedback(
+            alert_id, body.get("classification"), body.get("reason", ""),
+            session["username"], session.get("role"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if feedback is None:
+        return jsonify({"error": "Alert not found"}), 404
+    return jsonify(feedback), 201
+
+
 @app.route("/api/alerts/<alert_id>/assignee", methods=["PATCH"])
 @role_required("analyst")
 def api_alert_assignee(alert_id):

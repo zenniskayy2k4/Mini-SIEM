@@ -279,6 +279,13 @@ class DualWriteAlertRepository:
     def rule_hit_counts(self, rule_ids: list[str]) -> dict[str, int]:
         return self._read("rule_hit_counts", rule_ids)
 
+    def create_detection_feedback(
+        self, alert_id: str, classification: str, reason: str, actor: str, role=None,
+    ) -> dict | None:
+        return self.sqlite.create_detection_feedback(
+            alert_id, classification, reason, actor, role,
+        )
+
     def soc_kpis(self, from_timestamp: str, to_timestamp: str) -> dict:
         """Analytics intentionally requires the indexed primary SQLite store."""
         return self.sqlite.soc_kpis(from_timestamp, to_timestamp)
