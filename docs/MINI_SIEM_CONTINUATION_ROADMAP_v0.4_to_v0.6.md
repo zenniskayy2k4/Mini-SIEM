@@ -6,7 +6,7 @@
 > **Environment:** Windows + Docker Desktop
 > **Storage:** SQLite primary + JSON dual-write/fallback
 > **AI:** Ollama Cloud with optional bounded local fallback
-> **Recommended next release:** `v0.6.0`
+> **Current release:** `v0.6.0`
 
 ---
 
@@ -102,8 +102,8 @@ M18 — Multi-tenant Architecture
 | M13 | Asset Inventory & Risk Context | v0.5.0 | ✅ Complete |
 | M14 | Reporting & Observability | v0.5.0 | ✅ Complete |
 | M15 | AI Resilience & Provider Abstraction | v0.5.0 | ✅ Complete |
-| M16 | External Case Management | v0.6.0 | ⬜ |
-| M17 | Role-specific SOC Workspace | v0.6.0 | ⬜ |
+| M16 | External Case Management | v0.6.0 | ✅ Complete |
+| M17 | Role-specific SOC Workspace | v0.6.0 | ✅ Complete |
 | M18 | Multi-tenant Architecture | Future | ⬜ |
 
 ---
@@ -1487,7 +1487,7 @@ v0.5.0 — Asset-aware SOC Analytics & Resilient AI
 
 ## M16.1 — Connector abstraction
 
-**Status:** ⬜
+**Status:** ✅ Complete — commit `b3842e2`; CI run `32356906207` passed
 
 ```python
 class CaseConnector:
@@ -1500,12 +1500,27 @@ class CaseConnector:
 
 ### Tasks
 
-- [ ] Disabled by default.
-- [ ] External ID.
-- [ ] Idempotency.
-- [ ] Timeout/retry.
-- [ ] Manual analyst export.
-- [ ] Audit export.
+- [x] Disabled by default.
+- [x] External ID.
+- [x] Idempotency.
+- [x] Timeout/retry.
+- [x] Manual analyst export.
+- [x] Audit export.
+
+### Local verification — 2026-08-20
+
+| Check | Result |
+|---|:---:|
+| Abstract create/update connector contract | PASS |
+| Default-disabled manual analyst endpoint | PASS |
+| Allowlisted payload excludes raw log, notes and AI body | PASS |
+| Timeout and maximum three-attempt validation | PASS |
+| One transient failure then bounded success | PASS |
+| Persisted external ID and duplicate suppression | PASS |
+| Immutable success/failure/deduplicated/disabled audit | PASS |
+| 38 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No external provider call, dependency or image build | PASS |
 
 ### Commit
 
@@ -1517,14 +1532,29 @@ refactor: add external case connector interface
 
 ## M16.2 — TheHive
 
-**Status:** ⬜
+**Status:** ✅ Complete — commit `3993012`; CI run `32476255852` passed
 
-- [ ] Manual create case.
-- [ ] Map severity/risk.
-- [ ] Include observables.
-- [ ] Store case ID.
-- [ ] Prevent duplicate export.
-- [ ] No secrets.
+- [x] Manual create case.
+- [x] Map severity/risk.
+- [x] Include observables.
+- [x] Store case ID.
+- [x] Prevent duplicate export.
+- [x] No secrets.
+
+### Local verification — 2026-08-20
+
+| Check | Result |
+|---|:---:|
+| Manual analyst dashboard/API export | PASS |
+| TheHive API v1 case create/update contract | PASS |
+| Detection severity and risk mapped to 1–4 | PASS |
+| Validated source-IP observable | PASS |
+| Remote case/observable lookup prevents duplicates | PASS |
+| Tilde-prefixed case ID stored on incident | PASS |
+| Raw logs, analyst notes and API key excluded | PASS |
+| 39 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| Fixture transport only; no live TheHive call or image build | PASS |
 
 ### Commit
 
@@ -1536,14 +1566,30 @@ feat: add TheHive case export integration
 
 ## M16.3 — Jira
 
-**Status:** ⬜
+**Status:** ✅ Complete — commit `ab1e9a1`; CI run `32477046723` passed
 
-- [ ] Manual create issue.
-- [ ] Config project/key.
-- [ ] Map title/description/labels.
-- [ ] Store issue key.
-- [ ] Prevent duplicate export.
-- [ ] Audit.
+- [x] Manual create issue.
+- [x] Config project/key.
+- [x] Map title/description/labels.
+- [x] Store issue key.
+- [x] Prevent duplicate export.
+- [x] Audit.
+
+### Local verification — 2026-08-21
+
+| Check | Result |
+|---|:---:|
+| Manual shared dashboard/API export | PASS |
+| Explicit TheHive/Jira provider selection | PASS |
+| Jira Cloud REST v3 create/update contract | PASS |
+| Project, issue type, summary, ADF description and labels | PASS |
+| Stable incident-label JQL duplicate lookup | PASS |
+| Jira issue key stored under `external_cases.jira` | PASS |
+| Immutable exported/deduplicated audit events | PASS |
+| Raw logs, analyst notes and API token excluded | PASS |
+| 40 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Fixture transport only; no live Jira call or image build | PASS |
 
 ### Commit
 
@@ -1557,51 +1603,146 @@ feat: add Jira incident export integration
 
 ## M17.1 — Viewer workspace
 
-**Status:** ⬜
+**Status:** ✅ Complete — commit `0dae4ed`; CI `32478000147` passed
 
-- Read-only alerts.
-- SOC metrics.
-- Rule coverage.
-- Incident status.
-- No mutation controls.
+- [x] Read-only alerts.
+- [x] SOC metrics.
+- [x] Rule coverage.
+- [x] Incident status.
+- [x] No mutation controls.
 
-## M17.2 — Analyst workspace
+### Local verification — 2026-08-21
 
-**Status:** ⬜
-
-- Human-review queue.
-- Assigned incidents.
-- Investigation actions.
-- Notes.
-- Response proposals.
-- TI/AI context.
-
-## M17.3 — Admin workspace
-
-**Status:** ⬜
-
-- User management.
-- Runtime settings.
-- Rule/Sigma management.
-- Health.
-- Integrations.
-- Audit verification.
-- Retention/backup status.
+| Check | Result |
+|---|:---:|
+| Viewer-specific read-only workspace heading | PASS |
+| 24-hour MTTD/MTTA/MTTR and incident KPIs | PASS |
+| Recent alerts include incident status | PASS |
+| Detection coverage remains visible | PASS |
+| Admin navigation omitted | PASS |
+| Alert/search/stats/coverage/KPI read APIs | PASS |
+| Notes/status/assignment/response/export/settings mutations return 403 | PASS |
+| Stored incident remains unchanged after denied mutations | PASS |
+| 41 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| No dependency, external call or image build | PASS |
 
 ### Commit
 
 ```text
-feat: add role-specific SOC workspaces
+feat: add viewer SOC workspace
+```
+
+## M17.2 — Analyst workspace
+
+**Status:** ✅ Complete — commit `d7fc1b3`; CI `32482334641` passed
+
+- [x] Human-review queue.
+- [x] Assigned incidents.
+- [x] Investigation actions.
+- [x] Notes.
+- [x] Response proposals.
+- [x] TI/AI context.
+
+### Local verification — 2026-08-21
+
+| Check | Result |
+|---|:---:|
+| Analyst-specific workspace heading and responsive work queues | PASS |
+| Human-review queue | PASS |
+| Current-analyst active assignment queue | PASS |
+| Unassigned and open-incident queues | PASS |
+| SQLite and JSON fallback filter semantics | PASS |
+| Status, assignment and analyst note workflow | PASS |
+| Response simulation/proposal workflow | PASS |
+| Threat-intelligence and AI context remain visible | PASS |
+| Admin navigation omitted for analyst | PASS |
+| 42 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| No dependency, external call or image build | PASS |
+
+### Commit
+
+```text
+feat: add analyst SOC workspace
+```
+
+## M17.3 — Admin workspace
+
+**Status:** ✅ Complete — commits `9af588c` and security hardening `e85e640`; CI `32485307261` passed
+
+- [x] User management.
+- [x] Runtime settings.
+- [x] Rule/Sigma management.
+- [x] Health.
+- [x] Integrations.
+- [x] Audit verification.
+- [x] Retention/backup status.
+
+### Local verification — 2026-08-21
+
+| Check | Result |
+|---|:---:|
+| Responsive admin-specific workspace | PASS |
+| Admin-only user create/reset/delete | PASS |
+| Active admin cannot self-demote or self-delete | PASS |
+| User changes append secret-free hash-chain audit events | PASS |
+| Runtime sensor and graph controls remain available | PASS |
+| Native/Sigma rule lifecycle remains available | PASS |
+| Platform, agent, database and AI queue health | PASS |
+| Secret-free integration readiness | PASS |
+| Audit-chain verification and event count | PASS |
+| Retention, database, backup, archive and rotation status | PASS |
+| Analyst access to admin APIs returns 403 | PASS |
+| 43 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| No dependency, external call or image build | PASS |
+
+### Commit
+
+```text
+feat: add admin SOC workspace
+fix: harden dashboard user management
 ```
 
 ---
 
 ## M17.4 — Release v0.6.0
 
-**Status:** ⬜
+**Status:** ✅ Complete — annotated tag `v0.6.0` published from the verified release commit
 
 ```text
 v0.6.0 — SOC Integrations & Role-focused Workspaces
+```
+
+- [x] M16 external case management complete.
+- [x] M17 role-specific workspaces complete.
+- [x] Dashboard user-management security review complete.
+- [x] CHANGELOG and README synchronized.
+- [x] Upgrade notes and known limitations documented.
+- [x] Older release checklist consolidated into release history.
+- [x] 43 executable regression modules passed.
+- [x] Compose, runtime health, tracked-file, and secret checks passed.
+- [x] Release commit and annotated tag passed the CI release gate.
+
+### Release verification — 2026-08-23
+
+| Check | Result |
+|---|:---:|
+| M16 connector, TheHive, and Jira scope | PASS |
+| M17 viewer, analyst, and admin workspace scope | PASS |
+| Session revocation, bounded input, user locking, and audit rollback | PASS |
+| 43 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Runtime agent/dashboard/database health | PASS |
+| README, CHANGELOG, release history, upgrade notes, and limitations | PASS |
+| Tracked runtime files and secret review | PASS |
+| Release commit and tag CI | PASS |
+
+### Commit
+
+```text
+docs: release v0.6.0
 ```
 
 ---
@@ -1629,7 +1770,7 @@ Multi-tenant ảnh hưởng:
 ### Preconditions
 
 - [ ] Có requirement nhiều organization/team.
-- [ ] v0.6.0 ổn định.
+- [x] v0.6.0 ổn định.
 - [ ] Migration strategy rõ.
 - [ ] Tenant isolation model rõ.
 - [ ] Security review khả thi.
@@ -1665,10 +1806,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M16.1 — Connector abstraction (not started; begin only in the next requested batch)
+No active batch. M18 remains optional and must not start without a real multi-tenant requirement.
 ```
 
-Release `v0.5.0` hoàn tất. Không bắt đầu M16.1 trong cùng batch.
+M10–M17 và các release `v0.4.0`–`v0.6.0` đã hoàn tất.
 
 ### Success condition
 
@@ -1851,6 +1992,13 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-20 | AI fallback chỉ gồm primary + một fallback, mỗi provider một lần | Dùng chung một worker, tránh retry storm và lưu đúng provider đã trả kết quả |
 | 2026-08-20 | AI evaluation corpus chạy bằng fixture provider offline | CI ổn định, không chiếm Ollama; live model evaluation chỉ chạy thủ công khi cần |
 | 2026-08-20 | `v0.5.0` chốt M13–M15 | Asset-aware risk, observability/reporting và resilient AI đã qua release gate |
+| 2026-08-20 | External case export chỉ chạy thủ công qua connector mặc định tắt | Tránh tự động gửi incident; giữ timeout/retry/idempotency/audit ở một service dùng chung |
+| 2026-08-20 | TheHive dùng API v1 trực tiếp qua dependency HTTP sẵn có | Không thêm SDK; giữ mapping, observable, dedupe và secret boundary nhỏ, dễ kiểm thử offline |
+| 2026-08-21 | Jira dùng REST v3 và ADF qua dependency HTTP sẵn có | Không thêm SDK; provider được chọn tường minh và incident label giữ remote dedupe ổn định |
+| 2026-08-21 | Viewer workspace tái sử dụng read APIs và server-side RBAC hiện có | Tránh API/route song song; UI read-only không thay thế authorization boundary |
+| 2026-08-21 | Analyst workspace mở rộng bộ lọc Logs hiện có | Giữ một incident panel chung cho triage, note, response và TI/AI; không tạo API/route song song |
+| 2026-08-21 | Admin workspace tổng hợp trạng thái từ auth, health, audit và maintenance hiện có | Một control plane nhỏ, không thêm secret store hoặc maintenance executor qua web |
+| 2026-08-23 | `v0.6.0` chốt M16–M17 sau security hardening | External export vẫn thủ công; workspace giữ server-side RBAC và local single-process scope |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1858,8 +2006,8 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 # 14. Current next action
 
 ```text
-START HERE:
-M16.1 — Connector abstraction (not started)
+ROADMAP COMPLETE THROUGH v0.6.0
+M18 — Optional; do not start without a concrete multi-tenant use case
 ```
 
-Release `v0.5.0` đã hoàn tất. Bắt đầu M16.1 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+Không có batch bắt buộc tiếp theo trong roadmap này.

@@ -4,6 +4,23 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-23
+
+SOC Integrations and Role-focused Workspaces release.
+
+### Added
+
+- Disabled-by-default external case connector contract with manual analyst export, allowlisted payloads, bounded timeout/retries, persisted external IDs, idempotency, and immutable audit events.
+- Optional TheHive 5 API v1 export with deterministic severity/risk mapping, IP observables, remote/local duplicate suppression, stored case IDs, and a manual dashboard action.
+- Optional Jira Cloud REST v3 export with provider selection, ADF descriptions, deterministic labels, remote/local duplicate suppression, stored issue keys, and immutable audit events.
+- Read-only viewer workspace with 24-hour SOC KPIs, alert and incident visibility, detection coverage, role-aware navigation, and server-enforced mutation denial.
+- Analyst workspace with human-review, assigned, unassigned, and open-incident queues plus the existing investigation, notes, response proposal, and TI/AI context workflows.
+- Admin workspace with audited user management, runtime and rule controls, health, secret-safe integration readiness, audit-chain verification, and retention/backup status.
+
+### Security
+
+- Dashboard user changes are serialized and audit-safe, password resets revoke existing sessions, and bounded request/password sizes reduce resource-exhaustion risk.
+
 ## [0.5.0] - 2026-08-20
 
 Asset-aware SOC Analytics and Resilient AI release.
@@ -34,7 +51,7 @@ Asset-aware SOC Analytics and Resilient AI release.
 - The live agent/dashboard stack remained healthy without a local image rebuild, Ollama model download, or AI corpus network call.
 - No active Gitleaks exception or tracked `.env`, `data/**`, or `logs/**` runtime file exists.
 
-See the [v0.5.0 release checklist](docs/RELEASE_v0.5.0.md) for setup, verification details, upgrade notes, and known limitations.
+See the [v0.5.0 release history](docs/RELEASE_HISTORY.md#mini-siem-v050-release-checklist) for setup, verification details, upgrade notes, and known limitations.
 
 ## [0.4.0] - 2026-08-18
 

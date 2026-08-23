@@ -265,6 +265,20 @@ class SQLiteAlertRepository(_SQLiteRepository):
             "UPPER(COALESCE(json_extract(a.payload_json, '$.ai_disposition'), '')) = UPPER(?)",
             filters.get("ai_disposition"),
         )
+        exact(
+            "UPPER(COALESCE(i.assigned_to, json_extract(a.payload_json, '$.assigned_to'), '')) = UPPER(?)",
+            filters.get("assigned_to"),
+        )
+        if filters.get("unassigned"):
+            clauses.append(
+                "TRIM(COALESCE(i.assigned_to, json_extract(a.payload_json, '$.assigned_to'), '')) = ''"
+            )
+        if filters.get("open_incidents"):
+            clauses.append(
+                "COALESCE(i.incident_id, json_extract(a.payload_json, '$.incident_id')) IS NOT NULL "
+                "AND UPPER(COALESCE(i.status, json_extract(a.payload_json, '$.incident_status'), '')) "
+                "NOT IN ('RESOLVED', 'FALSE_POSITIVE')"
+            )
         contains(
             "COALESCE(json_extract(a.payload_json, '$.ip_address'), '') LIKE ? ESCAPE '\\'",
             filters.get("ip"),

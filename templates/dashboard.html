@@ -1,9 +1,30 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="content-header">
-    <h2>Overview Dashboard</h2>
+    <div>
+        <h2>{{ 'Viewer workspace' if current_role == 'viewer' else 'Overview Dashboard' }}</h2>
+        {% if current_role == 'viewer' %}
+        <div class="muted"><i class="fa-solid fa-eye"></i> Read-only SOC visibility</div>
+        {% endif %}
+    </div>
     <span class="date-badge" id="current-time">--:--:--</span>
 </div>
+
+{% if current_role == 'viewer' %}
+<div class="analytics-kpis" id="viewer-kpis" aria-label="Viewer SOC metrics">
+    {% for key, label in [
+        ('mttd_seconds', 'MTTD'), ('mtta_seconds', 'MTTA'), ('mttr_seconds', 'MTTR'),
+        ('open_incidents', 'Open incidents'), ('resolved_incidents', 'Resolved incidents')
+    ] %}
+    <div class="card analytics-kpi">
+        <h3>{{ label }}</h3>
+        <p id="viewer-kpi-{{ key }}">—</p>
+        <span id="viewer-sample-{{ key }}">Loading...</span>
+    </div>
+    {% endfor %}
+</div>
+<div class="analytics-error" id="viewer-kpi-status" role="status"></div>
+{% endif %}
 
 <!-- 1. Stats Cards (Số liệu tổng quan) -->
 <div class="stats-row">
@@ -67,6 +88,7 @@
                 <th>Alert Name</th>
                 <th>Rule ID</th>
                 <th>Severity</th>
+                <th>Incident Status</th>
                 <th>Source IP</th>
                 <th>Asset</th>
             </tr>

@@ -7,10 +7,27 @@ const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
 const API_DETECTION_RULES = "/api/detection-rules";
+const API_ADMIN_WORKSPACE = "/api/admin/workspace";
+const API_ADMIN_USERS = "/api/admin/users";
 const API_ASSETS = "/api/assets";
 const API_ANALYTICS = "/api/analytics/kpis";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
 const CURRENT_ROLE = document.querySelector('meta[name="current-role"]')?.content || "";
+const SOC_METRIC_FORMATS = {
+  mttd_seconds: "duration", mtta_seconds: "duration", mttr_seconds: "duration",
+  false_positive_rate_percent: "percent", human_review_rate_percent: "percent",
+  ai_enrichment_success_rate_percent: "percent",
+};
+
+function formatSocMetric(key, metric) {
+  if (!metric?.available) return "Insufficient data";
+  if (SOC_METRIC_FORMATS[key] === "percent") return `${metric.value}%`;
+  if (SOC_METRIC_FORMATS[key] === "duration") {
+    const seconds = Math.round(metric.value);
+    return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
+  }
+  return Number(metric.value).toLocaleString();
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   const path = window.location.pathname;
@@ -31,22 +48,6 @@ function initAnalytics() {
   let charts = [];
 
   const colors = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#ef4444", "#38bdf8"];
-  const metricFormats = {
-    mttd_seconds: "duration", mtta_seconds: "duration", mttr_seconds: "duration",
-    false_positive_rate_percent: "percent", human_review_rate_percent: "percent",
-    ai_enrichment_success_rate_percent: "percent",
-  };
-
-  function formatMetric(key, metric) {
-    if (!metric?.available) return "Insufficient data";
-    if (metricFormats[key] === "percent") return `${metric.value}%`;
-    if (metricFormats[key] === "duration") {
-      const seconds = Math.round(metric.value);
-      return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
-    }
-    return Number(metric.value).toLocaleString();
-  }
-
   function chart(id, type, labels, values, label, options = {}) {
     const canvas = document.getElementById(id);
     if (!canvas) return;
@@ -70,7 +71,7 @@ function initAnalytics() {
       if (key === "alerts_per_rule") return;
       const value = document.getElementById(`kpi-${key}`);
       const sample = document.getElementById(`sample-${key}`);
-      if (value) value.textContent = formatMetric(key, metric);
+      if (value) value.textContent = formatSocMetric(key, metric);
       if (sample) sample.textContent = metric.available ? `Sample: ${metric.sample_size}` : "No qualifying samples";
     });
     document.getElementById("analytics-period").textContent =
@@ -104,6 +105,118 @@ function initAnalytics() {
 // --- SETTINGS PAGE LOGIC ---
 function initSettings() {
   const elStatus = document.getElementById("settings-save-status");
+  const userForm = document.getElementById("admin-user-form");
+  const userBody = document.getElementById("admin-users-body");
+  const userStatus = document.getElementById("admin-user-status");
+
+  const formatBytes = (value) => {
+    const bytes = Number(value || 0);
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KiB`;
+    return `${(bytes / 1048576).toFixed(1)} MiB`;
+  };
+
+  function adminState(value) {
+    return `admin-state-${String(value || "unknown").replace(/[^a-z_]/gi, "_").toLowerCase()}`;
+  }
+
+  function renderAdminWorkspace(data) {
+    const health = data.health || {};
+    const agent = health.agent || {};
+    const database = health.database || {};
+    const queue = health.queue || {};
+    const summaries = {
+      "admin-health-platform": health.status || "unknown",
+      "admin-health-agent": `${agent.status || "unknown"}${agent.age_seconds == null ? "" : ` · ${agent.age_seconds}s`}`,
+      "admin-health-database": `${database.status || "unknown"} · ${database.check || "not checked"}`,
+      "admin-health-ai": `${queue.busy ? "busy" : "idle"} · backlog ${queue.backlog || 0}`,
+    };
+    Object.entries(summaries).forEach(([id, value]) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    });
+
+    const integrations = document.getElementById("admin-integrations");
+    if (integrations) integrations.innerHTML = (data.integrations || []).map((item) => `
+      <div class="admin-status-row">
+        <strong>${escapeHTML(item.name)}</strong>
+        <span><b class="${adminState(item.status)}">${escapeHTML(item.status)}</b><br>${escapeHTML(item.detail)}</span>
+      </div>`).join("") || "No integration status available.";
+
+    const audit = data.audit || {};
+    const auditState = document.getElementById("admin-audit-state");
+    const auditDetail = document.getElementById("admin-audit-detail");
+    if (auditState) {
+      auditState.className = audit.valid ? "admin-state-valid" : "admin-state-unhealthy";
+      auditState.textContent = audit.valid ? "VALID" : "INVALID";
+    }
+    if (auditDetail) auditDetail.textContent = `${audit.message || "Audit unavailable"} · ${audit.events || 0} events`;
+
+    const maintenance = data.maintenance || {};
+    const maintenanceElement = document.getElementById("admin-maintenance");
+    if (maintenanceElement) maintenanceElement.innerHTML = [
+      ["Retention", `${maintenance.retention_days || 0} days`],
+      ["Database", `${maintenance.database?.exists ? "available" : "missing"} · ${formatBytes(maintenance.database?.size_bytes)}`],
+      ["Backups", `${maintenance.backups?.count || 0} · latest ${maintenance.backups?.latest_at || "never"}`],
+      ["Archives", `${maintenance.archives?.count || 0} · latest ${maintenance.archives?.latest_at || "never"}`],
+      ["Log rotation", `${formatBytes(maintenance.log_rotate_max_bytes)} · ${maintenance.log_rotate_backups || 0} copies`],
+    ].map(([label, value]) => `<div class="admin-status-row"><strong>${label}</strong><span>${escapeHTML(value)}</span></div>`).join("");
+
+    if (userBody) userBody.innerHTML = (data.users || []).map((user) => `
+      <tr>
+        <td>${escapeHTML(user.username)}</td>
+        <td>${escapeHTML(user.role)}</td>
+        <td><button class="btn btn-ghost admin-user-delete" type="button" data-username="${escapeAttr(user.username)}"
+          ${user.username === data.current_username ? "disabled" : ""}>Delete</button></td>
+      </tr>`).join("");
+  }
+
+  function loadAdminWorkspace() {
+    return fetch(API_ADMIN_WORKSPACE, { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Admin workspace unavailable");
+        renderAdminWorkspace(data);
+      })
+      .catch((error) => { if (userStatus) userStatus.textContent = error.message; });
+  }
+
+  userForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const body = {
+      username: document.getElementById("admin-user-name").value,
+      password: document.getElementById("admin-user-password").value,
+      role: document.getElementById("admin-user-role").value,
+    };
+    userStatus.textContent = "Saving user...";
+    fetch(API_ADMIN_USERS, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify(body),
+    }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "User update failed");
+      userForm.reset();
+      userStatus.textContent = `${data.username} saved.`;
+      return loadAdminWorkspace();
+    }).catch((error) => { userStatus.textContent = error.message; });
+  });
+
+  userBody?.addEventListener("click", (event) => {
+    const button = event.target.closest(".admin-user-delete");
+    if (!button || !window.confirm(`Delete ${button.dataset.username}?`)) return;
+    button.disabled = true;
+    fetch(`${API_ADMIN_USERS}/${encodeURIComponent(button.dataset.username)}`, {
+      method: "DELETE", headers: { "X-CSRF-Token": CSRF_TOKEN },
+    }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "User deletion failed");
+      userStatus.textContent = `${button.dataset.username} deleted.`;
+      return loadAdminWorkspace();
+    }).catch((error) => { userStatus.textContent = error.message; button.disabled = false; });
+  });
+
+  loadAdminWorkspace();
 
   const elNids = document.getElementById("set-nids-enabled");
   const elHp = document.getElementById("set-honeypot-enabled");
@@ -739,6 +852,7 @@ function initDashboard() {
                 <td style="font-weight:bold">${escapeHTML(alert.alert_name || "")}</td>
                 <td class="font-mono">${escapeHTML(alert.rule_id || "-")}</td>
                 <td><span style="color:${getColor(alert.severity)}">${escapeHTML(alert.severity || "")}</span></td>
+                <td><span class="incident-status">${escapeHTML(alert.incident_status || "-")}</span></td>
                 <td>${escapeHTML(alert.ip_address || "N/A")}</td>
                 <td>${renderAssetReference(alert.asset_id)}</td>
               </tr>`;
@@ -783,6 +897,26 @@ function initDashboard() {
   setInterval(updateDashboard, 3000);
   updateDashboard();
 
+  function updateViewerKpis() {
+    const root = document.getElementById("viewer-kpis");
+    if (!root) return;
+    const status = document.getElementById("viewer-kpi-status");
+    fetch(API_ANALYTICS, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("SOC metrics unavailable")))
+      .then((payload) => {
+        Object.entries(payload.kpis || {}).forEach(([key, metric]) => {
+          const value = document.getElementById(`viewer-kpi-${key}`);
+          const sample = document.getElementById(`viewer-sample-${key}`);
+          if (value) value.textContent = formatSocMetric(key, metric);
+          if (sample) sample.textContent = metric.available ? `Sample: ${metric.sample_size}` : "No qualifying samples";
+        });
+        status.textContent = "";
+      })
+      .catch((error) => { status.textContent = error.message; });
+  }
+  updateViewerKpis();
+  if (document.getElementById("viewer-kpis")) setInterval(updateViewerKpis, 60000);
+
   loadGraphSettings();
 
   const g = ensureGraph();
@@ -820,6 +954,7 @@ function initLogs() {
   const inpIp = document.getElementById("filter-ip");
   const inpMitre = document.getElementById("filter-mitre");
   const inpQ = document.getElementById("filter-q");
+  const queueButtons = [...document.querySelectorAll(".analyst-queue")];
 
   const btnApply = document.getElementById("filter-apply");
   const btnClear = document.getElementById("filter-clear");
@@ -840,6 +975,7 @@ function initLogs() {
     ip: "",
     mitre: "",
     q: "",
+    queue: "",
     live: true,
     timer: null,
     totalPages: 1,
@@ -896,6 +1032,16 @@ function initLogs() {
     if (state.ip) params.set("ip", state.ip);
     if (state.mitre) params.set("mitre", state.mitre);
     if (state.q) params.set("q", state.q);
+    if (state.queue === "human-review") params.set("human_review", "true");
+    if (state.queue === "assigned") {
+      params.set("assigned_to", "me");
+      params.set("open_incidents", "true");
+    }
+    if (state.queue === "unassigned") {
+      params.set("unassigned", "true");
+      params.set("open_incidents", "true");
+    }
+    if (state.queue === "open") params.set("open_incidents", "true");
 
     return params.toString();
   }
@@ -975,6 +1121,17 @@ function initLogs() {
     setLive(!state.live);
     if (!state.live) fetchPage(1);
   });
+
+  queueButtons.forEach((button) => button.addEventListener("click", () => {
+    state.queue = button.dataset.queue || "";
+    queueButtons.forEach((item) => {
+      const selected = item === button;
+      item.classList.toggle("is-active", selected);
+      item.setAttribute("aria-pressed", String(selected));
+    });
+    setLive(false);
+    fetchPage(1);
+  }));
 
   tableBody.addEventListener("focusin", () => setLive(false));
 
@@ -1113,6 +1270,14 @@ function renderThreatIntelProvider(entry, alert) {
 function renderIncidentPanel(alert) {
   if (!alert.incident_id) return "";
   const canMutate = ["analyst", "admin"].includes(CURRENT_ROLE);
+  const externalCases = Object.entries(alert.external_cases || {})
+    .filter(([, record]) => record?.external_id)
+    .map(([provider, record]) => `<span class="incident-status">` +
+      `${provider === "thehive" ? "TheHive" : provider === "jira" ? "Jira" : "External"} ` +
+      `${escapeHTML(record.external_id)}</span>`).join("");
+  const caseExport = canMutate
+    ? `<button class="btn btn-ghost incident-case-export-btn" type="button">Export external case</button>`
+    : "";
 
   const statuses = ["NEW", "INVESTIGATING", "CONTAINED", "RESOLVED", "FALSE_POSITIVE"];
   const statusButtons = canMutate ? statuses.map((status) => `
@@ -1150,6 +1315,7 @@ function renderIncidentPanel(alert) {
           <a class="btn btn-ghost" href="/api/alerts/${encodeURIComponent(alert.alert_id)}/report.pdf" download>
             <i class="fa-solid fa-file-pdf"></i> PDF report
           </a>
+          ${externalCases}${caseExport}
           <span class="incident-status">${escapeHTML(alert.incident_status || "NEW")}</span>
         </div>
       </div>
@@ -1209,6 +1375,24 @@ function bindIncidentActions(row, alert) {
       target: row.querySelector(".incident-action-target").value,
     },
   ));
+  row.querySelector(".incident-case-export-btn")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const error = row.querySelector(".incident-error");
+    error.textContent = "";
+    button.disabled = true;
+    try {
+      const response = await fetch(`${url}/external-case`, {
+        method: "POST", headers: { "X-CSRF-Token": CSRF_TOKEN },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || result.status || "Case export failed");
+      const provider = result.provider === "thehive" ? "TheHive" : result.provider === "jira" ? "Jira" : "External";
+      button.textContent = `${provider} ${result.external_id}`;
+    } catch (requestError) {
+      error.textContent = requestError.message || "Case export failed";
+      button.disabled = false;
+    }
+  });
   row.querySelector(".incident-approve-btn")?.addEventListener("click", (event) => mutateIncident(
     row,
     event.currentTarget,

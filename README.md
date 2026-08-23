@@ -12,7 +12,7 @@ A compact, explainable SIEM lab for learning blue-team workflows. It combines YA
 
 > **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
 
-Current release: **v0.5.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.5.0.md).
+Current release: **v0.6.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.6.0.md).
 
 ## What is implemented
 
@@ -25,6 +25,7 @@ Current release: **v0.5.0** — see the [changelog](CHANGELOG.md) and [release c
 - SQLite as the primary alert store, with JSON dual-write/fallback during migration.
 - Admin-only asset inventory with validated CRUD, hostname/IP lookup, alert links, filters, criticality, ownership, tags, and immutable audit events.
 - Incident lifecycle, notes, assignee, timeline, audit trail, role-based access, and CSRF protection.
+- Role-focused workspaces: read-only viewer KPIs, analyst investigation queues, and an admin control/status workspace.
 - Proposed response actions, approvals, simulation, rollback metadata, and optional webhook notifications.
 - Normalized GeoIP, optional AbuseIPDB/VirusTotal metadata, and offline STIX/TAXII indicator matching.
 - Health/status diagnostics, retention, SQLite backup, and log rotation tooling.
@@ -200,11 +201,13 @@ Levels are `LOW` below 25, `MEDIUM` from 25, `HIGH` from 50, and `CRITICAL` from
 
 | Role | Access |
 |---|---|
-| `viewer` | View alerts, incidents, graphs, logs, and diagnostics |
+| `viewer` | Read-only workspace with alerts, incident status, SOC metrics, rule coverage, graphs, and logs |
 | `analyst` | Viewer access plus incident status, assignee, notes, and response workflow |
 | `admin` | Analyst access plus settings, rule administration, diagnostics, and maintenance-sensitive controls |
 
 Sessions use HTTP-only cookies, server-side role checks, CSRF protection for mutations, and an append-only analyst audit log. Set `DASHBOARD_SESSION_SECRET` explicitly for stable deployments and enable `DASHBOARD_COOKIE_SECURE=true` only behind HTTPS.
+
+Viewer accounts land on a read-only overview that reuses the same bounded alert, KPI, and coverage APIs as the other workspaces. Mutation controls are omitted in the browser and analyst/admin authorization remains enforced on every mutation endpoint, so hiding controls is not the security boundary.
 
 ## Response safety
 
@@ -213,6 +216,32 @@ Sessions use HTTP-only cookies, server-side role checks, CSRF protection for mut
 This repository does not execute arbitrary AI-generated commands. Treat manual or automatic modes as workflow labels for the lab until a separately reviewed, least-privilege executor is integrated.
 
 Optional high-risk notifications can be sent to a generic or Discord webhook. Leave `NOTIFICATION_WEBHOOK_URL` empty to disable them.
+
+## External case connector contract
+
+External case export is disabled by default. After one provider is selected and configured, an authenticated analyst can use **Export external case** in an incident panel or manually `POST /api/alerts/<alert_id>/external-case`; there is no automatic/background export. The shared service passes an allowlisted incident summary, uses `incident_id` as the idempotency key, enforces the configured timeout and at most three attempts, stores the returned ID under `external_cases.<provider>`, and writes an immutable `CASE_EXPORT` audit event.
+
+```dotenv
+CASE_EXPORT_ENABLED=false
+CASE_EXPORT_PROVIDER=thehive
+CASE_EXPORT_TIMEOUT_SECONDS=5
+CASE_EXPORT_MAX_ATTEMPTS=2
+THEHIVE_URL=https://thehive.example
+THEHIVE_API_KEY=replace-with-a-dedicated-api-key
+```
+
+For Jira Cloud, select `jira` and configure its project and dedicated account:
+
+```dotenv
+CASE_EXPORT_PROVIDER=jira
+JIRA_URL=
+JIRA_USER_EMAIL=
+JIRA_API_TOKEN=
+JIRA_PROJECT_KEY=
+JIRA_ISSUE_TYPE=
+```
+
+The TheHive adapter uses API v1 to find/create cases and validated source-IP observables, mapping detection severity and deterministic risk to severity 1–4. The Jira adapter uses REST v3 enhanced JQL search, a stable incident label, and an Atlassian Document Format description. Provider credentials are used only in authorization headers and are excluded from payloads, stored incidents, UI responses, and audit events. Use least-privilege service accounts and HTTPS. See the [TheHive API documentation](https://docs.strangebee.com/thehive/api-docs/) and [Jira Cloud REST documentation](https://developer.atlassian.com/cloud/jira/platform/rest/v3/intro/).
 
 ## Windows and Sysmon collection
 
@@ -243,7 +272,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
 - Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
-- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.5.0 checklist](docs/RELEASE_v0.5.0.md).
+- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.6.0 checklist](docs/RELEASE_v0.6.0.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
 - The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.4–v0.6 roadmap](docs/MINI_SIEM_CONTINUATION_ROADMAP_v0.4_to_v0.6.md).
 
@@ -285,9 +314,8 @@ Mini-SIEM/
 
 ## Near-term roadmap
 
-- Manual external case export with bounded connector behavior.
-- Role-specific analyst, manager, and administrator workspaces.
-- TLS/reverse-proxy deployment guidance and stronger secret management.
-- Production-grade response integrations, after explicit approval and least-privilege design.
+- Stabilize the v0.6 single-node release and its documented upgrade path.
+- Add TLS/reverse-proxy deployment guidance and stronger secret management when the lab is exposed beyond localhost.
+- Keep multi-tenant architecture and production response integrations deferred until a concrete isolation or execution requirement exists.
 
 Contributions should keep detections explainable, failure modes observable, and response actions safe by default.

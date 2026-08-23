@@ -6,26 +6,33 @@ from collections import defaultdict
 from io import BytesIO
 import hashlib
 import re
+from pathlib import Path
 
 from flask import Flask, render_template, jsonify, redirect, request, send_file, session, url_for
 
 from config import config
 from src.alert_schema import INCIDENT_STATUSES, utc_iso
 from src.assets import CRITICALITIES, ENVIRONMENTS, build_asset
-from src.audit import append_audit_event
+from src.audit import append_audit_event, verify_audit_log
+from src.case_connector import CaseExportService
 from src.health import build_system_status
 from src.incident_report import generate_incident_pdf
+from src.jira import JiraConnector
 from src.metrics import metrics_unavailable, render_prometheus_metrics
 from src.dashboard_auth import (
     authenticate,
     clear_login_failures,
     csrf_token,
     csrf_valid,
+    delete_user,
     get_user,
     init_auth,
     login_allowed,
+    load_users,
     record_login_failure,
     role_required,
+    save_user,
+    user_auth_version,
 )
 from src.alert_store import (
     add_analyst_note,
@@ -39,6 +46,7 @@ from src.rules import build_detection_coverage, load_detection_rules
 from src.sigma import load_sigma_rules, set_sigma_rule_enabled
 from src.storage import alert_repository
 from src.sqlite_store import SQLiteAssetRepository
+from src.thehive import TheHiveConnector
 from src.windows_events import ingest_windows_events
 
 app = Flask(__name__)
@@ -51,6 +59,23 @@ DETECTION_RULES = load_detection_rules(
 SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
 RULES_LOADED_AT = utc_iso()
 asset_repository = SQLiteAssetRepository()
+case_connector = None
+if config.CASE_EXPORT_PROVIDER == "thehive" and config.THEHIVE_URL and config.THEHIVE_API_KEY:
+    case_connector = TheHiveConnector(config.THEHIVE_URL, config.THEHIVE_API_KEY)
+elif config.CASE_EXPORT_PROVIDER == "jira" and all((
+    config.JIRA_URL, config.JIRA_USER_EMAIL,
+    config.JIRA_API_TOKEN, config.JIRA_PROJECT_KEY,
+)):
+    case_connector = JiraConnector(
+        config.JIRA_URL, config.JIRA_USER_EMAIL, config.JIRA_API_TOKEN,
+        config.JIRA_PROJECT_KEY, config.JIRA_ISSUE_TYPE,
+    )
+case_export_service = CaseExportService(
+    case_connector,
+    enabled=config.CASE_EXPORT_ENABLED,
+    timeout_seconds=config.CASE_EXPORT_TIMEOUT_SECONDS,
+    max_attempts=config.CASE_EXPORT_MAX_ATTEMPTS,
+)
 
 ALLOWED_SETTINGS = {
     "NIDS_ENABLED",
@@ -136,6 +161,99 @@ def _detection_rule_records() -> list[dict]:
         "skip_reason": rule.get("skip_reason"),
     } for rule in rules]
 
+
+def _directory_status(path, pattern):
+    try:
+        files = sorted(
+            (item for item in Path(path).glob(pattern) if item.is_file()),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        )
+        latest = files[0] if files else None
+        return {
+            "count": len(files),
+            "latest": latest.name if latest else None,
+            "latest_at": utc_iso(datetime.fromtimestamp(latest.stat().st_mtime, timezone.utc)) if latest else None,
+        }
+    except OSError as exc:
+        return {"count": 0, "latest": None, "latest_at": None, "error": type(exc).__name__}
+
+
+def _admin_workspace_payload():
+    health = build_system_status(_effective_settings())
+    audit_valid, audit_message = verify_audit_log()
+    try:
+        with Path(config.ANALYST_AUDIT_FILE).open(encoding="utf-8") as audit_file:
+            audit_events = sum(1 for line in audit_file if line.strip())
+    except OSError:
+        audit_events = 0
+    database = Path(config.SQLITE_ALERT_DB)
+    try:
+        database_status = {
+            "exists": database.is_file(),
+            "size_bytes": database.stat().st_size if database.is_file() else 0,
+        }
+    except OSError as exc:
+        database_status = {"exists": False, "size_bytes": 0, "error": type(exc).__name__}
+    users = [
+        {"username": username, "role": record.get("role")}
+        for username, record in sorted(load_users().items())
+        if isinstance(record, dict) and record.get("role") in {"viewer", "analyst", "admin"}
+    ]
+    ai = health.get("ai") or {}
+    ti_providers = [
+        name for name, configured in (
+            ("GeoIP", config.GEOIP_ENABLED),
+            ("AbuseIPDB", bool(config.ABUSEIPDB_API_KEY)),
+            ("VirusTotal", bool(config.VIRUSTOTAL_API_KEY)),
+            ("STIX", bool(config.STIX_BUNDLE_FILE)),
+            ("TAXII", bool(config.TAXII_COLLECTION_URL)),
+        ) if configured
+    ]
+    external_ready = case_connector is not None
+    integrations = [
+        {
+            "name": "External case",
+            "status": "ready" if config.CASE_EXPORT_ENABLED and external_ready else "disabled" if not config.CASE_EXPORT_ENABLED else "needs_configuration",
+            "detail": config.CASE_EXPORT_PROVIDER,
+        },
+        {
+            "name": "AI analyst",
+            "status": "ready" if ai.get("enabled") and ai.get("available") is not False else "disabled" if not ai.get("enabled") else "unavailable",
+            "detail": str(ai.get("provider") or config.AI_PROVIDER),
+        },
+        {
+            "name": "Threat intelligence",
+            "status": "ready" if ti_providers else "disabled",
+            "detail": ", ".join(ti_providers) or "No provider configured",
+        },
+        {
+            "name": "Notifications",
+            "status": "ready" if bool(config.NOTIFICATION_WEBHOOK_URL) else "disabled",
+            "detail": config.NOTIFICATION_WEBHOOK_FORMAT,
+        },
+        {
+            "name": "Windows collector",
+            "status": "ready" if bool(config.WINDOWS_COLLECTOR_SECRET) else "disabled",
+            "detail": "Shared secret configured" if config.WINDOWS_COLLECTOR_SECRET else "Not configured",
+        },
+    ]
+    return {
+        "current_username": session["username"],
+        "users": users,
+        "health": health,
+        "integrations": integrations,
+        "audit": {"valid": audit_valid, "message": audit_message, "events": audit_events},
+        "maintenance": {
+            "retention_days": config.ALERT_RETENTION_DAYS,
+            "log_rotate_max_bytes": config.LOG_ROTATE_MAX_BYTES,
+            "log_rotate_backups": config.LOG_ROTATE_BACKUPS,
+            "database": database_status,
+            "backups": _directory_status(config.SQLITE_BACKUP_DIR, "*.db"),
+            "archives": _directory_status(config.ALERT_ARCHIVE_DIR, "*.jsonl"),
+        },
+    }
+
 def _parse_ts_maybe(value: str):
     """
     Parse ISO timestamp to aware UTC datetime.
@@ -173,7 +291,9 @@ def require_dashboard_authentication():
         return None
     username = session.get("username")
     user = get_user(username) if username else None
-    if not user:
+    if not user or not hmac.compare_digest(
+        str(session.get("auth_version", "")), user_auth_version(user)
+    ):
         session.clear()
         return _auth_error()
     session["role"] = user["role"]
@@ -225,7 +345,12 @@ def login():
     if not destination.startswith("/") or destination.startswith("//"):
         destination = url_for("dashboard")
     session.clear()
-    session.update(username=username, role=user["role"], csrf_token=os.urandom(32).hex())
+    session.update(
+        username=username,
+        role=user["role"],
+        auth_version=user_auth_version(user),
+        csrf_token=os.urandom(32).hex(),
+    )
     session.permanent = True
     append_audit_event("LOGIN", username, role=user["role"])
     return redirect(destination)
@@ -343,6 +468,64 @@ def settings():
 def api_settings_get():
     return jsonify(_effective_settings())
 
+
+@app.route("/api/admin/workspace")
+@role_required("admin")
+def api_admin_workspace():
+    return jsonify(_admin_workspace_payload())
+
+
+@app.route("/api/admin/users", methods=["POST"])
+@role_required("admin")
+def api_admin_user_save():
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"error": "JSON body must be an object"}), 400
+    username = str(body.get("username") or "").strip().lower()
+    role = str(body.get("role") or "").strip().lower()
+    if username == session["username"] and role != "admin":
+        return jsonify({"error": "The active admin account cannot be demoted"}), 400
+    try:
+        existed = save_user(
+            username,
+            body.get("password"),
+            role,
+            audit=lambda existed: append_audit_event(
+                "USER_UPDATED" if existed else "USER_CREATED",
+                session["username"], role=session.get("role"),
+                target_type="dashboard_user", target_id=username,
+                details={"assigned_role": role},
+            ),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
+    return jsonify({"username": username, "role": role}), 200 if existed else 201
+
+
+@app.route("/api/admin/users/<username>", methods=["DELETE"])
+@role_required("admin")
+def api_admin_user_delete(username):
+    normalized = str(username).strip().lower()
+    if normalized == session["username"]:
+        return jsonify({"error": "The active admin account cannot be deleted"}), 400
+    try:
+        deleted = delete_user(
+            normalized,
+            audit=lambda: append_audit_event(
+                "USER_DELETED", session["username"], role=session.get("role"),
+                target_type="dashboard_user", target_id=normalized,
+            ),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
+    if not deleted:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify({"ok": True})
+
 @app.route("/api/settings/update", methods=["POST"])
 @role_required("admin")
 def api_settings_update():
@@ -417,6 +600,28 @@ def api_incident_report(alert_id):
         BytesIO(report), mimetype="application/pdf", as_attachment=True,
         download_name=f"{filename}.pdf", max_age=0,
     )
+
+
+@app.route("/api/alerts/<alert_id>/external-case", methods=["POST"])
+@role_required("analyst")
+def api_external_case(alert_id):
+    try:
+        result = case_export_service.export(
+            alert_repository, alert_id,
+            actor=session["username"], role=session.get("role"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if result is None:
+        return jsonify({"error": "Alert not found"}), 404
+    status_code = {
+        "EXPORTED": 201,
+        "DEDUPLICATED": 200,
+        "DISABLED": 503,
+        "MISCONFIGURED": 503,
+        "FAILED": 502,
+    }[result["status"]]
+    return jsonify(result), status_code
 
 
 @app.route("/api/windows-events", methods=["POST"])
@@ -688,6 +893,9 @@ def api_alerts_search():
       - mitre (substring match)
       - incident_status
       - human_review (true/false)
+      - assigned_to (username or "me")
+      - unassigned (true/false)
+      - open_incidents (true/false)
     """
     try:
         page = int(request.args.get("page", 1))
@@ -709,6 +917,11 @@ def api_alerts_search():
     ai_disposition = (request.args.get("ai_disposition") or "").strip() or None
     if not ai_disposition and (request.args.get("human_review") or "").lower() in {"1", "true", "yes"}:
         ai_disposition = "REQUIRES_HUMAN_REVIEW"
+    assigned_to = (request.args.get("assigned_to") or "").strip() or None
+    if assigned_to and assigned_to.lower() == "me":
+        assigned_to = session.get("username")
+    unassigned = (request.args.get("unassigned") or "").lower() in {"1", "true", "yes"}
+    open_incidents = (request.args.get("open_incidents") or "").lower() in {"1", "true", "yes"}
 
     from_ts = _parse_ts_maybe(request.args.get("from"))
     to_ts = _parse_ts_maybe(request.args.get("to"))
@@ -721,6 +934,9 @@ def api_alerts_search():
             "mitre": mitre,
             "incident_status": incident_status,
             "ai_disposition": ai_disposition,
+            "assigned_to": assigned_to,
+            "unassigned": unassigned,
+            "open_incidents": open_incidents,
             "from": from_ts.isoformat() if from_ts else None,
             "to": to_ts.isoformat() if to_ts else None,
         },
