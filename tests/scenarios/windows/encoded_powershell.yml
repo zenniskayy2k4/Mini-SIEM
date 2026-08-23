@@ -1,0 +1,18 @@
+schema_version: 1
+id: SCN-WIN-POWERSHELL-001
+title: Encoded PowerShell execution
+source: windows_event
+events: scenarios/fixtures/windows_encoded_powershell.jsonl
+expected:
+  rule_ids:
+    - DET-WIN-001
+  alert_count:
+    min: 1
+    max: 1
+  severity: HIGH
+  fields:
+    windows_event_id:
+      equals: 1
+negative_expectations:
+  rule_ids:
+    - DET-WIN-002

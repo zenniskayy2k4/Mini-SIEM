@@ -5,7 +5,7 @@
 ![Ollama](https://img.shields.io/badge/Ollama-Cloud_AI-white?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=flat-square)
-![Release](https://img.shields.io/badge/release-v0.5.0-2ea44f?style=flat-square)
+![Release](https://img.shields.io/badge/release-v0.6.0-2ea44f?style=flat-square)
 [![CI](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml/badge.svg)](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml)
 
 A compact, explainable SIEM lab for learning blue-team workflows. It combines YAML signatures, local anomaly models, event correlation, an optional Ollama Cloud analyst, an authenticated incident dashboard, and safe response simulation.
