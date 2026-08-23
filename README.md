@@ -12,7 +12,7 @@ A compact, explainable SIEM lab for learning blue-team workflows. It combines YA
 
 > **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
 
-Current release: **v0.5.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.5.0.md).
+Current release: **v0.6.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.6.0.md).
 
 ## What is implemented
 
@@ -272,7 +272,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
 - Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
-- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.5.0 checklist](docs/RELEASE_v0.5.0.md).
+- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.6.0 checklist](docs/RELEASE_v0.6.0.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
 - The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.4–v0.6 roadmap](docs/MINI_SIEM_CONTINUATION_ROADMAP_v0.4_to_v0.6.md).
 
@@ -314,9 +314,8 @@ Mini-SIEM/
 
 ## Near-term roadmap
 
-- Manual external case export with bounded connector behavior.
-- Role-specific analyst, manager, and administrator workspaces.
-- TLS/reverse-proxy deployment guidance and stronger secret management.
-- Production-grade response integrations, after explicit approval and least-privilege design.
+- Stabilize the v0.6 single-node release and its documented upgrade path.
+- Add TLS/reverse-proxy deployment guidance and stronger secret management when the lab is exposed beyond localhost.
+- Keep multi-tenant architecture and production response integrations deferred until a concrete isolation or execution requirement exists.
 
 Contributions should keep detections explainable, failure modes observable, and response actions safe by default.

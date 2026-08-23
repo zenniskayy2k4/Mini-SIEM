@@ -6,7 +6,7 @@
 > **Environment:** Windows + Docker Desktop
 > **Storage:** SQLite primary + JSON dual-write/fallback
 > **AI:** Ollama Cloud with optional bounded local fallback
-> **Recommended next release:** `v0.6.0`
+> **Current release:** `v0.6.0`
 
 ---
 
@@ -103,7 +103,7 @@ M18 — Multi-tenant Architecture
 | M14 | Reporting & Observability | v0.5.0 | ✅ Complete |
 | M15 | AI Resilience & Provider Abstraction | v0.5.0 | ✅ Complete |
 | M16 | External Case Management | v0.6.0 | ✅ Complete |
-| M17 | Role-specific SOC Workspace | v0.6.0 | 🟠 In Progress |
+| M17 | Role-specific SOC Workspace | v0.6.0 | ✅ Complete |
 | M18 | Multi-tenant Architecture | Future | ⬜ |
 
 ---
@@ -1669,7 +1669,7 @@ feat: add analyst SOC workspace
 
 ## M17.3 — Admin workspace
 
-**Status:** ✅ Complete — local verification passed; commit pending
+**Status:** ✅ Complete — commits `9af588c` and security hardening `e85e640`; CI `32485307261` passed
 
 - [x] User management.
 - [x] Runtime settings.
@@ -1702,16 +1702,47 @@ feat: add analyst SOC workspace
 
 ```text
 feat: add admin SOC workspace
+fix: harden dashboard user management
 ```
 
 ---
 
 ## M17.4 — Release v0.6.0
 
-**Status:** ⬜
+**Status:** ✅ Complete — annotated tag `v0.6.0` published from the verified release commit
 
 ```text
 v0.6.0 — SOC Integrations & Role-focused Workspaces
+```
+
+- [x] M16 external case management complete.
+- [x] M17 role-specific workspaces complete.
+- [x] Dashboard user-management security review complete.
+- [x] CHANGELOG and README synchronized.
+- [x] Upgrade notes and known limitations documented.
+- [x] Older release checklist consolidated into release history.
+- [x] 43 executable regression modules passed.
+- [x] Compose, runtime health, tracked-file, and secret checks passed.
+- [x] Release commit and annotated tag passed the CI release gate.
+
+### Release verification — 2026-08-23
+
+| Check | Result |
+|---|:---:|
+| M16 connector, TheHive, and Jira scope | PASS |
+| M17 viewer, analyst, and admin workspace scope | PASS |
+| Session revocation, bounded input, user locking, and audit rollback | PASS |
+| 43 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Runtime agent/dashboard/database health | PASS |
+| README, CHANGELOG, release history, upgrade notes, and limitations | PASS |
+| Tracked runtime files and secret review | PASS |
+| Release commit and tag CI | PASS |
+
+### Commit
+
+```text
+docs: release v0.6.0
 ```
 
 ---
@@ -1739,7 +1770,7 @@ Multi-tenant ảnh hưởng:
 ### Preconditions
 
 - [ ] Có requirement nhiều organization/team.
-- [ ] v0.6.0 ổn định.
+- [x] v0.6.0 ổn định.
 - [ ] Migration strategy rõ.
 - [ ] Tenant isolation model rõ.
 - [ ] Security review khả thi.
@@ -1775,10 +1806,10 @@ M10.1 GitHub Actions
 # 6. Batch cần làm ngay
 
 ```text
-M17.4 — Release v0.6.0 (not started; begin only in the next requested batch)
+No active batch. M18 remains optional and must not start without a real multi-tenant requirement.
 ```
 
-M17.3 hoàn tất ở local. Không bắt đầu M17.4 trong cùng batch.
+M10–M17 và các release `v0.4.0`–`v0.6.0` đã hoàn tất.
 
 ### Success condition
 
@@ -1967,6 +1998,7 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 | 2026-08-21 | Viewer workspace tái sử dụng read APIs và server-side RBAC hiện có | Tránh API/route song song; UI read-only không thay thế authorization boundary |
 | 2026-08-21 | Analyst workspace mở rộng bộ lọc Logs hiện có | Giữ một incident panel chung cho triage, note, response và TI/AI; không tạo API/route song song |
 | 2026-08-21 | Admin workspace tổng hợp trạng thái từ auth, health, audit và maintenance hiện có | Một control plane nhỏ, không thêm secret store hoặc maintenance executor qua web |
+| 2026-08-23 | `v0.6.0` chốt M16–M17 sau security hardening | External export vẫn thủ công; workspace giữ server-side RBAC và local single-process scope |
 | 2026-08-15 | Multi-tenant deferred | Complexity cao, chưa cần |
 
 ---
@@ -1974,8 +2006,8 @@ Các mục này tăng complexity mạnh nhưng chưa mang lại ROI tốt cho m�
 # 14. Current next action
 
 ```text
-START HERE:
-M17.4 — Release v0.6.0 (not started)
+ROADMAP COMPLETE THROUGH v0.6.0
+M18 — Optional; do not start without a concrete multi-tenant use case
 ```
 
-M17.3 đã hoàn tất local. Xác minh commit CI trước, sau đó bắt đầu M17.4 ở batch kế tiếp khi người dùng yêu cầu tiếp tục.
+Không có batch bắt buộc tiếp theo trong roadmap này.

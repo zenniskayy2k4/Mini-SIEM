@@ -4,6 +4,10 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-23
+
+SOC Integrations and Role-focused Workspaces release.
+
 ### Added
 
 - Disabled-by-default external case connector contract with manual analyst export, allowlisted payloads, bounded timeout/retries, persisted external IDs, idempotency, and immutable audit events.
@@ -47,7 +51,7 @@ Asset-aware SOC Analytics and Resilient AI release.
 - The live agent/dashboard stack remained healthy without a local image rebuild, Ollama model download, or AI corpus network call.
 - No active Gitleaks exception or tracked `.env`, `data/**`, or `logs/**` runtime file exists.
 
-See the [v0.5.0 release checklist](docs/RELEASE_v0.5.0.md) for setup, verification details, upgrade notes, and known limitations.
+See the [v0.5.0 release history](docs/RELEASE_HISTORY.md#mini-siem-v050-release-checklist) for setup, verification details, upgrade notes, and known limitations.
 
 ## [0.4.0] - 2026-08-18
 
