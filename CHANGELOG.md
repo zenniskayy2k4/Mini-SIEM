@@ -4,6 +4,10 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ## [Unreleased]
 
+### Added
+
+- Versioned offline detection scenarios with deterministic replay through existing Linux and Windows rule paths, isolated temporary state, normalized CI output, and no external provider or response side effects.
+
 ## [0.6.0] - 2026-08-23
 
 SOC Integrations and Role-focused Workspaces release.

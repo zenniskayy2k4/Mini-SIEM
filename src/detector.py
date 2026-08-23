@@ -173,9 +173,10 @@ class ThreatDetector:
 
     FEATURE_DIM = 15
 
-    def __init__(self, signatures: list, ai_analyst=None):
+    def __init__(self, signatures: list, ai_analyst=None, *, load_models=True, clock=None):
         self.signatures  = validate_rules(signatures)
         self.ai_analyst  = ai_analyst   # optional async LLM analyst
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
 
         self.vectorizer  = None
         self.nlp_model   = None
@@ -186,7 +187,8 @@ class ThreatDetector:
         self._ssh_alerts = {}
         self._ssh_lock = threading.Lock()
 
-        self._load_all_models()
+        if load_models:
+            self._load_all_models()
 
     # ------------------------------------------------------------------
     # Model loading
@@ -374,7 +376,7 @@ class ThreatDetector:
         if rule is None:
             return False, None
 
-        now = datetime.now(timezone.utc)
+        now = self._clock()
         window = int(getattr(config, rule["threshold"]["window_seconds"]))
         threshold = int(getattr(config, rule["threshold"]["count"]))
         ip = match.group("ip")

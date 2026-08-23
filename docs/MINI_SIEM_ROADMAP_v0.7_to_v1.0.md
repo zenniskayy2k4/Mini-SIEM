@@ -239,7 +239,7 @@ test: add detection validation scenario contract
 
 ## M19.2 — Offline Event Replay Engine
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Tool
 
@@ -249,24 +249,37 @@ tools/replay_scenario.py
 
 ### Tasks
 
-- [ ] Load scenario manifest.
-- [ ] Load fixture events.
-- [ ] Preserve event ordering.
-- [ ] Support relative timestamps.
-- [ ] Feed events through existing detection paths.
-- [ ] Disable external AI/TI by default.
-- [ ] Disable notifications.
-- [ ] Disable response actions.
-- [ ] Use isolated temporary storage.
-- [ ] Produce JSON result.
-- [ ] Produce human-readable summary.
+- [x] Load scenario manifest.
+- [x] Load fixture events.
+- [x] Preserve event ordering.
+- [x] Support relative timestamps.
+- [x] Feed events through existing detection paths.
+- [x] Disable external AI/TI by default.
+- [x] Disable notifications.
+- [x] Disable response actions.
+- [x] Use isolated temporary storage.
+- [x] Produce JSON result.
+- [x] Produce human-readable summary.
 
 ### Definition of Done
 
-- [ ] Replay is deterministic.
-- [ ] Same fixture gives the same result twice.
-- [ ] Replay cannot trigger live response execution.
-- [ ] Output can be consumed by CI.
+- [x] Replay is deterministic.
+- [x] Same fixture gives the same result twice.
+- [x] Replay cannot trigger live response execution.
+- [x] Output can be consumed by CI.
+
+### Local verification — 2026-08-23
+
+| Check | Result |
+|---|---|
+| Linux and Windows fixtures replay through existing rule paths | PASS |
+| Same corpus produces identical normalized results twice | PASS |
+| Network calls blocked during executable regression | PASS |
+| AI/TI, notification, response, and runtime persistence not initialized | PASS |
+| Human-readable and stable JSON outputs | PASS |
+| 45 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No dependency, image build, runtime restart, or live data write | PASS |
 
 ### Suggested commit
 
@@ -1828,10 +1841,10 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M19.2 — Offline Event Replay Engine
+M19.3 — Detection Validation Corpus
 ```
 
-Keep M19.2 isolated from runtime services:
+M19.2 is complete and isolated from runtime services:
 
 ```text
 manifest + fixture
@@ -1841,7 +1854,7 @@ manifest + fixture
 → regression check
 ```
 
-Do not add the full validation corpus, dashboard changes, or new detection rules in the same batch.
+Next, expand only the M19.3 validation corpus; keep dashboard changes and new detection rules out of that batch.
 
 ---
 
@@ -2029,14 +2042,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M19.2 — Offline Event Replay Engine
+M19.3 — Detection Validation Corpus
 ```
 
-M19.1 established the offline manifest boundary. Success for the next batch is:
+M19.2 established deterministic, side-effect-free replay. Success for the next batch is:
 
 ```text
-same fixture twice
-+ same normalized replay result
-+ no external side effect
-= deterministic PASS/FAIL
+positive + negative Linux, Windows, network, and cross-source fixtures
++ explicit expected/forbidden rule outcomes
++ deterministic replay
+= CI-ready detection validation corpus
 ```

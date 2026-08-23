@@ -27,3 +27,12 @@ Validate the repository corpus without starting a service:
 ```bash
 python -m src.scenario_manifest tests/scenarios
 ```
+
+Replay the corpus through existing rule paths without runtime services:
+
+```bash
+python tools/replay_scenario.py tests/scenarios
+python tools/replay_scenario.py tests/scenarios --json
+```
+
+The replay engine disables ML model loading and never initializes AI, threat-intelligence, notification, response, or persistence components. It uses a temporary Sigma state file and emits only normalized expected fields; raw logs and source addresses are excluded from results. Replay output fields are restricted to `computer`, `correlation_type`, `event_count`, `mitre_attck_id`, `rule_source`, `sigma_rule_id`, `source_type`, `suppressed_count`, `windows_event_id`, and `window_seconds`.
