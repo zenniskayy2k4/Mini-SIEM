@@ -50,6 +50,42 @@ jobs:
             python -m "${test_module//\//.}"
           done
 
+      - name: Gate detection scenarios
+        id: scenario-gate
+        shell: bash
+        env:
+          AI_PROVIDER: ""
+          OLLAMA_API_KEY: ""
+          GEOIP_ENABLED: "false"
+          ABUSEIPDB_API_KEY: ""
+          VIRUSTOTAL_API_KEY: ""
+          STIX_BUNDLE_FILE: ""
+          TAXII_COLLECTION_URL: ""
+          TAXII_BEARER_TOKEN: ""
+          NOTIFICATION_WEBHOOK_URL: ""
+          CASE_EXPORT_ENABLED: "false"
+          THEHIVE_URL: ""
+          THEHIVE_API_KEY: ""
+          JIRA_URL: ""
+          JIRA_API_TOKEN: ""
+          RESPONSE_MODE: simulation
+        run: |
+          set -o pipefail
+          mkdir -p ci-artifacts
+          python tools/replay_scenario.py tests/scenarios \
+            --json-output ci-artifacts/scenario-replay.json \
+            | tee ci-artifacts/scenario-replay.txt
+          python tools/generate_validation_coverage.py --check
+
+      - name: Upload detection scenario failure
+        if: failure() && steps.scenario-gate.outcome == 'failure'
+        uses: actions/upload-artifact@v6
+        with:
+          name: detection-scenario-failure
+          path: ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
   docker-smoke:
     needs: baseline
     runs-on: ubuntu-latest

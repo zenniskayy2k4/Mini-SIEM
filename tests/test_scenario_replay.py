@@ -1,10 +1,13 @@
+import json
 import tempfile
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
 import yaml
 
-from tools.replay_scenario import ScenarioReplayError, replay_path
+from tools.replay_scenario import ScenarioReplayError, main, replay_path
 
 
 SCENARIOS = Path(__file__).parent / "scenarios"
@@ -66,6 +69,17 @@ def test_offline_scenario_replay():
         assert failed["passed"] is False
         assert "missing rule_ids: DET-SSH-001" in failed["results"][0]["failures"]
 
+        failure_output = root / "failed-replay.json"
+        console = StringIO()
+        with redirect_stdout(console):
+            status = main([
+                str(scenarios / "failure.yml"), "--fixture-root", str(root),
+                "--json-output", str(failure_output),
+            ])
+        assert status == 1
+        assert "missing rule_ids: DET-SSH-001" in console.getvalue()
+        assert json.loads(failure_output.read_text(encoding="utf-8"))["passed"] is False
+
         manifest["expected"]["fields"] = {"raw_log": {"contains": "login"}}
         (scenarios / "failure.yml").write_text(
             yaml.safe_dump(manifest), encoding="utf-8"
@@ -75,6 +89,13 @@ def test_offline_scenario_replay():
             raise AssertionError("Replay exposed a non-allowlisted output field")
         except ScenarioReplayError as exc:
             assert "unsupported output fields: raw_log" in str(exc)
+
+        output = root / "replay.json"
+        assert main([
+            str(SCENARIOS / "linux" / "ssh_brute_force.yml"),
+            "--json-output", str(output),
+        ]) == 0
+        assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
 if __name__ == "__main__":

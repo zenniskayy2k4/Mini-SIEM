@@ -363,13 +363,20 @@ def main(argv=None):
     parser.add_argument("path", nargs="?", default="tests/scenarios")
     parser.add_argument("--fixture-root")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--json-output", help="Write the JSON report to this path")
     args = parser.parse_args(argv)
     try:
         report = replay_path(args.path, args.fixture_root)
     except (ScenarioManifestError, ScenarioReplayError, ValueError) as exc:
         parser.exit(2, f"Scenario replay failed: {exc}\n")
+    serialized = json.dumps(report, ensure_ascii=False, sort_keys=True)
+    if args.json_output:
+        try:
+            Path(args.json_output).write_text(serialized + "\n", encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            parser.exit(2, f"Cannot write JSON report: {exc}\n")
     if args.json:
-        print(json.dumps(report, ensure_ascii=False, sort_keys=True))
+        print(serialized)
     else:
         for result in report["results"]:
             rules = ",".join(result["matched_rule_ids"]) or "none"

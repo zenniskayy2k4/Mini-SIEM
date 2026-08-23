@@ -35,6 +35,7 @@ Replay the corpus through existing rule paths without runtime services:
 ```bash
 python tools/replay_scenario.py tests/scenarios
 python tools/replay_scenario.py tests/scenarios --json
+python tools/replay_scenario.py tests/scenarios --json-output scenario-replay.json
 ```
 
 The replay engine disables ML model loading and never initializes AI, threat-intelligence, notification, response, or persistence components. It uses a temporary Sigma state file and emits only normalized expected fields; raw logs and source addresses are excluded from results. Replay output fields are restricted to `computer`, `correlation_type`, `event_count`, `mitre_attck_id`, `rule_source`, `sigma_rule_id`, `source_type`, `sources`, `suppressed_count`, `trigger_event_count`, `windows_event_id`, and `window_seconds`.
@@ -47,3 +48,5 @@ python tools/generate_validation_coverage.py --check
 ```
 
 The committed artifacts are `docs/DETECTION_VALIDATION_COVERAGE.md` and `docs/DETECTION_VALIDATION_COVERAGE.json`.
+
+GitHub Actions runs the human summary with `--json-output`, checks the committed coverage artifacts, and uploads the human/JSON replay reports only when the scenario gate fails. Provider credentials are empty for this step.

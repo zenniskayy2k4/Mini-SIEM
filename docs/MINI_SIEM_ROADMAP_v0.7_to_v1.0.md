@@ -132,7 +132,7 @@ M31 — Multi-tenancy Discovery
 
 | Milestone | Scope | Target | Status |
 |---|---|---|---|
-| M19 | Adversary Replay & Detection Validation | v0.7.0 | 🟠 In Progress |
+| M19 | Adversary Replay & Detection Validation | v0.7.0 | ✅ Complete |
 | M20 | Detection Tuning & Exception Management | v0.7.0 | ⬜ |
 | M21 | Event Quality & Ingestion Reliability | v0.7.0 | ⬜ |
 | M22 | Secure Deployment Profile | v0.8.0 | ⬜ |
@@ -396,15 +396,27 @@ feat: add detection validation coverage matrix
 
 ## M19.5 — CI Scenario Gate
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Tasks
 
-- [ ] Run replay corpus in GitHub Actions.
-- [ ] Fail on required scenario failure.
-- [ ] Save failure artifacts.
-- [ ] Print failed expectations clearly.
-- [ ] No Ollama/AbuseIPDB/VT/TAXII/Jira/TheHive calls.
+- [x] Run replay corpus in GitHub Actions.
+- [x] Fail on required scenario failure.
+- [x] Save failure artifacts.
+- [x] Print failed expectations clearly.
+- [x] No Ollama/AbuseIPDB/VT/TAXII/Jira/TheHive calls.
+
+### Local verification — 2026-08-23
+
+| Check | Result |
+|---|:---:|
+| Workflow YAML parses with scenario gate and conditional upload steps | PASS |
+| Exact replay, JSON artifact, human summary, and coverage check commands | PASS |
+| Failed expectation returns exit 1 and retains human/JSON diagnostics | PASS |
+| AI, GeoIP, AbuseIPDB, VT, TAXII, notification, Jira, and TheHive disabled | PASS |
+| 46 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| No dependency, image build, service restart, or runtime data write | PASS |
 
 ### Suggested commit
 
@@ -1868,19 +1880,19 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M19.5 — CI Scenario Gate
+M20.1 — Analyst Detection Feedback
 ```
 
-M19.4 is complete and isolated from runtime services:
+M19 is complete with an offline CI gate:
 
 ```text
-enabled rule inventory + replay results
-→ scenario mappings and deterministic validation state
-→ Markdown / JSON artifacts
-→ no runtime DB state
+manifest contract + 18-case corpus
+→ deterministic replay and coverage artifacts
+→ required CI gate with failure diagnostics
+→ no provider/runtime side effects
 ```
 
-Next, add only the M19.5 CI scenario gate and failure artifact; keep provider calls disabled and do not change runtime services.
+Next, start only M20.1 analyst detection feedback; keep exception matching and tuning proposals in later M20 batches.
 
 ---
 
@@ -2068,14 +2080,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M19.5 — CI Scenario Gate
+M20.1 — Analyst Detection Feedback
 ```
 
-M19.4 established deterministic coverage artifacts. Success for the next batch is:
+M19 now provides a CI-gated deterministic detection baseline. Success for the next batch is:
 
 ```text
-CI replay command
-+ clear failed expectations
-+ uploaded failure artifact
-= required scenario gate
+validated analyst feedback records
++ immutable actor/time context
++ alert and rule linkage
+= auditable detection feedback contract
 ```
