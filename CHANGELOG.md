@@ -6,7 +6,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ### Added
 
-- Versioned offline detection scenarios with an 18-case Linux, Windows, Sigma, NIDS, and cross-source corpus, deterministic replay through existing detection paths, isolated temporary state, normalized CI output, and no external provider or response side effects.
+- Versioned offline detection scenarios with an 18-case Linux, Windows, Sigma, NIDS, and cross-source corpus, deterministic replay through existing detection paths, isolated temporary state, normalized CI output, and generated Markdown/JSON rule-validation coverage that remains separate from runtime hit counts.
 
 ## [0.6.0] - 2026-08-23
 

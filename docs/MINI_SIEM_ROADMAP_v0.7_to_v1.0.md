@@ -353,7 +353,7 @@ test: add adversary replay validation corpus
 
 ## M19.4 — Validation Coverage Matrix
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Model
 
@@ -366,12 +366,25 @@ Rule
 
 ### Tasks
 
-- [ ] Add scenario count per rule.
-- [ ] Add validated/unvalidated state.
-- [ ] Distinguish rule hit from deterministic validation.
-- [ ] Generate Markdown/JSON coverage artifact.
-- [ ] Show unvalidated enabled rules.
-- [ ] Do not store CI-only state in runtime DB.
+- [x] Add scenario count per rule.
+- [x] Add validated/unvalidated state.
+- [x] Distinguish rule hit from deterministic validation.
+- [x] Generate Markdown/JSON coverage artifact.
+- [x] Show unvalidated enabled rules.
+- [x] Do not store CI-only state in runtime DB.
+
+### Local verification — 2026-08-23
+
+| Check | Result |
+|---|:---:|
+| 14 enabled native, Sigma, NIDS, and correlation rules inventoried | PASS |
+| Positive/negative scenario counts and mappings | PASS |
+| 14 validated, 0 failed, 0 unvalidated enabled rules | PASS |
+| Runtime hit state explicitly remains `NOT_EVALUATED` | PASS |
+| Markdown and JSON artifacts reproduce exactly with `--check` | PASS |
+| 46 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| No runtime DB, provider, dependency, image build, or service restart | PASS |
 
 ### Suggested commit
 
@@ -1855,19 +1868,19 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M19.4 — Validation Coverage Matrix
+M19.5 — CI Scenario Gate
 ```
 
-M19.3 is complete and isolated from runtime services:
+M19.4 is complete and isolated from runtime services:
 
 ```text
-18 scenario manifests + fixtures
-→ Linux / Windows / Sigma / NIDS / correlation paths
-→ deterministic positive and negative outcomes
-→ regression check
+enabled rule inventory + replay results
+→ scenario mappings and deterministic validation state
+→ Markdown / JSON artifacts
+→ no runtime DB state
 ```
 
-Next, generate only the M19.4 validation coverage matrix from the committed corpus; do not add dashboard state or runtime persistence.
+Next, add only the M19.5 CI scenario gate and failure artifact; keep provider calls disabled and do not change runtime services.
 
 ---
 
@@ -2055,14 +2068,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M19.4 — Validation Coverage Matrix
+M19.5 — CI Scenario Gate
 ```
 
-M19.3 established deterministic coverage cases. Success for the next batch is:
+M19.4 established deterministic coverage artifacts. Success for the next batch is:
 
 ```text
-enabled rule inventory
-+ scenario-to-rule mappings
-+ validated/unvalidated state
-= Markdown and JSON coverage artifacts
+CI replay command
++ clear failed expectations
++ uploaded failure artifact
+= required scenario gate
 ```

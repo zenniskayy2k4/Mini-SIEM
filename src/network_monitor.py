@@ -12,6 +12,26 @@ from src.alert_schema import build_alert
 from scapy.layers.inet import IP, TCP
 from scapy.layers.l2 import ARP
 
+NIDS_RULES = {
+    "DET-NET-001": {
+        "id": "DET-NET-001",
+        "title": "Network Port Scanning (SYN flood heuristic)",
+        "severity": "HIGH",
+        "source_type": "NIDS",
+        "rule_source": "native",
+        "mitre": {"tactic": "Reconnaissance", "technique": "T1046"},
+    },
+    "DET-NET-002": {
+        "id": "DET-NET-002",
+        "title": "ARP Spoofing Suspected (MAC flapping)",
+        "severity": "CRITICAL",
+        "source_type": "NIDS",
+        "rule_source": "native",
+        "mitre": {"tactic": "Credential Access", "technique": "T1557.002"},
+    },
+}
+
+
 class NetworkMonitor:
     """
     NIDS sensor:
@@ -81,12 +101,13 @@ class NetworkMonitor:
             count = len(dq)
 
         if count >= threshold:
+            rule = NIDS_RULES["DET-NET-001"]
             alert = build_alert(
-                rule_id="DET-NET-001",
-                alert_name="Network Port Scanning (SYN flood heuristic)",
-                severity="HIGH",
-                source_type="NIDS",
-                mitre_attck_id="T1046",
+                rule_id=rule["id"],
+                alert_name=rule["title"],
+                severity=rule["severity"],
+                source_type=rule["source_type"],
+                mitre_attck_id=rule["mitre"]["technique"],
                 description=f"High volume of TCP SYNs detected: {count}/{window}s (possible port scan).",
                 raw_log=f"NETWORK_TRAFFIC src={src_ip} proto=TCP flags=SYN dport={dst_port} count={count}/{window}s",
                 ip_address=src_ip,
@@ -121,12 +142,13 @@ class NetworkMonitor:
                     dq.popleft()
 
                 if len(dq) >= changes_threshold:
+                    rule = NIDS_RULES["DET-NET-002"]
                     alert = build_alert(
-                        rule_id="DET-NET-002",
-                        alert_name="ARP Spoofing Suspected (MAC flapping)",
-                        severity="CRITICAL",
-                        source_type="NIDS",
-                        mitre_attck_id="T1557.002",
+                        rule_id=rule["id"],
+                        alert_name=rule["title"],
+                        severity=rule["severity"],
+                        source_type=rule["source_type"],
+                        mitre_attck_id=rule["mitre"]["technique"],
                         description=f"Multiple MAC changes for IP {psrc_ip} within {window}s. Possible ARP cache poisoning.",
                         raw_log=f"NETWORK_TRAFFIC proto=ARP op=reply psrc={psrc_ip} hwsrc={hwsrc}",
                         ip_address=psrc_ip,

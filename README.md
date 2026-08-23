@@ -270,11 +270,11 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - `GET /health` provides an unauthenticated liveness/readiness summary; authenticated admins can use `/api/system/status` for richer diagnostics.
 - Retention, backup, restore verification, and log rotation are documented in [Retention and backup](docs/RETENTION_BACKUP.md).
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
-- Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
+- Runtime hit coverage and manual checks are tracked in the [Detection checklist](DETECTION_CHECKLIST.md); deterministic scenario coverage is published in the [validation coverage matrix](docs/DETECTION_VALIDATION_COVERAGE.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
 - Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.6.0 checklist](docs/RELEASE_v0.6.0.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
-- The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.4–v0.6 roadmap](docs/MINI_SIEM_CONTINUATION_ROADMAP_v0.4_to_v0.6.md).
+- The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.7–v1.0 roadmap](docs/MINI_SIEM_ROADMAP_v0.7_to_v1.0.md).
 
 Useful commands:
 

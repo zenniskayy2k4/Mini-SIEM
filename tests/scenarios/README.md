@@ -38,3 +38,12 @@ python tools/replay_scenario.py tests/scenarios --json
 ```
 
 The replay engine disables ML model loading and never initializes AI, threat-intelligence, notification, response, or persistence components. It uses a temporary Sigma state file and emits only normalized expected fields; raw logs and source addresses are excluded from results. Replay output fields are restricted to `computer`, `correlation_type`, `event_count`, `mitre_attck_id`, `rule_source`, `sigma_rule_id`, `source_type`, `sources`, `suppressed_count`, `trigger_event_count`, `windows_event_id`, and `window_seconds`.
+
+Generate the repository coverage matrix without reading runtime hit counts or runtime storage:
+
+```bash
+python tools/generate_validation_coverage.py
+python tools/generate_validation_coverage.py --check
+```
+
+The committed artifacts are `docs/DETECTION_VALIDATION_COVERAGE.md` and `docs/DETECTION_VALIDATION_COVERAGE.json`.
