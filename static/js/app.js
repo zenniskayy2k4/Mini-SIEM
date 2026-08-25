@@ -189,6 +189,26 @@ function initSettings() {
       ["Log rotation", `${formatBytes(maintenance.log_rotate_max_bytes)} · ${maintenance.log_rotate_backups || 0} copies`],
     ].map(([label, value]) => `<div class="admin-status-row"><strong>${label}</strong><span>${escapeHTML(value)}</span></div>`).join("");
 
+    const failures = data.ingestion_failures || {};
+    const failureCounts = failures.counts || {};
+    const failureSummary = document.getElementById("admin-ingestion-summary");
+    if (failureSummary) failureSummary.innerHTML = [
+      ["Retained", failures.total || 0],
+      ["Parser", failureCounts.parser || 0],
+      ["Schema", failureCounts.schema || 0],
+      ["Unsupported", failureCounts.unsupported || 0],
+      ["Retention", `${failures.retention_days || 0} days`],
+    ].map(([label, value]) => `<div class="admin-status-row"><strong>${label}</strong><span>${escapeHTML(value)}</span></div>`).join("");
+    const failureBody = document.getElementById("admin-ingestion-failures-body");
+    if (failureBody) failureBody.innerHTML = (failures.recent || []).map((failure) => `
+      <tr>
+        <td>${escapeHTML(failure.occurred_at)}</td>
+        <td>${escapeHTML(failure.failure_type)}</td>
+        <td>${escapeHTML(failure.collector_id)}</td>
+        <td>${escapeHTML(failure.reason)}</td>
+        <td class="font-mono">${escapeHTML(failure.payload_preview)}</td>
+      </tr>`).join("") || '<tr><td colspan="5" class="muted">No retained ingestion failures.</td></tr>';
+
     if (userBody) userBody.innerHTML = (data.users || []).map((user) => `
       <tr>
         <td>${escapeHTML(user.username)}</td>

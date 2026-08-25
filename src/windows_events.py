@@ -1,7 +1,9 @@
 import hashlib
 import json
+import logging
 import os
 import threading
+from collections import namedtuple
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -10,6 +12,7 @@ from src.alert_schema import utc_iso
 from src.event_envelope import (
     build_event_envelope, normalize_collector_id, unwrap_event_envelope,
 )
+from src.ingestion_failures import record_ingestion_failure
 
 
 PRIORITY_EVENT_IDS = {
@@ -28,6 +31,8 @@ PRIORITY_EVENT_IDS = {
 }
 # ponytail: process-local lock fits the single-process dashboard; use DB locking if it becomes multi-worker.
 _WRITE_LOCK = threading.Lock()
+_FailedRecord = namedtuple("_FailedRecord", "failure_type reason payload")
+logger = logging.getLogger(__name__)
 
 
 def _ci(mapping, *names):
@@ -303,7 +308,10 @@ def _read_json(path):
     except json.JSONDecodeError:
         for line in text.splitlines():
             if line.strip():
-                yield json.loads(line)
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError as exc:
+                    yield _FailedRecord("parser", f"Invalid JSON: {exc.msg}", line)
         return
     if isinstance(payload, list):
         yield from payload
@@ -319,7 +327,13 @@ def iter_windows_events(path):
     if suffix in {".json", ".jsonl", ".ndjson"}:
         yield from _read_json(path)
     elif suffix == ".xml":
-        root = ElementTree.parse(path).getroot()
+        try:
+            root = ElementTree.parse(path).getroot()
+        except ElementTree.ParseError as exc:
+            yield _FailedRecord("parser", f"Invalid XML: {exc}", path.read_text(
+                encoding="utf-8", errors="ignore",
+            ))
+            return
         if _local(root.tag) == "Event":
             yield root
         else:
@@ -329,7 +343,11 @@ def iter_windows_events(path):
 
         with Evtx(str(path)) as log:
             for record in log.records():
-                yield ElementTree.fromstring(record.xml())
+                raw = record.xml()
+                try:
+                    yield ElementTree.fromstring(raw)
+                except ElementTree.ParseError as exc:
+                    yield _FailedRecord("parser", f"Invalid EVTX XML: {exc}", raw)
     else:
         raise ValueError("Supported Windows event formats: .json, .jsonl, .ndjson, .xml, .evtx")
 
@@ -355,18 +373,36 @@ def _store_windows_events(records, source_name, output_path=None):
         with output_path.open("a", encoding="utf-8") as output:
             for record in records:
                 summary["read"] += 1
+                if isinstance(record, _FailedRecord):
+                    _record_ingestion_failure(
+                        summary, record.failure_type, record.reason, record.payload,
+                        collector_id,
+                    )
+                    continue
                 try:
                     event = normalize_windows_event(record)
-                except (TypeError, ValueError):
-                    summary["errors"] += 1
+                except (TypeError, ValueError) as exc:
+                    failure_type = "parser" if "invalid XML" in str(exc) else "schema"
+                    _record_ingestion_failure(
+                        summary, failure_type, str(exc), record, collector_id,
+                    )
                     continue
                 if event is None:
-                    summary["unsupported"] += 1
+                    _record_ingestion_failure(
+                        summary, "unsupported", "Windows event type is not supported",
+                        record, collector_id,
+                    )
                     continue
-                envelope = build_event_envelope(
-                    event, source_type="WINDOWS_EVENT", collector_id=collector_id,
-                    observed_at=event["timestamp"],
-                )
+                try:
+                    envelope = build_event_envelope(
+                        event, source_type="WINDOWS_EVENT", collector_id=collector_id,
+                        observed_at=event["timestamp"],
+                    )
+                except ValueError as exc:
+                    _record_ingestion_failure(
+                        summary, "schema", str(exc), event, collector_id,
+                    )
+                    continue
                 if envelope["event_id"] in existing:
                     summary["duplicates"] += 1
                     continue
@@ -374,6 +410,17 @@ def _store_windows_events(records, source_name, output_path=None):
                 existing.add(envelope["event_id"])
                 summary["imported"] += 1
     return summary
+
+
+def _record_ingestion_failure(summary, failure_type, reason, payload, collector_id):
+    summary["unsupported" if failure_type == "unsupported" else "errors"] += 1
+    try:
+        record_ingestion_failure(
+            failure_type, reason, payload, collector_id=collector_id,
+        )
+    except Exception as exc:
+        # Diagnostics must never block the primary ingestion path.
+        logger.warning("Could not persist ingestion failure: %s", type(exc).__name__)
 
 
 def ingest_windows_events(records, source_name="windows-collector", output_path=None):

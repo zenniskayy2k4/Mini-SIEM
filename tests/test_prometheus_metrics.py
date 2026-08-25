@@ -68,6 +68,9 @@ def test_prometheus_metrics():
                 patch.object(dashboard, "alert_repository", AlertSource([successful, failed])),
                 patch.object(dashboard, "_detection_rule_records", return_value=rules),
                 patch.object(dashboard, "build_system_status", return_value=system_status),
+                patch.object(dashboard, "get_ingestion_failure_diagnostics", return_value={
+                    "counts": {"parser": 2, "schema": 1, "unsupported": 3},
+                }),
             ):
                 config.METRICS_BEARER_TOKEN = ""
                 response = client.get("/metrics")
@@ -90,6 +93,9 @@ def test_prometheus_metrics():
                     "mini_siem_agent_heartbeat_age_seconds 2.5",
                     "mini_siem_ai_worker_busy 1",
                     "mini_siem_ai_queue_backlog 3",
+                    'mini_siem_ingestion_failures{type="parser"} 2',
+                    'mini_siem_ingestion_failures{type="schema"} 1',
+                    'mini_siem_ingestion_failures{type="unsupported"} 3',
                 ):
                     assert sample in body
                 for secret in ("192.0.2.99", "secret-user", "provider secret", "notification secret"):

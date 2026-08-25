@@ -34,7 +34,9 @@ def _notification_counts(path):
     return counts
 
 
-def render_prometheus_metrics(alerts, rules, system_status, notification_log):
+def render_prometheus_metrics(
+    alerts, rules, system_status, notification_log, ingestion_failures=None,
+):
     # ponytail: one retained-alert scan fits the lab; use SQL aggregates if scrape latency grows.
     severities = Counter()
     incidents = Counter()
@@ -106,6 +108,11 @@ def render_prometheus_metrics(alerts, rules, system_status, notification_log):
     ])
     _family(lines, "mini_siem_ai_queue_backlog", "Current AI queue backlog.", [
         ({}, max(0, int(queue.get("backlog") or 0)))
+    ])
+    failures = ingestion_failures or {}
+    _family(lines, "mini_siem_ingestion_failures", "Retained ingestion failures by bounded type.", [
+        ({"type": failure_type}, max(0, int(failures.get(failure_type) or 0)))
+        for failure_type in ("parser", "schema", "unsupported")
     ])
     return "\n".join(lines) + "\n"
 

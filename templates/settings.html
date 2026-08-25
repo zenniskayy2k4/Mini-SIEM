@@ -139,6 +139,17 @@
         <div id="admin-maintenance" class="admin-status-list">Loading maintenance status...</div>
     </div>
 
+    <div class="settings-card admin-wide-card">
+        <h3><i class="fa-solid fa-triangle-exclamation"></i> Ingestion Failures</h3>
+        <div id="admin-ingestion-summary" class="admin-status-list">Loading ingestion diagnostics...</div>
+        <div class="table-responsive">
+            <table class="mini-table">
+                <thead><tr><th>Time</th><th>Type</th><th>Collector</th><th>Reason</th><th>Redacted preview</th></tr></thead>
+                <tbody id="admin-ingestion-failures-body"></tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- Card 1: Sensors -->
     <div class="settings-card">
         <h3><i class="fa-solid fa-satellite-dish"></i> Sensors</h3>

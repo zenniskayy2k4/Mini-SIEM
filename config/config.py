@@ -28,6 +28,9 @@ AGENT_HEARTBEAT_FILE = os.path.join(BASE_DIR, 'data', 'agent_heartbeat.json')
 ALERT_ARCHIVE_DIR = os.path.join(BASE_DIR, 'data', 'archive')
 SQLITE_BACKUP_DIR = os.path.join(BASE_DIR, 'data', 'backups')
 ALERT_RETENTION_DAYS = max(1, int(os.getenv("ALERT_RETENTION_DAYS", "90")))
+INGESTION_FAILURE_RETENTION_DAYS = max(
+    1, int(os.getenv("INGESTION_FAILURE_RETENTION_DAYS", "30"))
+)
 LOG_ROTATE_MAX_BYTES = max(1024, int(os.getenv("LOG_ROTATE_MAX_BYTES", str(10 * 1024 * 1024))))
 LOG_ROTATE_BACKUPS = max(1, int(os.getenv("LOG_ROTATE_BACKUPS", "5")))
 SQLITE_READ_ENABLED = os.getenv("SQLITE_READ_ENABLED", "true").lower() in {"1", "true", "yes"}

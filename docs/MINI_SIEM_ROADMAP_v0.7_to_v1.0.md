@@ -567,7 +567,6 @@ feat: add rule quality metrics
 | 49 executable regression modules | PASS |
 | Python/JavaScript syntax and Docker Compose validation | PASS |
 | Dashboard/agent rollout, schema read, and health smoke test | PASS |
-| Builder cache cleared to 0 B; Docker VHDX compacted from 15.55 GiB to 12.26 GiB | PASS |
 
 ### Suggested commit
 
@@ -614,7 +613,6 @@ Suppression = detection is valid, but repeated alerts should be grouped/rate-lim
 | Python/JavaScript syntax and Docker Compose validation | PASS |
 | Dashboard/agent rollout, empty policy-schema read, and health smoke test | PASS |
 | Cache older than 24 hours pruned while fresh dependency cache was retained | PASS |
-| Docker VHDX compacted from 13.67 GiB to 13.36 GiB | PASS |
 
 ### Suggested commit
 
@@ -665,7 +663,6 @@ Rule
 | Dependency layers reused from cache without reinstalling packages | PASS |
 | Dashboard-only rollout, 11-rule live payload read, and health smoke test | PASS |
 | Age-bounded cache cleanup retained 12.72 MiB of fresh BuildKit cache | PASS |
-| Docker VHDX compacted from 13.39 GiB to 11.81 GiB | PASS |
 
 ### Suggested commit
 
@@ -718,7 +715,6 @@ feat: add detection tuning workspace
 | Dependency layers reused from cache without reinstalling packages | PASS |
 | Dashboard and agent rollout, in-memory v1 validation, and health smoke test | PASS |
 | No cache older than 24 hours or dangling image found; 22.13 MiB fresh BuildKit cache retained | PASS |
-| Final Docker VHDX compacted from 11.84 GiB to 11.82 GiB; D: free space rose from 117.68 GiB to 117.71 GiB | PASS |
 
 ### Suggested commit
 
@@ -730,7 +726,7 @@ refactor: version normalized event envelope
 
 ## M21.2 — Parser Failure / Dead-letter Diagnostics
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Store
 
@@ -740,14 +736,31 @@ ingestion_failures
 
 ### Tasks
 
-- [ ] Capture parser errors.
-- [ ] Capture schema errors.
-- [ ] Capture unsupported event types.
-- [ ] Bound payload preview.
-- [ ] Redact obvious secrets.
-- [ ] Apply retention.
-- [ ] Add metrics.
-- [ ] Add admin diagnostics.
+- [x] Capture parser errors.
+- [x] Capture schema errors.
+- [x] Capture unsupported event types.
+- [x] Bound payload preview.
+- [x] Redact obvious secrets.
+- [x] Apply retention.
+- [x] Add metrics.
+- [x] Add admin diagnostics.
+
+### Local verification — 2026-08-25
+
+| Check | Result |
+|---|:---:|
+| Parser, schema, and unsupported Windows events retained in SQLite | PASS |
+| Payload previews bounded to 512 characters | PASS |
+| Secret-like fields, bearer values, XML data, and URL credentials redacted before storage | PASS |
+| Diagnostic storage failures do not block primary ingestion | PASS |
+| Age-based retention applied during diagnostic reads and writes | PASS |
+| Prometheus metrics use three bounded failure-type labels | PASS |
+| Recent redacted failures visible only in the admin workspace | PASS |
+| Untrusted diagnostic values escaped before HTML rendering | PASS |
+| 53 executable regression modules on source and built image | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Dependency layers reused from cache without reinstalling packages | PASS |
+| Dashboard and agent rollout, diagnostics schema check, and health smoke test | PASS |
 
 ### Suggested commit
 
@@ -1987,18 +2000,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M21.2 — Parser Failure / Dead-letter Diagnostics
+M21.3 — Ingestion Health Metrics
 ```
 
-M21.1 now wraps normalized Windows telemetry in one strict, versioned contract:
+M21.2 now retains safe, bounded ingestion failure diagnostics:
 
 ```text
-stable event identity + source/collector identity
-→ separate received/observed timestamps
-→ strict validation + legacy flat-record compatibility
+parser + schema + unsupported-event failures
+→ redacted bounded previews + automatic retention
+→ bounded metrics + admin-only diagnostics
 ```
 
-Next, add only M21.2 parser failure and dead-letter diagnostics.
+Next, add only M21.3 ingestion health metrics.
 
 ---
 
@@ -2186,14 +2199,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M21.2 — Parser Failure / Dead-letter Diagnostics
+M21.3 — Ingestion Health Metrics
 ```
 
-M21.1 now provides a documented v1 envelope without changing source-specific Windows payload fields, while legacy flat records remain readable. Success for the next batch is:
+M21.2 now records redacted dead-letter diagnostics without blocking primary ingestion. Success for the next batch is:
 
 ```text
-parser + schema + unsupported-event failures
-+ bounded redacted payload preview + retention
-+ metrics + admin diagnostics
-= observable and safe ingestion failure handling
+received + normalized + rejected + deduplicated counters
++ processing duration + collector last-seen age
++ bounded labels without raw IP/user values
+= measurable ingestion health
 ```

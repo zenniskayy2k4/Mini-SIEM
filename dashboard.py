@@ -17,6 +17,7 @@ from src.audit import append_audit_event, verify_audit_log
 from src.case_connector import CaseExportService
 from src.health import build_system_status
 from src.incident_report import generate_incident_pdf
+from src.ingestion_failures import get_ingestion_failure_diagnostics
 from src.jira import JiraConnector
 from src.metrics import metrics_unavailable, render_prometheus_metrics
 from src.dashboard_auth import (
@@ -317,12 +318,14 @@ def _admin_workspace_payload():
             "detail": "Shared secret configured" if config.WINDOWS_COLLECTOR_SECRET else "Not configured",
         },
     ]
+    ingestion_failures = get_ingestion_failure_diagnostics()
     return {
         "current_username": session["username"],
         "users": users,
         "health": health,
         "integrations": integrations,
         "audit": {"valid": audit_valid, "message": audit_message, "events": audit_events},
+        "ingestion_failures": ingestion_failures,
         "maintenance": {
             "retention_days": config.ALERT_RETENTION_DAYS,
             "log_rotate_max_bytes": config.LOG_ROTATE_MAX_BYTES,
@@ -480,6 +483,7 @@ def metrics():
             _detection_rule_records(),
             build_system_status(_effective_settings()),
             config.NOTIFICATION_LOG_FILE,
+            get_ingestion_failure_diagnostics(limit=0)["counts"],
         )
         status = 200
     except Exception:
