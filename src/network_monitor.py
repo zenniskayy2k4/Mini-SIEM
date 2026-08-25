@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 
 from config import config
 from src.elk_forwarder import ELKForwarder
-from src.alert_pipeline import handle_detection_exception, persist_and_enrich
+from src.alert_pipeline import (
+    handle_alert_suppression, handle_detection_exception, persist_and_enrich,
+)
 from src.alert_schema import build_alert
 
 # Import scapy lazily to avoid import-time issues when not enabled
@@ -74,10 +76,14 @@ class NetworkMonitor:
             return
         if handle_detection_exception(alert):
             return
+        if handle_alert_suppression(alert):
+            return
         # Optional: reuse responder/correlator pipeline if injected from main
         if self.correlator:
             alert = self.correlator.correlate(alert)
             if handle_detection_exception(alert):
+                return
+            if handle_alert_suppression(alert):
                 return
         if self.responder:
             alert = self.responder.handle_incident(alert)

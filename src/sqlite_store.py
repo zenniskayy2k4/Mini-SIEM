@@ -85,6 +85,18 @@ CREATE TABLE IF NOT EXISTS detection_exceptions (
 CREATE INDEX IF NOT EXISTS idx_detection_exceptions_active
 ON detection_exceptions(scope_type, scope_value, expires_at);
 
+CREATE TABLE IF NOT EXISTS alert_suppression_policies (
+    policy_id TEXT PRIMARY KEY,
+    rule_id TEXT NOT NULL,
+    correlation_key TEXT NOT NULL,
+    window_seconds INTEGER NOT NULL CHECK(window_seconds BETWEEN 1 AND 86400),
+    creator TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(rule_id, correlation_key)
+);
+CREATE INDEX IF NOT EXISTS idx_alert_suppression_policy_scope
+ON alert_suppression_policies(rule_id, correlation_key);
+
 CREATE TABLE IF NOT EXISTS response_actions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     incident_id TEXT NOT NULL REFERENCES incidents(incident_id) ON DELETE CASCADE,
@@ -158,6 +170,8 @@ class SQLiteAlertRepository(_SQLiteRepository):
     }
     MAX_EXCEPTION_REASON_LENGTH = 2000
     MAX_EXCEPTION_VALUE_LENGTH = 500
+    MAX_SUPPRESSION_RULE_ID_LENGTH = 200
+    MAX_SUPPRESSION_KEY_LENGTH = 500
 
     def create_alert(self, alert: dict) -> dict:
         self.ensure_schema()
@@ -698,6 +712,189 @@ class SQLiteAlertRepository(_SQLiteRepository):
             if matched:
                 return {**record, "active": True, "matched_at": now}
         return None
+
+    @classmethod
+    def _suppression_scope(cls, rule_id, correlation_key) -> tuple[str, str]:
+        if not isinstance(rule_id, str) or not rule_id.strip():
+            raise ValueError("Suppression policy rule_id is required")
+        if not isinstance(correlation_key, str) or not correlation_key.strip():
+            raise ValueError("Suppression policy correlation_key is required")
+        rule_id, correlation_key = rule_id.strip(), correlation_key.strip()
+        if len(rule_id) > cls.MAX_SUPPRESSION_RULE_ID_LENGTH:
+            raise ValueError("Suppression policy rule_id is too long")
+        if len(correlation_key) > cls.MAX_SUPPRESSION_KEY_LENGTH:
+            raise ValueError("Suppression policy correlation_key is too long")
+        if any(character in rule_id + correlation_key for character in "*?[]"):
+            raise ValueError("Suppression policy wildcards are not allowed")
+        return rule_id, correlation_key
+
+    def create_alert_suppression_policy(
+        self, rule_id, correlation_key, window_seconds, creator, role=None,
+    ) -> dict:
+        rule_id, correlation_key = self._suppression_scope(rule_id, correlation_key)
+        if isinstance(window_seconds, bool) or not isinstance(window_seconds, int):
+            raise ValueError("Suppression window_seconds must be an integer")
+        if not 1 <= window_seconds <= 86400:
+            raise ValueError("Suppression window_seconds must be between 1 and 86400")
+        if not isinstance(creator, str) or not creator.strip() or len(creator.strip()) > 100:
+            raise ValueError("Invalid suppression policy creator")
+        policy = {
+            "policy_id": f"SUP-{uuid4()}",
+            "rule_id": rule_id,
+            "correlation_key": correlation_key,
+            "window_seconds": window_seconds,
+            "creator": creator.strip(),
+            "created_at": utc_iso(),
+        }
+        self.ensure_schema()
+        try:
+            with self._connect() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO alert_suppression_policies (
+                        policy_id, rule_id, correlation_key, window_seconds, creator, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    tuple(policy.values()),
+                )
+                append_audit_event(
+                    "ALERT_SUPPRESSION_POLICY_CREATED", policy["creator"], role=role,
+                    target_type="alert_suppression_policy", target_id=policy["policy_id"],
+                    details={
+                        "rule_id": rule_id,
+                        "correlation_key": correlation_key,
+                        "window_seconds": window_seconds,
+                    },
+                )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("A suppression policy already exists for this exact scope") from exc
+        return policy
+
+    def list_alert_suppression_policies(self) -> list[dict]:
+        self.ensure_schema()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT policy_id, rule_id, correlation_key, window_seconds, creator, created_at
+                FROM alert_suppression_policies ORDER BY created_at DESC, rowid DESC
+                """
+            ).fetchall()
+        columns = (
+            "policy_id", "rule_id", "correlation_key", "window_seconds", "creator",
+            "created_at",
+        )
+        return [dict(zip(columns, row)) for row in rows]
+
+    def delete_alert_suppression_policy(self, policy_id, actor, role=None) -> bool:
+        if not isinstance(policy_id, str) or not policy_id.startswith("SUP-"):
+            raise ValueError("Invalid alert suppression policy ID")
+        if not isinstance(actor, str) or not actor.strip() or len(actor.strip()) > 100:
+            raise ValueError("Invalid suppression policy actor")
+        self.ensure_schema()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT rule_id, correlation_key, window_seconds
+                FROM alert_suppression_policies WHERE policy_id = ?
+                """,
+                (policy_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            connection.execute(
+                "DELETE FROM alert_suppression_policies WHERE policy_id = ?", (policy_id,),
+            )
+            append_audit_event(
+                "ALERT_SUPPRESSION_POLICY_DELETED", actor.strip(), role=role,
+                target_type="alert_suppression_policy", target_id=policy_id,
+                details={
+                    "rule_id": row[0], "correlation_key": row[1],
+                    "window_seconds": row[2],
+                },
+            )
+        return True
+
+    @staticmethod
+    def _suppression_time(value) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(utc_iso(value).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return None
+
+    def apply_alert_suppression(self, alert: dict) -> dict:
+        if not isinstance(alert, dict):
+            raise ValueError("Alert suppression requires an alert object")
+        rule_id, correlation_key = alert.get("rule_id"), alert.get("correlation_key")
+        if not isinstance(rule_id, str) or not isinstance(correlation_key, str):
+            return {"alert": alert, "suppressed": False, "policy": None}
+        self.ensure_schema()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT policy_id, rule_id, correlation_key, window_seconds, creator, created_at
+                FROM alert_suppression_policies
+                WHERE rule_id = ? AND correlation_key = ?
+                """,
+                (rule_id, correlation_key),
+            ).fetchone()
+            if row is None:
+                return {"alert": alert, "suppressed": False, "policy": None}
+            columns = (
+                "policy_id", "rule_id", "correlation_key", "window_seconds", "creator",
+                "created_at",
+            )
+            policy = dict(zip(columns, row))
+            candidate = connection.execute(
+                """
+                SELECT payload_json FROM alerts
+                WHERE alert_id != ?
+                    AND json_extract(payload_json, '$.rule_id') = ?
+                    AND json_extract(payload_json, '$.correlation_key') = ?
+                    AND json_extract(payload_json, '$.suppression_policy.policy_id') = ?
+                ORDER BY datetime(json_extract(payload_json, '$.last_seen')) DESC, rowid DESC
+                LIMIT 1
+                """,
+                (alert.get("alert_id"), rule_id, correlation_key, policy["policy_id"]),
+            ).fetchone()
+
+        summary = {
+            key: policy[key]
+            for key in ("policy_id", "rule_id", "correlation_key", "window_seconds")
+        }
+        alert["suppression_policy"] = summary
+        if int(alert.get("suppressed_count") or 0) > 0:
+            return {"alert": alert, "suppressed": True, "policy": policy}
+        if candidate is None:
+            alert.setdefault("suppressed_count", 0)
+            return {"alert": alert, "suppressed": False, "policy": policy}
+
+        previous = json.loads(candidate[0])
+        previous_seen = self._suppression_time(previous.get("last_seen") or previous.get("timestamp"))
+        observed = self._suppression_time(alert.get("last_seen") or alert.get("timestamp"))
+        if previous_seen is None or observed is None:
+            return {"alert": alert, "suppressed": False, "policy": policy}
+        elapsed = (observed - previous_seen).total_seconds()
+        if elapsed < 0 or elapsed > policy["window_seconds"]:
+            alert.setdefault("suppressed_count", 0)
+            return {"alert": alert, "suppressed": False, "policy": policy}
+
+        previous["suppression_policy"] = summary
+        previous["suppressed_count"] = int(previous.get("suppressed_count") or 0) + 1
+        previous["event_count"] = max(1, int(previous.get("event_count") or 1)) + max(
+            1, int(alert.get("event_count") or 1),
+        )
+        previous["first_seen"] = min(
+            previous.get("first_seen") or previous["timestamp"],
+            alert.get("first_seen") or alert["timestamp"],
+        )
+        previous["last_seen"] = max(
+            previous.get("last_seen") or previous["timestamp"],
+            alert.get("last_seen") or alert["timestamp"],
+        )
+        previous["updated_at"] = utc_iso()
+        return {"alert": previous, "suppressed": True, "policy": policy}
 
     def stats(self) -> dict:
         self.ensure_schema()

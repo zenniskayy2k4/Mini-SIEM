@@ -1035,6 +1035,28 @@ tr:hover {
   min-width: 900px;
 }
 
+.suppression-policy-form {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 0.8fr auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.suppression-policy-table {
+  min-width: 820px;
+}
+
+.suppression-summary {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(251, 146, 60, 0.35);
+  border-radius: 5px;
+  color: #fed7aa;
+  background: rgba(251, 146, 60, 0.08);
+  font-size: 11px;
+}
+
 .admin-action-status {
   min-height: 18px;
   margin: 10px 0;
@@ -1622,7 +1644,8 @@ select.styled-input {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .detection-exception-form {
+  .detection-exception-form,
+  .suppression-policy-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1779,7 +1802,8 @@ select.styled-input {
   .admin-overview,
   .admin-settings-container,
   .admin-user-form,
-  .detection-exception-form {
+  .detection-exception-form,
+  .suppression-policy-form {
     grid-template-columns: 1fr;
   }
 

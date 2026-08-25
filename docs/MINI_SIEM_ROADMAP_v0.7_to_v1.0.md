@@ -579,7 +579,7 @@ feat: add scoped detection exceptions
 
 ## M20.4 — Alert Suppression Windows
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Principle
 
@@ -590,11 +590,31 @@ Suppression = detection is valid, but repeated alerts should be grouped/rate-lim
 
 ### Tasks
 
-- [ ] Scope by rule + correlation key.
-- [ ] Preserve suppressed count.
-- [ ] Preserve first/last seen.
-- [ ] Show suppression count.
-- [ ] Audit policy changes.
+- [x] Scope by rule + correlation key.
+- [x] Preserve suppressed count.
+- [x] Preserve first/last seen.
+- [x] Show suppression count.
+- [x] Audit policy changes.
+
+### Local verification — 2026-08-25
+
+| Check | Result |
+|---|:---:|
+| Exact rule ID plus correlation-key policy scope | PASS |
+| Missing, wildcard, duplicate, non-integer, and out-of-range policies rejected | PASS |
+| Repeated alerts grouped inside the configured window | PASS |
+| Alerts outside the window or exact scope remain independent | PASS |
+| Suppressed count and aggregate event count preserved | PASS |
+| First/last seen retained while representative evidence remains unchanged | PASS |
+| Suppressed repeats skip response, AI enrichment, forwarding, and notification | PASS |
+| Admin-only API/UI with CSRF enforcement | PASS |
+| Hash-chained policy create/delete audit with rollback on audit failure | PASS |
+| Responsive policy table and visible suppression summary | PASS |
+| 50 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Dashboard/agent rollout, empty policy-schema read, and health smoke test | PASS |
+| Cache older than 24 hours pruned while fresh dependency cache was retained | PASS |
+| Docker VHDX compacted from 13.67 GiB to 13.36 GiB | PASS |
 
 ### Suggested commit
 
@@ -1930,18 +1950,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M20.4 — Alert Suppression Windows
+M20.5 — Detection Tuning Workspace
 ```
 
-M20.3 established audited, narrow detection exceptions:
+M20.4 established configurable alert suppression windows:
 
 ```text
-exact validated scope + required reason and creator
-→ optional expiry + immutable create/delete audit
-→ visible non-notifying match with raw evidence preserved
+exact rule + correlation-key policy
+→ grouped repeat count + preserved first/last seen
+→ no repeated response, AI, forwarding, or notification side effects
 ```
 
-Next, add only M20.4 alert suppression windows; keep the tuning workspace in M20.5.
+Next, add only M20.5 detection tuning workspace; keep event-envelope work in M21.1.
 
 ---
 
@@ -2129,14 +2149,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M20.4 — Alert Suppression Windows
+M20.5 — Detection Tuning Workspace
 ```
 
-M20.3 now provides exact, audited detection exceptions without deleting evidence. Success for the next batch is:
+M20.4 now groups exact repeated detections without hiding the valid representative alert. Success for the next batch is:
 
 ```text
-rule + correlation key scope
-+ preserved suppression count and first/last seen
-+ audited policy changes and visible grouped state
-= safe configurable alert suppression
+rule status + hit and validation context
++ feedback, exception, suppression, and MITRE context
++ admin mutation, analyst feedback, CSRF/RBAC, and visible expiry
+= cohesive detection tuning workspace
 ```

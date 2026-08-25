@@ -305,6 +305,26 @@ class DualWriteAlertRepository:
     def match_detection_exception(self, alert: dict) -> dict | None:
         return self.sqlite.match_detection_exception(alert)
 
+    def create_alert_suppression_policy(
+        self, rule_id, correlation_key, window_seconds, creator, role=None,
+    ) -> dict:
+        return self.sqlite.create_alert_suppression_policy(
+            rule_id, correlation_key, window_seconds, creator, role,
+        )
+
+    def list_alert_suppression_policies(self) -> list[dict]:
+        return self.sqlite.list_alert_suppression_policies()
+
+    def delete_alert_suppression_policy(self, policy_id, actor, role=None) -> bool:
+        return self.sqlite.delete_alert_suppression_policy(policy_id, actor, role)
+
+    def apply_alert_suppression(self, alert: dict) -> dict:
+        with self._locked():
+            result = self.sqlite.apply_alert_suppression(copy.deepcopy(alert))
+            if result["suppressed"]:
+                self._save_both(copy.deepcopy(result["alert"]))
+            return result
+
     def soc_kpis(self, from_timestamp: str, to_timestamp: str) -> dict:
         """Analytics intentionally requires the indexed primary SQLite store."""
         return self.sqlite.soc_kpis(from_timestamp, to_timestamp)

@@ -92,6 +92,33 @@
         </div>
     </div>
 
+    <div class="settings-card admin-wide-card">
+        <h3><i class="fa-solid fa-layer-group"></i> Alert Suppression Policies</h3>
+        <p class="muted">Group repeated alerts only when both the rule and correlation key match exactly.</p>
+        <form id="suppression-policy-form" class="suppression-policy-form">
+            <div>
+                <label class="input-label" for="suppression-rule-id">Rule ID</label>
+                <input id="suppression-rule-id" class="styled-input" maxlength="200" required autocomplete="off">
+            </div>
+            <div>
+                <label class="input-label" for="suppression-correlation-key">Correlation key</label>
+                <input id="suppression-correlation-key" class="styled-input" maxlength="500" required autocomplete="off">
+            </div>
+            <div>
+                <label class="input-label" for="suppression-window-seconds">Window (seconds)</label>
+                <input id="suppression-window-seconds" class="styled-input" type="number" min="1" max="86400" value="300" required>
+            </div>
+            <button class="btn btn-primary" type="submit">Add policy</button>
+        </form>
+        <p class="admin-action-status muted" id="suppression-policy-status" role="status"></p>
+        <div class="table-responsive">
+            <table class="mini-table suppression-policy-table">
+                <thead><tr><th>Rule</th><th>Correlation key</th><th>Window</th><th>Creator</th><th>Action</th></tr></thead>
+                <tbody id="suppression-policy-body"></tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="settings-card">
         <h3><i class="fa-solid fa-plug-circle-check"></i> Integrations</h3>
         <div id="admin-integrations" class="admin-status-list">Loading integrations...</div>

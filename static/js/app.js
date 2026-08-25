@@ -10,6 +10,7 @@ const API_DETECTION_RULES = "/api/detection-rules";
 const API_ADMIN_WORKSPACE = "/api/admin/workspace";
 const API_ADMIN_USERS = "/api/admin/users";
 const API_DETECTION_EXCEPTIONS = "/api/detection-exceptions";
+const API_SUPPRESSION_POLICIES = "/api/alert-suppression-policies";
 const API_ASSETS = "/api/assets";
 const API_ANALYTICS = "/api/analytics/kpis";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
@@ -129,6 +130,9 @@ function initSettings() {
   const exceptionForm = document.getElementById("detection-exception-form");
   const exceptionBody = document.getElementById("detection-exception-body");
   const exceptionStatus = document.getElementById("detection-exception-status");
+  const suppressionForm = document.getElementById("suppression-policy-form");
+  const suppressionBody = document.getElementById("suppression-policy-body");
+  const suppressionStatus = document.getElementById("suppression-policy-status");
 
   const formatBytes = (value) => {
     const bytes = Number(value || 0);
@@ -307,6 +311,73 @@ function initSettings() {
     }
   });
   loadDetectionExceptions();
+
+  async function loadSuppressionPolicies() {
+    if (!suppressionBody) return;
+    try {
+      const response = await fetch(API_SUPPRESSION_POLICIES, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Suppression policies unavailable");
+      const policies = data.policies || [];
+      suppressionBody.innerHTML = policies.length ? policies.map((policy) => `
+        <tr>
+          <td class="font-mono">${escapeHTML(policy.rule_id)}</td>
+          <td class="font-mono">${escapeHTML(policy.correlation_key)}</td>
+          <td>${escapeHTML(policy.window_seconds)} seconds</td>
+          <td>${escapeHTML(policy.creator)}<br><span class="muted">${escapeHTML(policy.created_at)}</span></td>
+          <td><button class="btn btn-ghost suppression-policy-delete" type="button"
+            data-policy-id="${escapeAttr(policy.policy_id)}">Delete</button></td>
+        </tr>`).join("") : '<tr><td colspan="5" class="muted">No alert suppression policies.</td></tr>';
+      suppressionStatus.textContent = `${policies.length} polic${policies.length === 1 ? "y" : "ies"}`;
+    } catch (error) {
+      suppressionStatus.textContent = error.message;
+    }
+  }
+
+  suppressionForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    suppressionStatus.textContent = "Saving policy...";
+    const body = {
+      rule_id: document.getElementById("suppression-rule-id").value,
+      correlation_key: document.getElementById("suppression-correlation-key").value,
+      window_seconds: Number(document.getElementById("suppression-window-seconds").value),
+    };
+    try {
+      const response = await fetch(API_SUPPRESSION_POLICIES, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Suppression policy creation failed");
+      suppressionForm.reset();
+      document.getElementById("suppression-window-seconds").value = "300";
+      await loadSuppressionPolicies();
+    } catch (error) {
+      suppressionStatus.textContent = error.message;
+    }
+  });
+
+  suppressionBody?.addEventListener("click", async (event) => {
+    const button = event.target.closest(".suppression-policy-delete");
+    if (!button || !window.confirm("Delete this alert suppression policy?")) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(
+        `${API_SUPPRESSION_POLICIES}/${encodeURIComponent(button.dataset.policyId)}`,
+        { method: "DELETE", headers: { "X-CSRF-Token": CSRF_TOKEN } },
+      );
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Suppression policy deletion failed");
+      }
+      await loadSuppressionPolicies();
+    } catch (error) {
+      suppressionStatus.textContent = error.message;
+      button.disabled = false;
+    }
+  });
+  loadSuppressionPolicies();
 
   const elNids = document.getElementById("set-nids-enabled");
   const elHp = document.getElementById("set-honeypot-enabled");
@@ -1256,6 +1327,11 @@ function createRow(alert) {
   }
   if (alert.asset_id) {
     detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Asset: ${renderAssetReference(alert.asset_id)}</div>`;
+  }
+  if (alert.suppression_policy) {
+    detailsHTML += `<div class="suppression-summary"><strong>${escapeHTML(alert.suppressed_count || 0)} suppressed</strong> Â· ` +
+      `${escapeHTML(alert.suppression_policy.window_seconds)}s window Â· ` +
+      `${escapeHTML(alert.first_seen)} â†’ ${escapeHTML(alert.last_seen)}</div>`;
   }
 
   if (alert.ml_anomaly_score) {

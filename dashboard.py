@@ -612,6 +612,43 @@ def api_detection_exception_delete(exception_id):
         return jsonify({"error": "Detection exception not found"}), 404
     return "", 204
 
+
+@app.route("/api/alert-suppression-policies", methods=["GET", "POST"])
+@role_required("admin")
+def api_alert_suppression_policies():
+    if request.method == "GET":
+        return jsonify({"policies": alert_repository.list_alert_suppression_policies()})
+    if request.content_length and request.content_length > 8 * 1024:
+        return jsonify({"error": "Suppression policy request exceeds 8 KiB"}), 413
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Request body must be a JSON object"}), 400
+    unknown = set(body) - {"rule_id", "correlation_key", "window_seconds"}
+    if unknown:
+        return jsonify({"error": f"Unsupported policy fields: {', '.join(sorted(unknown))}"}), 400
+    try:
+        policy = alert_repository.create_alert_suppression_policy(
+            body.get("rule_id"), body.get("correlation_key"), body.get("window_seconds"),
+            session["username"], session.get("role"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(policy), 201
+
+
+@app.route("/api/alert-suppression-policies/<policy_id>", methods=["DELETE"])
+@role_required("admin")
+def api_alert_suppression_policy_delete(policy_id):
+    try:
+        deleted = alert_repository.delete_alert_suppression_policy(
+            policy_id, session["username"], session.get("role"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if not deleted:
+        return jsonify({"error": "Alert suppression policy not found"}), 404
+    return "", 204
+
 @app.route("/api/settings/update", methods=["POST"])
 @role_required("admin")
 def api_settings_update():

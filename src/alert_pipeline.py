@@ -58,8 +58,25 @@ def handle_detection_exception(
     return True
 
 
+def handle_alert_suppression(alert, suppression_repository=None):
+    """Persist a grouped representative and stop repeated alert side effects."""
+    suppression_repository = suppression_repository or alert_repository
+    try:
+        result = suppression_repository.apply_alert_suppression(alert)
+    except Exception as exc:
+        logger.warning("Alert suppression lookup failed for %s: %s", alert.get("alert_id"), exc)
+        return False
+    grouped = result["alert"]
+    if grouped is not alert:
+        alert.clear()
+        alert.update(grouped)
+    return result["suppressed"]
+
+
 def _persist_and_notify(alert, asset_repository=_ASSET_REPOSITORY):
     if handle_detection_exception(alert, asset_repository):
+        return
+    if handle_alert_suppression(alert):
         return
     _score_alert(alert, asset_repository)
     upsert_alert(alert)
@@ -185,6 +202,8 @@ def persist_and_enrich(
 ) -> dict:
     """Persist every alert before dispatching optional asynchronous enrichment."""
     if handle_detection_exception(alert, asset_repository):
+        return alert
+    if handle_alert_suppression(alert):
         return alert
     file_hash = _initial_threat_intel(
         alert, geoip_service, abuseipdb_service, virustotal_service, stix_store,
