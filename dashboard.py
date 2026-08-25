@@ -53,6 +53,7 @@ app = Flask(__name__)
 init_auth(app)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
+VALIDATION_COVERAGE_FILE = Path(config.BASE_DIR, "docs", "DETECTION_VALIDATION_COVERAGE.json")
 DETECTION_RULES = load_detection_rules(
     config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
 )
@@ -160,6 +161,47 @@ def _detection_rule_records() -> list[dict]:
         "never_hit": int(counts.get(rule["id"], 0)) == 0,
         "skip_reason": rule.get("skip_reason"),
     } for rule in rules]
+
+
+def _rule_quality_with_validation(rows: list[dict]) -> list[dict]:
+    quality = {row["rule_id"]: row for row in rows}
+    try:
+        artifact = json.loads(VALIDATION_COVERAGE_FILE.read_text(encoding="utf-8"))
+        validation_rules = artifact.get("rules", [])
+        if not isinstance(validation_rules, list):
+            raise ValueError("validation rules must be a list")
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        validation_rules = []
+
+    for validation in validation_rules:
+        if not isinstance(validation, dict) or not isinstance(validation.get("rule_id"), str):
+            continue
+        rule_id = validation["rule_id"].strip()
+        if not rule_id or len(rule_id) > 200:
+            continue
+        scenario_count = validation.get("scenario_count")
+        if isinstance(scenario_count, bool) or not isinstance(scenario_count, int):
+            scenario_count = 0
+        validation_result = str(validation.get("last_validation_result") or "").upper()
+        if validation_result not in {"PASS", "FAIL", "UNVALIDATED"}:
+            validation_result = "UNAVAILABLE"
+        row = quality.setdefault(rule_id, {
+            "rule_id": rule_id,
+            "alerts_generated": 0,
+            "true_positives": 0,
+            "false_positives": 0,
+            "benign_expected": 0,
+            "unclassified": 0,
+            "classified_sample_size": 0,
+            "false_positive_rate_percent": None,
+        })
+        row["validation_scenario_count"] = max(0, scenario_count)
+        row["last_validation_result"] = validation_result
+
+    for row in quality.values():
+        row.setdefault("validation_scenario_count", 0)
+        row.setdefault("last_validation_result", "UNAVAILABLE")
+    return sorted(quality.values(), key=lambda row: (-row["alerts_generated"], row["rule_id"]))
 
 
 def _directory_status(path, pattern):
@@ -433,6 +475,9 @@ def api_soc_kpis():
     try:
         kpis = alert_repository.soc_kpis(period["from"], period["to"])
         analytics = alert_repository.soc_analytics(period["from"], period["to"])
+        analytics["rule_quality"] = _rule_quality_with_validation(
+            alert_repository.rule_quality(period["from"], period["to"])
+        )
     except Exception:
         return jsonify({"error": "Analytics data unavailable"}), 503
     return jsonify({
@@ -444,6 +489,10 @@ def api_soc_kpis():
             "false_positive_rate_percent": "FALSE_POSITIVE / (RESOLVED + FALSE_POSITIVE)",
             "human_review_rate_percent": "REQUIRES_HUMAN_REVIEW alerts / alerts",
             "ai_enrichment_success_rate_percent": "successful / completed AI enrichments",
+            "rule_quality_false_positive_rate_percent": (
+                "latest FALSE_POSITIVE feedback / alerts with any latest feedback"
+            ),
+            "rule_quality_unclassified": "alerts without analyst feedback",
         },
         "kpis": kpis,
         "analytics": analytics,

@@ -6,6 +6,7 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ### Added
 
+- Time-filtered per-rule quality metrics from the latest analyst feedback per alert, including explicit classified/unclassified sample sizes and deterministic validation scenario context without precision/recall claims.
 - Analyst detection feedback with SQLite-backed rule/alert linkage, session-derived actor identity, false-positive reason enforcement, read-only viewer visibility, and hash-chained audit records without altering alert evidence.
 - Versioned offline detection scenarios with an 18-case Linux, Windows, Sigma, NIDS, and cross-source corpus, deterministic replay through existing detection paths, isolated temporary state, normalized CI output, generated Markdown/JSON rule-validation coverage separate from runtime hit counts, and a required provider-disabled CI gate with failure artifacts.
 

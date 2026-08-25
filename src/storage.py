@@ -286,6 +286,9 @@ class DualWriteAlertRepository:
             alert_id, classification, reason, actor, role,
         )
 
+    def rule_quality(self, from_timestamp: str, to_timestamp: str) -> list[dict]:
+        return self.sqlite.rule_quality(from_timestamp, to_timestamp)
+
     def soc_kpis(self, from_timestamp: str, to_timestamp: str) -> dict:
         """Analytics intentionally requires the indexed primary SQLite store."""
         return self.sqlite.soc_kpis(from_timestamp, to_timestamp)

@@ -47,5 +47,26 @@
     </section>
     {% endfor %}
 </div>
+<section class="card analytics-rule-quality">
+    <h3><i class="fa-solid fa-list-check"></i> Rule quality</h3>
+    <p class="muted">Feedback coverage is partial. False-positive rate uses classified alerts only; unclassified alerts remain separate. These counts are not precision or recall.</p>
+    <div class="table-responsive">
+        <table class="mini-table">
+            <thead>
+                <tr>
+                    <th>Rule</th>
+                    <th>Alerts</th>
+                    <th>True positive</th>
+                    <th>False positive</th>
+                    <th>Benign expected</th>
+                    <th>Unclassified</th>
+                    <th>FP rate</th>
+                    <th>Validation</th>
+                </tr>
+            </thead>
+            <tbody id="rule-quality-body"><tr><td colspan="8">Loading...</td></tr></tbody>
+        </table>
+    </div>
+</section>
 <div class="analytics-error" id="analytics-error" role="status"></div>
 {% endblock %}

@@ -448,6 +448,56 @@ class SQLiteAlertRepository(_SQLiteRepository):
             )
         return feedback
 
+    def rule_quality(self, from_timestamp: str, to_timestamp: str) -> list[dict]:
+        self.ensure_schema()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                WITH scoped_alerts AS (
+                    SELECT alert_id, json_extract(payload_json, '$.rule_id') AS rule_id
+                    FROM alerts
+                    WHERE created_at >= ? AND created_at < ?
+                        AND json_extract(payload_json, '$.rule_id') IS NOT NULL
+                ),
+                latest_feedback AS (
+                    SELECT feedback.alert_id, feedback.classification
+                    FROM detection_feedback feedback
+                    JOIN (
+                        SELECT alert_id, MAX(rowid) AS latest_rowid
+                        FROM detection_feedback GROUP BY alert_id
+                    ) latest ON latest.latest_rowid = feedback.rowid
+                )
+                SELECT
+                    scoped.rule_id,
+                    COUNT(*),
+                    COUNT(CASE WHEN feedback.classification = 'TRUE_POSITIVE' THEN 1 END),
+                    COUNT(CASE WHEN feedback.classification = 'FALSE_POSITIVE' THEN 1 END),
+                    COUNT(CASE WHEN feedback.classification = 'BENIGN_EXPECTED' THEN 1 END),
+                    COUNT(CASE WHEN feedback.alert_id IS NULL THEN 1 END)
+                FROM scoped_alerts scoped
+                LEFT JOIN latest_feedback feedback ON feedback.alert_id = scoped.alert_id
+                GROUP BY scoped.rule_id
+                ORDER BY COUNT(*) DESC, scoped.rule_id
+                """,
+                (from_timestamp, to_timestamp),
+            ).fetchall()
+        quality = []
+        for rule_id, alerts, true_positive, false_positive, benign, unclassified in rows:
+            classified = true_positive + false_positive + benign
+            quality.append({
+                "rule_id": str(rule_id),
+                "alerts_generated": int(alerts),
+                "true_positives": int(true_positive),
+                "false_positives": int(false_positive),
+                "benign_expected": int(benign),
+                "unclassified": int(unclassified),
+                "classified_sample_size": int(classified),
+                "false_positive_rate_percent": (
+                    round(100 * false_positive / classified, 2) if classified else None
+                ),
+            })
+        return quality
+
     def stats(self) -> dict:
         self.ensure_schema()
         with self._connect() as connection:

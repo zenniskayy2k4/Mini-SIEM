@@ -481,7 +481,7 @@ feat: add analyst detection feedback
 
 ## M20.2 — Rule Quality Metrics
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Metrics
 
@@ -498,10 +498,27 @@ last validation result
 
 ### Rules
 
-- [ ] Do not claim precision/recall without ground truth.
-- [ ] Show sample size.
-- [ ] Time-range filtering.
-- [ ] Distinguish unclassified from true positive.
+- [x] Do not claim precision/recall without ground truth.
+- [x] Show sample size.
+- [x] Time-range filtering.
+- [x] Distinguish unclassified from true positive.
+
+### Local verification — 2026-08-25
+
+| Check | Result |
+|---|:---:|
+| Latest feedback per alert prevents double counting | PASS |
+| Alerts, true/false positive, benign, and unclassified counts | PASS |
+| False-positive rate uses classified sample only | PASS |
+| Existing `[from,to)` alert-created time range | PASS |
+| Validation scenario count and last result merged from M19 artifact | PASS |
+| Missing/malformed validation metadata degrades to `UNAVAILABLE` | PASS |
+| Viewer-readable responsive table with explicit sample size | PASS |
+| No reason, actor, precision, or recall exposed in metrics | PASS |
+| 48 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Dashboard-only rollout, 14-rule query, and health smoke test | PASS |
+| Runtime alert evidence hash unchanged after analytics query | PASS |
 
 ### Suggested commit
 
@@ -1895,19 +1912,19 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M20.2 — Rule Quality Metrics
+M20.3 — Scoped Detection Exceptions
 ```
 
-M20.1 established auditable analyst ground truth:
+M20.2 established honest per-rule quality context:
 
 ```text
-alert + detection rule
-→ session-bound analyst classification
-→ separate SQLite feedback record + audit event
-→ unchanged original evidence
+alerts in selected range + latest feedback per alert
+→ classified and unclassified sample counts
+→ false-positive rate + validation scenario context
+→ no unsupported precision/recall claim
 ```
 
-Next, add only M20.2 rule quality metrics from stored feedback; do not infer precision or recall.
+Next, add only M20.3 scoped detection exceptions; keep suppression windows in M20.4.
 
 ---
 
@@ -2095,14 +2112,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M20.2 — Rule Quality Metrics
+M20.3 — Scoped Detection Exceptions
 ```
 
-M20.1 now provides session-attributed analyst classifications. Success for the next batch is:
+M20.2 now provides time-filtered rule quality without overstated accuracy. Success for the next batch is:
 
 ```text
-alert counts + latest analyst feedback per alert
-+ explicit unclassified sample size
-+ time-range and validation context
-= honest rule quality metrics
+validated narrow scope + required reason
++ creator, optional expiry, and immutable audit
++ visible match without deleting raw evidence
+= safe detection exception contract
 ```

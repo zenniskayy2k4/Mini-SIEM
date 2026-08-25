@@ -85,6 +85,23 @@ function initAnalytics() {
     chart("topRulesChart", "bar", data.top_rules.map((x) => x.rule_id), data.top_rules.map((x) => x.count), "Alerts", { horizontal: true });
     chart("topMitreChart", "bar", data.top_mitre_techniques.map((x) => x.technique_id), data.top_mitre_techniques.map((x) => x.count), "Alerts", { horizontal: true });
     chart("falsePositiveTrendChart", "line", data.false_positive_trend.map((x) => x.timestamp), data.false_positive_trend.map((x) => x.count), "False positives");
+
+    const qualityBody = document.getElementById("rule-quality-body");
+    if (qualityBody) qualityBody.innerHTML = (data.rule_quality || []).map((rule) => {
+      const rate = rule.false_positive_rate_percent == null
+        ? `Insufficient data (n=${rule.classified_sample_size})`
+        : `${rule.false_positive_rate_percent}% (n=${rule.classified_sample_size})`;
+      return `<tr>
+        <td class="font-mono">${escapeHTML(rule.rule_id)}</td>
+        <td>${escapeHTML(rule.alerts_generated)}</td>
+        <td>${escapeHTML(rule.true_positives)}</td>
+        <td>${escapeHTML(rule.false_positives)}</td>
+        <td>${escapeHTML(rule.benign_expected)}</td>
+        <td>${escapeHTML(rule.unclassified)}</td>
+        <td>${escapeHTML(rate)}</td>
+        <td>${escapeHTML(rule.validation_scenario_count)} scenarios · ${escapeHTML(rule.last_validation_result)}</td>
+      </tr>`;
+    }).join("") || '<tr><td colspan="8">No rule data in this range.</td></tr>';
   }
 
   function load() {
