@@ -35,7 +35,7 @@ def test_windows_collector():
             response = client.post(
                 "/api/windows-events",
                 headers=headers,
-                json={"source": "win-lab", "events": [EVENT_XML]},
+                json={"collector_id": "win-lab", "events": [EVENT_XML]},
             )
             assert response.status_code == 200
             assert response.get_json()["imported"] == 1
@@ -43,12 +43,23 @@ def test_windows_collector():
             duplicate = client.post(
                 "/api/windows-events",
                 headers=headers,
+                # Legacy clients may continue sending source during migration.
                 json={"source": "win-lab", "events": [EVENT_XML]},
             )
             assert duplicate.get_json()["duplicates"] == 1
             event = json.loads(Path(config.WINDOWS_EVENT_FILE).read_text(encoding="utf-8"))
-            assert event["source_file"] == "win-lab"
-            assert event["network"]["destination_port"] == 443
+            assert event["event_schema_version"] == 1
+            assert event["event_id"].startswith("EVT-")
+            assert event["collector_id"] == "win-lab"
+            assert event["source_type"] == "WINDOWS_EVENT"
+            assert event["payload"]["network"]["destination_port"] == 443
+            assert client.post(
+                "/api/windows-events", headers=headers,
+                json={"collector_id": {"host": "invalid"}, "events": [EVENT_XML]},
+            ).status_code == 400
+            assert client.post(
+                "/api/windows-events", headers=headers, json=[EVENT_XML],
+            ).status_code == 400
         finally:
             config.WINDOWS_COLLECTOR_SECRET, config.WINDOWS_EVENT_FILE = original
 

@@ -810,13 +810,20 @@ def api_windows_events():
     if request.content_length and request.content_length > 2 * 1024 * 1024:
         return jsonify({"error": "Windows event batch is too large"}), 413
 
-    body = request.get_json(silent=True) or {}
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "request body must be a JSON object"}), 400
     events = body.get("events")
     if not isinstance(events, list) or not events:
         return jsonify({"error": "events must be a non-empty list"}), 400
     if len(events) > 500:
         return jsonify({"error": "Windows event batch exceeds 500 events"}), 413
-    summary = ingest_windows_events(events, body.get("source") or "windows-collector")
+    try:
+        summary = ingest_windows_events(
+            events, body.get("collector_id") or body.get("source") or "windows-collector",
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     return jsonify({"ok": True, **summary})
 
 

@@ -25,6 +25,7 @@ from src.scenario_manifest import (
 )
 from src.sigma import load_sigma_rules
 from src.windows_events import normalize_windows_event
+from src.event_envelope import is_event_envelope
 
 
 MAX_FIXTURE_BYTES = 10 * 1024 * 1024
@@ -285,7 +286,9 @@ def replay_manifest(manifest, fixture_root, state_file):
                 alert = detector.analyze(event["message"])
             elif source == "windows_event":
                 record = event["record"]
-                if not isinstance(record, dict) or "event_uid" not in record:
+                if not is_event_envelope(record) and (
+                    not isinstance(record, dict) or "event_uid" not in record
+                ):
                     record = normalize_windows_event(record)
                 alert = detector.analyze_windows_event(record) if record else None
             elif source == "network":

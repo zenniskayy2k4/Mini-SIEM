@@ -679,7 +679,7 @@ feat: add detection tuning workspace
 
 ## M21.1 — Versioned Event Envelope
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```json
 {
@@ -695,12 +695,30 @@ feat: add detection tuning workspace
 
 ### Tasks
 
-- [ ] Add schema version.
-- [ ] Stable event ID.
-- [ ] Collector/source identity.
-- [ ] Separate receive and observed time.
-- [ ] Backward compatibility.
-- [ ] Document required/optional fields.
+- [x] Add schema version.
+- [x] Stable event ID.
+- [x] Collector/source identity.
+- [x] Separate receive and observed time.
+- [x] Backward compatibility.
+- [x] Document required/optional fields.
+
+### Local verification — 2026-08-25
+
+| Check | Result |
+|---|:---:|
+| Strict v1 envelope shape, schema version, source type, and stable event identity | PASS |
+| Collector identity validation and separate received/observed timestamps | PASS |
+| Payload tampering, unsupported versions, unknown fields, and invalid IDs rejected | PASS |
+| Legacy flat Windows records remain readable as schema version 0 | PASS |
+| New and legacy collector API field names accepted during migration | PASS |
+| Windows import, detection, replay, and deterministic deduplication compatibility | PASS |
+| Required and source-specific optional fields documented | PASS |
+| 52 executable regression modules on source and built image | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| Dependency layers reused from cache without reinstalling packages | PASS |
+| Dashboard and agent rollout, in-memory v1 validation, and health smoke test | PASS |
+| No cache older than 24 hours or dangling image found; 22.13 MiB fresh BuildKit cache retained | PASS |
+| Final Docker VHDX compacted from 11.84 GiB to 11.82 GiB; D: free space rose from 117.68 GiB to 117.71 GiB | PASS |
 
 ### Suggested commit
 
@@ -1969,18 +1987,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M21.1 — Versioned Event Envelope
+M21.2 — Parser Failure / Dead-letter Diagnostics
 ```
 
-M20.5 consolidated detection tuning into one analyst/admin workspace:
+M21.1 now wraps normalized Windows telemetry in one strict, versioned contract:
 
 ```text
-rule status + validation + MITRE context
-→ feedback + active exceptions + suppression context
-→ analyst review path and admin-only mutation
+stable event identity + source/collector identity
+→ separate received/observed timestamps
+→ strict validation + legacy flat-record compatibility
 ```
 
-Next, add only M21.1 versioned event envelope; keep clock-skew handling in M21.2.
+Next, add only M21.2 parser failure and dead-letter diagnostics.
 
 ---
 
@@ -2168,14 +2186,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M21.1 — Versioned Event Envelope
+M21.2 — Parser Failure / Dead-letter Diagnostics
 ```
 
-M20.5 now exposes cohesive tuning context without duplicating policy storage or feedback workflows. Success for the next batch is:
+M21.1 now provides a documented v1 envelope without changing source-specific Windows payload fields, while legacy flat records remain readable. Success for the next batch is:
 
 ```text
-schema version + stable event identity
-+ source/collector identity + received/observed timestamps
-+ validation and backward compatibility
-= reliable versioned event envelope
+parser + schema + unsupported-event failures
++ bounded redacted payload preview + retention
++ metrics + admin diagnostics
+= observable and safe ingestion failure handling
 ```

@@ -120,7 +120,7 @@ function Send-Batch([object[]]$Items) {
     }
     $source = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { "windows-host" }
     $payload = @{
-        source = $source
+        collector_id = $source
         events = @($Items | ForEach-Object { $_.xml })
     } | ConvertTo-Json -Depth 4 -Compress
     for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {

@@ -7,6 +7,9 @@ from xml.etree import ElementTree
 
 from config import config
 from src.alert_schema import utc_iso
+from src.event_envelope import (
+    build_event_envelope, normalize_collector_id, unwrap_event_envelope,
+)
 
 
 PRIORITY_EVENT_IDS = {
@@ -334,6 +337,7 @@ def iter_windows_events(path):
 def _store_windows_events(records, source_name, output_path=None):
     output_path = Path(output_path or config.WINDOWS_EVENT_FILE)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    collector_id = normalize_collector_id(source_name)
     summary = {"read": 0, "imported": 0, "duplicates": 0, "unsupported": 0, "errors": 0}
     with _WRITE_LOCK:
         existing = set()
@@ -341,8 +345,11 @@ def _store_windows_events(records, source_name, output_path=None):
             with output_path.open(encoding="utf-8", errors="ignore") as file:
                 for line in file:
                     try:
-                        existing.add(json.loads(line).get("event_uid"))
-                    except json.JSONDecodeError:
+                        _, metadata = unwrap_event_envelope(
+                            json.loads(line), "WINDOWS_EVENT",
+                        )
+                        existing.add(metadata["event_id"])
+                    except (json.JSONDecodeError, ValueError):
                         continue
 
         with output_path.open("a", encoding="utf-8") as output:
@@ -356,13 +363,15 @@ def _store_windows_events(records, source_name, output_path=None):
                 if event is None:
                     summary["unsupported"] += 1
                     continue
-                if event["event_uid"] in existing:
+                envelope = build_event_envelope(
+                    event, source_type="WINDOWS_EVENT", collector_id=collector_id,
+                    observed_at=event["timestamp"],
+                )
+                if envelope["event_id"] in existing:
                     summary["duplicates"] += 1
                     continue
-                event["source_file"] = source_name
-                event["imported_at"] = utc_iso()
-                output.write(json.dumps(event, ensure_ascii=False) + "\n")
-                existing.add(event["event_uid"])
+                output.write(json.dumps(envelope, ensure_ascii=False) + "\n")
+                existing.add(envelope["event_id"])
                 summary["imported"] += 1
     return summary
 
@@ -370,7 +379,7 @@ def _store_windows_events(records, source_name, output_path=None):
 def ingest_windows_events(records, source_name="windows-collector", output_path=None):
     if not isinstance(records, list):
         raise ValueError("Windows collector events must be a list")
-    return _store_windows_events(records, str(source_name)[:128], output_path)
+    return _store_windows_events(records, source_name, output_path)
 
 
 def import_windows_events(input_path, output_path=None):
