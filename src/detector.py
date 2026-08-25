@@ -353,8 +353,10 @@ class ThreatDetector:
             "windows_event_id": event["event_id"],
             "windows_event_uid": event["event_uid"],
             "computer": event.get("computer"),
+            "user": event.get("user"),
             "process": event.get("process"),
             "parent_process": event.get("parent_process"),
+            "target_process": event.get("target_process"),
             "hashes": event.get("hashes"),
             "ip_address": (
                 event.get("network", {}).get("source_ip")

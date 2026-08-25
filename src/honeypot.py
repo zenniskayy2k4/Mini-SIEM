@@ -1,7 +1,7 @@
 import socket
 import threading
 
-from src.alert_pipeline import persist_and_enrich
+from src.alert_pipeline import handle_detection_exception, persist_and_enrich
 from src.alert_schema import build_alert
 from src.elk_forwarder import ELKForwarder
 from config import config
@@ -48,6 +48,9 @@ class MiniHoneypot:
             ip_address=ip,
             correlation_key=f"Honeypot Connection|{ip}",
         )
+        if handle_detection_exception(alert):
+            client_socket.close()
+            return
         if self.responder:
             alert = self.responder.handle_incident(alert)
 

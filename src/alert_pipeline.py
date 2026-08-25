@@ -6,6 +6,7 @@ from src.assets import enrich_alert_with_asset
 from src.notifier import notification_service
 from src.risk import score_alert_risk
 from src.sqlite_store import SQLiteAssetRepository
+from src.storage import alert_repository
 from src.threat_intel import (
     ABUSEIPDB_FIELDS,
     GEOIP_FIELDS,
@@ -30,7 +31,36 @@ def _score_alert(alert, asset_repository):
     score_alert_risk(alert, asset=asset, weights=config.RISK_WEIGHTS)
 
 
+def handle_detection_exception(
+    alert, asset_repository=_ASSET_REPOSITORY, exception_repository=None,
+):
+    """Persist exact exception matches as non-notifying telemetry."""
+    exception_repository = exception_repository or alert_repository
+    try:
+        enrich_alert_with_asset(alert, asset_repository)
+    except Exception as exc:
+        alert["asset_id"] = None
+        logger.warning("Asset enrichment failed for %s: %s", alert.get("alert_id"), exc)
+    try:
+        matched = exception_repository.match_detection_exception(alert)
+    except Exception as exc:
+        logger.warning("Detection exception lookup failed for %s: %s", alert.get("alert_id"), exc)
+        return False
+    if not matched:
+        return False
+    alert.update({
+        "status": "EXCEPTED",
+        "incident_id": None,
+        "incident_status": None,
+        "detection_exception_match": matched,
+    })
+    upsert_alert(alert)
+    return True
+
+
 def _persist_and_notify(alert, asset_repository=_ASSET_REPOSITORY):
+    if handle_detection_exception(alert, asset_repository):
+        return
     _score_alert(alert, asset_repository)
     upsert_alert(alert)
     notification_service.notify(alert)
@@ -154,11 +184,8 @@ def persist_and_enrich(
     virustotal_service=None, stix_store=_STIX_STORE, asset_repository=_ASSET_REPOSITORY,
 ) -> dict:
     """Persist every alert before dispatching optional asynchronous enrichment."""
-    try:
-        enrich_alert_with_asset(alert, asset_repository)
-    except Exception as exc:
-        alert["asset_id"] = None
-        logger.warning("Asset enrichment failed for %s: %s", alert.get("alert_id"), exc)
+    if handle_detection_exception(alert, asset_repository):
+        return alert
     file_hash = _initial_threat_intel(
         alert, geoip_service, abuseipdb_service, virustotal_service, stix_store,
     )

@@ -71,6 +71,20 @@ ON detection_feedback(alert_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_detection_feedback_rule
 ON detection_feedback(rule_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS detection_exceptions (
+    exception_id TEXT PRIMARY KEY,
+    scope_type TEXT NOT NULL CHECK(scope_type IN (
+        'hostname', 'source_ip', 'user', 'process_path', 'rule_id', 'asset_id'
+    )),
+    scope_value TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    creator TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_detection_exceptions_active
+ON detection_exceptions(scope_type, scope_value, expires_at);
+
 CREATE TABLE IF NOT EXISTS response_actions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     incident_id TEXT NOT NULL REFERENCES incidents(incident_id) ON DELETE CASCADE,
@@ -139,6 +153,11 @@ class SQLiteAlertRepository(_SQLiteRepository):
         "TRUE_POSITIVE", "FALSE_POSITIVE", "BENIGN_EXPECTED",
     }
     MAX_FEEDBACK_REASON_LENGTH = 2000
+    EXCEPTION_SCOPES = {
+        "hostname", "source_ip", "user", "process_path", "rule_id", "asset_id",
+    }
+    MAX_EXCEPTION_REASON_LENGTH = 2000
+    MAX_EXCEPTION_VALUE_LENGTH = 500
 
     def create_alert(self, alert: dict) -> dict:
         self.ensure_schema()
@@ -497,6 +516,188 @@ class SQLiteAlertRepository(_SQLiteRepository):
                 ),
             })
         return quality
+
+    @classmethod
+    def _exception_scope(cls, scope_type, scope_value) -> tuple[str, str]:
+        if not isinstance(scope_type, str) or scope_type.strip().lower() not in cls.EXCEPTION_SCOPES:
+            raise ValueError("Invalid detection exception scope")
+        scope_type = scope_type.strip().lower()
+        if not isinstance(scope_value, str):
+            raise ValueError("Detection exception value must be text")
+        scope_value = scope_value.strip()
+        if not scope_value or len(scope_value) > cls.MAX_EXCEPTION_VALUE_LENGTH:
+            raise ValueError("Invalid detection exception value")
+        if any(character in scope_value for character in "*?[]"):
+            raise ValueError("Broad wildcard detection exceptions are not allowed")
+        if scope_type == "source_ip":
+            try:
+                scope_value = normalize_ip_address(scope_value)
+            except ValueError as exc:
+                raise ValueError("Detection exception source_ip must be one IP address") from exc
+        if scope_type == "process_path" and not (
+            scope_value.startswith("/")
+            or (len(scope_value) > 2 and scope_value[1] == ":" and scope_value[2] in "\\/")
+        ):
+            raise ValueError("Detection exception process_path must be absolute")
+        return scope_type, scope_value
+
+    @staticmethod
+    def _exception_expiry(expires_at) -> str | None:
+        if expires_at is None or expires_at == "":
+            return None
+        if not isinstance(expires_at, str):
+            raise ValueError("Detection exception expiry must be an ISO-8601 timestamp")
+        try:
+            normalized = utc_iso(expires_at.strip())
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Detection exception expiry must be an ISO-8601 timestamp") from exc
+        if normalized <= utc_iso():
+            raise ValueError("Detection exception expiry must be in the future")
+        return normalized
+
+    def create_detection_exception(
+        self, scope_type, scope_value, reason, creator, role=None, expires_at=None,
+    ) -> dict:
+        scope_type, scope_value = self._exception_scope(scope_type, scope_value)
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("Detection exception reason is required")
+        reason = reason.strip()
+        if len(reason) > self.MAX_EXCEPTION_REASON_LENGTH:
+            raise ValueError(
+                f"Detection exception reason exceeds {self.MAX_EXCEPTION_REASON_LENGTH} characters"
+            )
+        if not isinstance(creator, str) or not creator.strip() or len(creator.strip()) > 100:
+            raise ValueError("Invalid detection exception creator")
+        record = {
+            "exception_id": f"DEX-{uuid4()}",
+            "scope_type": scope_type,
+            "scope_value": scope_value,
+            "reason": reason,
+            "creator": creator.strip(),
+            "created_at": utc_iso(),
+            "expires_at": self._exception_expiry(expires_at),
+        }
+        self.ensure_schema()
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO detection_exceptions (
+                    exception_id, scope_type, scope_value, reason, creator, created_at, expires_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                tuple(record.values()),
+            )
+            append_audit_event(
+                "DETECTION_EXCEPTION_CREATED", record["creator"], role=role,
+                target_type="detection_exception", target_id=record["exception_id"],
+                details={
+                    "scope_type": scope_type,
+                    "scope_value": scope_value,
+                    "expires_at": record["expires_at"],
+                    "reason_length": len(reason),
+                },
+            )
+        return {**record, "active": True}
+
+    def list_detection_exceptions(self) -> list[dict]:
+        self.ensure_schema()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT exception_id, scope_type, scope_value, reason, creator, created_at, expires_at
+                FROM detection_exceptions ORDER BY created_at DESC, rowid DESC
+                """
+            ).fetchall()
+        now = utc_iso()
+        columns = (
+            "exception_id", "scope_type", "scope_value", "reason", "creator",
+            "created_at", "expires_at",
+        )
+        return [
+            {**dict(zip(columns, row)), "active": row[6] is None or row[6] > now}
+            for row in rows
+        ]
+
+    def delete_detection_exception(self, exception_id, actor, role=None) -> bool:
+        if not isinstance(exception_id, str) or not exception_id.startswith("DEX-"):
+            raise ValueError("Invalid detection exception ID")
+        if not isinstance(actor, str) or not actor.strip() or len(actor.strip()) > 100:
+            raise ValueError("Invalid detection exception actor")
+        self.ensure_schema()
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT scope_type, scope_value FROM detection_exceptions WHERE exception_id = ?",
+                (exception_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            connection.execute(
+                "DELETE FROM detection_exceptions WHERE exception_id = ?", (exception_id,),
+            )
+            append_audit_event(
+                "DETECTION_EXCEPTION_DELETED", actor.strip(), role=role,
+                target_type="detection_exception", target_id=exception_id,
+                details={"scope_type": row[0], "scope_value": row[1]},
+            )
+        return True
+
+    @staticmethod
+    def _exception_candidates(alert: dict, scope_type: str) -> list[str]:
+        if scope_type == "hostname":
+            values = [alert.get("hostname"), alert.get("computer")]
+        elif scope_type == "source_ip":
+            values = [alert.get("ip_address")]
+        elif scope_type == "user":
+            values = [alert.get("user"), alert.get("username")]
+            target_users = alert.get("target_users")
+            if isinstance(target_users, (list, tuple, set)):
+                values.extend(target_users)
+        elif scope_type == "process_path":
+            process = alert.get("process") if isinstance(alert.get("process"), dict) else {}
+            target = alert.get("target_process") if isinstance(alert.get("target_process"), dict) else {}
+            values = [alert.get("process_path"), process.get("image"), target.get("image")]
+        elif scope_type == "rule_id":
+            values = [alert.get("rule_id")]
+        else:
+            values = [alert.get("asset_id")]
+        return [str(value).strip() for value in values if value is not None and str(value).strip()]
+
+    def match_detection_exception(self, alert: dict) -> dict | None:
+        if not isinstance(alert, dict):
+            raise ValueError("Detection exception matching requires an alert object")
+        now = utc_iso()
+        self.ensure_schema()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT exception_id, scope_type, scope_value, reason, creator, created_at, expires_at
+                FROM detection_exceptions
+                WHERE expires_at IS NULL OR expires_at > ?
+                ORDER BY created_at, rowid
+                """,
+                (now,),
+            ).fetchall()
+        columns = (
+            "exception_id", "scope_type", "scope_value", "reason", "creator",
+            "created_at", "expires_at",
+        )
+        for row in rows:
+            record = dict(zip(columns, row))
+            expected = record["scope_value"]
+            candidates = self._exception_candidates(alert, record["scope_type"])
+            if record["scope_type"] == "source_ip":
+                normalized = []
+                for candidate in candidates:
+                    try:
+                        normalized.append(normalize_ip_address(candidate))
+                    except ValueError:
+                        continue
+                matched = expected in normalized
+            else:
+                matched = expected.casefold() in {candidate.casefold() for candidate in candidates}
+            if matched:
+                return {**record, "active": True, "matched_at": now}
+        return None
 
     def stats(self) -> dict:
         self.ensure_schema()

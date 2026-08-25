@@ -289,6 +289,22 @@ class DualWriteAlertRepository:
     def rule_quality(self, from_timestamp: str, to_timestamp: str) -> list[dict]:
         return self.sqlite.rule_quality(from_timestamp, to_timestamp)
 
+    def create_detection_exception(
+        self, scope_type, scope_value, reason, creator, role=None, expires_at=None,
+    ) -> dict:
+        return self.sqlite.create_detection_exception(
+            scope_type, scope_value, reason, creator, role, expires_at,
+        )
+
+    def list_detection_exceptions(self) -> list[dict]:
+        return self.sqlite.list_detection_exceptions()
+
+    def delete_detection_exception(self, exception_id, actor, role=None) -> bool:
+        return self.sqlite.delete_detection_exception(exception_id, actor, role)
+
+    def match_detection_exception(self, alert: dict) -> dict | None:
+        return self.sqlite.match_detection_exception(alert)
+
     def soc_kpis(self, from_timestamp: str, to_timestamp: str) -> dict:
         """Analytics intentionally requires the indexed primary SQLite store."""
         return self.sqlite.soc_kpis(from_timestamp, to_timestamp)

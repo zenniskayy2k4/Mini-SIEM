@@ -4,7 +4,7 @@ from config import config
 from src.elk_forwarder import ELKForwarder
 from src.response import IncidentResponder
 from src.correlator import AlertCorrelator
-from src.alert_pipeline import persist_and_enrich
+from src.alert_pipeline import handle_detection_exception, persist_and_enrich
 import os
 
 class LogHandler(FileSystemEventHandler):
@@ -50,7 +50,11 @@ class LogHandler(FileSystemEventHandler):
                 self._process_alert(alert)
 
     def _process_alert(self, alert):
+        if handle_detection_exception(alert):
+            return
         alert = self.correlator.correlate(alert)
+        if handle_detection_exception(alert):
+            return
         alert = self.responder.handle_incident(alert)
         self.elk.send_alert(alert)
         self._handle_alert(alert)

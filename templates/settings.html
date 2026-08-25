@@ -54,6 +54,44 @@
         </div>
     </div>
 
+    <div class="settings-card admin-wide-card">
+        <h3><i class="fa-solid fa-filter-circle-xmark"></i> Detection Exceptions</h3>
+        <p class="muted">Exact, narrow matches are retained as non-notifying telemetry. Wildcards are rejected.</p>
+        <form id="detection-exception-form" class="detection-exception-form">
+            <div>
+                <label class="input-label" for="exception-scope-type">Scope</label>
+                <select id="exception-scope-type" class="styled-input">
+                    <option value="hostname">Hostname</option>
+                    <option value="source_ip">Source IP</option>
+                    <option value="user">User</option>
+                    <option value="process_path">Process path</option>
+                    <option value="rule_id">Rule ID</option>
+                    <option value="asset_id">Asset ID</option>
+                </select>
+            </div>
+            <div>
+                <label class="input-label" for="exception-scope-value">Exact value</label>
+                <input id="exception-scope-value" class="styled-input" maxlength="500" required autocomplete="off">
+            </div>
+            <div>
+                <label class="input-label" for="exception-reason">Reason</label>
+                <input id="exception-reason" class="styled-input" maxlength="2000" required autocomplete="off">
+            </div>
+            <div>
+                <label class="input-label" for="exception-expires-at">Expires (optional)</label>
+                <input id="exception-expires-at" class="styled-input" type="datetime-local">
+            </div>
+            <button class="btn btn-primary" type="submit">Add exception</button>
+        </form>
+        <p class="admin-action-status muted" id="detection-exception-status" role="status"></p>
+        <div class="table-responsive">
+            <table class="mini-table detection-exception-table">
+                <thead><tr><th>Scope</th><th>Value</th><th>Reason</th><th>Creator</th><th>Expiry</th><th>Action</th></tr></thead>
+                <tbody id="detection-exception-body"></tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="settings-card">
         <h3><i class="fa-solid fa-plug-circle-check"></i> Integrations</h3>
         <div id="admin-integrations" class="admin-status-list">Loading integrations...</div>

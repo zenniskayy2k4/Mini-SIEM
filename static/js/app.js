@@ -9,6 +9,7 @@ const API_SETTINGS_UPDATE = "/api/settings/update";
 const API_DETECTION_RULES = "/api/detection-rules";
 const API_ADMIN_WORKSPACE = "/api/admin/workspace";
 const API_ADMIN_USERS = "/api/admin/users";
+const API_DETECTION_EXCEPTIONS = "/api/detection-exceptions";
 const API_ASSETS = "/api/assets";
 const API_ANALYTICS = "/api/analytics/kpis";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
@@ -125,6 +126,9 @@ function initSettings() {
   const userForm = document.getElementById("admin-user-form");
   const userBody = document.getElementById("admin-users-body");
   const userStatus = document.getElementById("admin-user-status");
+  const exceptionForm = document.getElementById("detection-exception-form");
+  const exceptionBody = document.getElementById("detection-exception-body");
+  const exceptionStatus = document.getElementById("detection-exception-status");
 
   const formatBytes = (value) => {
     const bytes = Number(value || 0);
@@ -234,6 +238,75 @@ function initSettings() {
   });
 
   loadAdminWorkspace();
+
+  async function loadDetectionExceptions() {
+    if (!exceptionBody) return;
+    try {
+      const response = await fetch(API_DETECTION_EXCEPTIONS, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Detection exceptions unavailable");
+      const records = data.exceptions || [];
+      exceptionBody.innerHTML = records.length ? records.map((record) => `
+        <tr>
+          <td>${escapeHTML(record.scope_type)}<br><span class="muted">${record.active ? "ACTIVE" : "EXPIRED"}</span></td>
+          <td class="font-mono">${escapeHTML(record.scope_value)}</td>
+          <td>${escapeHTML(record.reason)}</td>
+          <td>${escapeHTML(record.creator)}<br><span class="muted">${escapeHTML(record.created_at)}</span></td>
+          <td>${escapeHTML(record.expires_at || "Never")}</td>
+          <td><button class="btn btn-ghost detection-exception-delete" type="button"
+            data-exception-id="${escapeAttr(record.exception_id)}">Delete</button></td>
+        </tr>`).join("") : '<tr><td colspan="6" class="muted">No detection exceptions.</td></tr>';
+      exceptionStatus.textContent = `${records.length} exception${records.length === 1 ? "" : "s"}`;
+    } catch (error) {
+      exceptionStatus.textContent = error.message;
+    }
+  }
+
+  exceptionForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    exceptionStatus.textContent = "Saving exception...";
+    const expiry = document.getElementById("exception-expires-at").value;
+    const body = {
+      scope_type: document.getElementById("exception-scope-type").value,
+      scope_value: document.getElementById("exception-scope-value").value,
+      reason: document.getElementById("exception-reason").value,
+      expires_at: expiry ? new Date(expiry).toISOString() : null,
+    };
+    try {
+      const response = await fetch(API_DETECTION_EXCEPTIONS, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Detection exception creation failed");
+      exceptionForm.reset();
+      await loadDetectionExceptions();
+    } catch (error) {
+      exceptionStatus.textContent = error.message;
+    }
+  });
+
+  exceptionBody?.addEventListener("click", async (event) => {
+    const button = event.target.closest(".detection-exception-delete");
+    if (!button || !window.confirm("Delete this detection exception?")) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(
+        `${API_DETECTION_EXCEPTIONS}/${encodeURIComponent(button.dataset.exceptionId)}`,
+        { method: "DELETE", headers: { "X-CSRF-Token": CSRF_TOKEN } },
+      );
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Detection exception deletion failed");
+      }
+      await loadDetectionExceptions();
+    } catch (error) {
+      exceptionStatus.textContent = error.message;
+      button.disabled = false;
+    }
+  });
+  loadDetectionExceptions();
 
   const elNids = document.getElementById("set-nids-enabled");
   const elHp = document.getElementById("set-honeypot-enabled");
@@ -1308,14 +1381,24 @@ function renderDetectionFeedbackForm(alert, canMutate) {
   </div>`;
 }
 
+function renderDetectionExceptionMatch(match) {
+  if (!match) return "";
+  return `<div class="incident-history detection-exception-match">
+    <strong>Detection exception matched</strong>
+    <div>${escapeHTML(match.scope_type)} = ${escapeHTML(match.scope_value)} Â· ` +
+      `${escapeHTML(match.reason)} Â· ${escapeHTML(match.matched_at)}</div>
+  </div>`;
+}
+
 function renderIncidentPanel(alert) {
   const canMutate = ["analyst", "admin"].includes(CURRENT_ROLE);
   const feedbackForm = renderDetectionFeedbackForm(alert, canMutate);
   const feedback = renderDetectionFeedback(alert.detection_feedback);
+  const exceptionMatch = renderDetectionExceptionMatch(alert.detection_exception_match);
   if (!alert.incident_id) {
-    if (!feedbackForm && !feedback) return "";
-    return `<section class="incident-panel" aria-label="Detection feedback">
-      ${feedbackForm}${feedback}<div class="incident-error" role="alert"></div>
+    if (!feedbackForm && !feedback && !exceptionMatch) return "";
+    return `<section class="incident-panel" aria-label="Detection context">
+      ${exceptionMatch}${feedbackForm}${feedback}<div class="incident-error" role="alert"></div>
     </section>`;
   }
   const externalCases = Object.entries(alert.external_cases || {})
@@ -1386,6 +1469,7 @@ function renderIncidentPanel(alert) {
         <button class="btn btn-primary incident-response-btn" type="button">Request action</button>
       </div>` : ""}
       ${responseWorkflow ? `<div class="incident-actions">${responseWorkflow}</div>` : ""}
+      ${exceptionMatch}
       ${feedback}
       ${notes ? `<div class="incident-history"><strong>Notes</strong><ul>${notes}</ul></div>` : ""}
       ${timeline ? `<div class="incident-history"><strong>Timeline</strong><ul>${timeline}</ul></div>` : ""}

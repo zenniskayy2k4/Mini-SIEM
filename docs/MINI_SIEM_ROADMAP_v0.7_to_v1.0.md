@@ -530,26 +530,44 @@ feat: add rule quality metrics
 
 ## M20.3 — Scoped Detection Exceptions
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Initial scopes
 
-- [ ] hostname
-- [ ] source IP
-- [ ] user
-- [ ] process path
-- [ ] rule ID
-- [ ] asset ID
+- [x] hostname
+- [x] source IP
+- [x] user
+- [x] process path
+- [x] rule ID
+- [x] asset ID
 
 ### Safety
 
-- [ ] Reason required.
-- [ ] Creator recorded.
-- [ ] Optional expiry.
-- [ ] Broad wildcard rejected by default.
-- [ ] All changes audited.
-- [ ] Exception match visible.
-- [ ] Raw event is never deleted.
+- [x] Reason required.
+- [x] Creator recorded.
+- [x] Optional expiry.
+- [x] Broad wildcard rejected by default.
+- [x] All changes audited.
+- [x] Exception match visible.
+- [x] Raw event is never deleted.
+
+### Local verification — 2026-08-25
+
+| Check | Result |
+|---|:---:|
+| Exact matching for hostname, source IP, user, process path, rule ID, and asset ID | PASS |
+| Required reason, session-derived creator, and optional future expiry | PASS |
+| Empty, malformed, expired, relative-path, and wildcard scopes rejected | PASS |
+| Admin-only API/UI with CSRF enforcement | PASS |
+| Hash-chained create/delete audit; reason excluded from audit | PASS |
+| Audit failure rolls back the database transaction | PASS |
+| Match visible while original raw evidence remains stored | PASS |
+| Matched telemetry skips incident creation, AI enrichment, and notification | PASS |
+| Responsive admin exception workspace | PASS |
+| 49 executable regression modules | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Dashboard/agent rollout, schema read, and health smoke test | PASS |
+| Builder cache cleared to 0 B; Docker VHDX compacted from 15.55 GiB to 12.26 GiB | PASS |
 
 ### Suggested commit
 
@@ -1912,19 +1930,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M20.3 — Scoped Detection Exceptions
+M20.4 — Alert Suppression Windows
 ```
 
-M20.2 established honest per-rule quality context:
+M20.3 established audited, narrow detection exceptions:
 
 ```text
-alerts in selected range + latest feedback per alert
-→ classified and unclassified sample counts
-→ false-positive rate + validation scenario context
-→ no unsupported precision/recall claim
+exact validated scope + required reason and creator
+→ optional expiry + immutable create/delete audit
+→ visible non-notifying match with raw evidence preserved
 ```
 
-Next, add only M20.3 scoped detection exceptions; keep suppression windows in M20.4.
+Next, add only M20.4 alert suppression windows; keep the tuning workspace in M20.5.
 
 ---
 
@@ -2112,14 +2129,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M20.3 — Scoped Detection Exceptions
+M20.4 — Alert Suppression Windows
 ```
 
-M20.2 now provides time-filtered rule quality without overstated accuracy. Success for the next batch is:
+M20.3 now provides exact, audited detection exceptions without deleting evidence. Success for the next batch is:
 
 ```text
-validated narrow scope + required reason
-+ creator, optional expiry, and immutable audit
-+ visible match without deleting raw evidence
-= safe detection exception contract
+rule + correlation key scope
++ preserved suppression count and first/last seen
++ audited policy changes and visible grouped state
+= safe configurable alert suppression
 ```

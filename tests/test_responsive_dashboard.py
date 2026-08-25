@@ -25,7 +25,7 @@ def test_responsive_dashboard_contract():
     assert 'class="logout-label"' in layout
 
     assert dashboard.count('class="table-responsive') == 2
-    assert settings.count('class="table-responsive') == 2
+    assert settings.count('class="table-responsive') == 3
     assert assets.count('class="table-responsive') == 1
     assert 'class="asset-dialog"' in assets
     assert 'class="table-scroll-area"' in logs
