@@ -1057,6 +1057,42 @@ tr:hover {
   font-size: 11px;
 }
 
+.detection-tuning-header,
+.detection-tuning-toolbar,
+.detection-tuning-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detection-tuning-card {
+  margin-bottom: 16px;
+}
+
+.detection-tuning-toolbar {
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.detection-tuning-toolbar h3,
+.detection-tuning-toolbar p {
+  margin: 0;
+}
+
+.detection-tuning-table {
+  min-width: 1320px !important;
+}
+
+.detection-tuning-table td {
+  vertical-align: top;
+}
+
+.detection-tuning-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
 .admin-action-status {
   min-height: 18px;
   margin: 10px 0;
@@ -1733,6 +1769,11 @@ select.styled-input {
   .analytics-header,
   .analytics-range {
     align-items: stretch;
+  }
+
+  .detection-tuning-toolbar {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .analytics-range,

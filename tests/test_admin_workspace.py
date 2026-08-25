@@ -47,9 +47,13 @@ def test_admin_workspace():
                 html = page.get_data(as_text=True)
                 for marker in (
                     "Admin workspace", "User Management", "Integrations", "Audit Integrity",
-                    "Retention & Backup", "Detection Rules", 'id="set-nids-enabled"',
+                    "Retention & Backup", 'id="set-nids-enabled"',
                 ):
                     assert marker in html
+                tuning = admin.get("/detections")
+                assert tuning.status_code == 200
+                assert b"Detection tuning" in tuning.data
+                assert b'detection-tuning-body' in tuning.data
 
                 workspace = admin.get("/api/admin/workspace")
                 assert workspace.status_code == 200

@@ -160,6 +160,8 @@ def _detection_rule_records() -> list[dict]:
         "hit_count": int(counts.get(rule["id"], 0)),
         "never_hit": int(counts.get(rule["id"], 0)) == 0,
         "skip_reason": rule.get("skip_reason"),
+        "mitre_tactic": (rule.get("mitre") or {}).get("tactic", "Unmapped"),
+        "mitre_technique": (rule.get("mitre") or {}).get("technique", "Unmapped"),
     } for rule in rules]
 
 
@@ -202,6 +204,41 @@ def _rule_quality_with_validation(rows: list[dict]) -> list[dict]:
         row.setdefault("validation_scenario_count", 0)
         row.setdefault("last_validation_result", "UNAVAILABLE")
     return sorted(quality.values(), key=lambda row: (-row["alerts_generated"], row["rule_id"]))
+
+
+def _detection_tuning_payload() -> dict:
+    rules = _detection_rule_records()
+    quality = {
+        row["rule_id"]: row for row in _rule_quality_with_validation(
+            alert_repository.rule_quality("1970-01-01T00:00:00Z", utc_iso())
+        )
+    }
+    exceptions = [
+        record for record in alert_repository.list_detection_exceptions() if record["active"]
+    ]
+    policies = alert_repository.list_alert_suppression_policies()
+    exceptions_by_rule = defaultdict(list)
+    policies_by_rule = defaultdict(list)
+    for record in exceptions:
+        if record["scope_type"] == "rule_id":
+            exceptions_by_rule[record["scope_value"]].append(record)
+    for policy in policies:
+        policies_by_rule[policy["rule_id"]].append(policy)
+    for rule in rules:
+        rule["feedback"] = quality.get(rule["rule_id"], {
+            "alerts_generated": rule["hit_count"],
+            "true_positives": 0,
+            "false_positives": 0,
+            "benign_expected": 0,
+            "unclassified": rule["hit_count"],
+            "classified_sample_size": 0,
+            "false_positive_rate_percent": None,
+            "validation_scenario_count": 0,
+            "last_validation_result": "UNAVAILABLE",
+        })
+        rule["exceptions"] = exceptions_by_rule[rule["rule_id"]]
+        rule["suppression_policies"] = policies_by_rule[rule["rule_id"]]
+    return {"rules": rules, "active_exceptions": exceptions}
 
 
 def _directory_status(path, pattern):
@@ -501,6 +538,21 @@ def api_soc_kpis():
 @app.route('/logs')
 def logs():
     return render_template('logs.html', page='logs')
+
+
+@app.route('/detections')
+@role_required("analyst")
+def detections():
+    return render_template('detections.html', page='detections')
+
+
+@app.route('/api/detection-tuning')
+@role_required("analyst")
+def api_detection_tuning():
+    try:
+        return jsonify(_detection_tuning_payload())
+    except Exception:
+        return jsonify({"error": "Detection tuning data unavailable"}), 503
 
 @app.route('/settings')
 @role_required("admin")

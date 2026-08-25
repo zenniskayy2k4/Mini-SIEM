@@ -41,6 +41,11 @@
                 <a href="/graph" class="{{ 'active' if page == 'graph' else '' }}">
                     <i class="fa-solid fa-diagram-project"></i><span class="nav-label">Graph</span>
                 </a>
+                {% if current_role in ['analyst', 'admin'] %}
+                    <a href="/detections" class="{{ 'active' if page == 'detections' else '' }}">
+                        <i class="fa-solid fa-sliders"></i><span class="nav-label">Detections</span>
+                    </a>
+                {% endif %}
                 {% if current_role == 'admin' %}
                     <a href="/assets" class="{{ 'active' if page == 'assets' else '' }}">
                         <i class="fa-solid fa-server"></i><span class="nav-label">Assets</span>

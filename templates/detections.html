@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="page-header detection-tuning-header">
+    <div>
+        <h2><i class="fa-solid fa-sliders"></i> Detection tuning</h2>
+        <p class="workspace-subtitle">Rule health, validation, analyst feedback, exceptions, suppression, and MITRE context.</p>
+    </div>
+    {% if current_role == 'admin' %}
+        <a class="btn btn-ghost" href="/settings">Manage policies</a>
+    {% endif %}
+</div>
+
+<div class="admin-overview" aria-label="Detection tuning summary">
+    <article class="settings-card admin-overview-card"><span>Rules</span><strong id="tuning-rule-count">-</strong></article>
+    <article class="settings-card admin-overview-card"><span>Enabled</span><strong id="tuning-enabled-count">-</strong></article>
+    <article class="settings-card admin-overview-card"><span>Validated</span><strong id="tuning-validated-count">-</strong></article>
+    <article class="settings-card admin-overview-card"><span>Active exceptions</span><strong id="tuning-exception-count">-</strong></article>
+</div>
+
+<section class="settings-card detection-tuning-card">
+    <div class="detection-tuning-toolbar">
+        <div>
+            <h3><i class="fa-solid fa-shield-halved"></i> Rules</h3>
+            <p id="detection-tuning-status" class="muted" role="status">Loading tuning context...</p>
+        </div>
+        <div>
+            <label class="input-label" for="detection-tuning-filter">Filter rules</label>
+            <input id="detection-tuning-filter" class="styled-input" type="search" maxlength="200" placeholder="Rule, title, or MITRE">
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="mini-table detection-tuning-table">
+            <thead><tr><th>Rule</th><th>Status</th><th>Validation</th><th>Feedback</th><th>Exceptions</th><th>Suppression</th><th>MITRE</th><th>Action</th></tr></thead>
+            <tbody id="detection-tuning-body"></tbody>
+        </table>
+    </div>
+</section>
+
+<section class="settings-card detection-tuning-card">
+    <h3><i class="fa-solid fa-clock"></i> Active exception expiry</h3>
+    <p class="muted">All active scopes are shown; expired exceptions are excluded from matching.</p>
+    <div class="table-responsive">
+        <table class="mini-table detection-exception-table">
+            <thead><tr><th>Scope</th><th>Value</th><th>Reason</th><th>Creator</th><th>Expires</th></tr></thead>
+            <tbody id="detection-tuning-exceptions"></tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

@@ -7,6 +7,7 @@ const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
 const API_DETECTION_RULES = "/api/detection-rules";
+const API_DETECTION_TUNING = "/api/detection-tuning";
 const API_ADMIN_WORKSPACE = "/api/admin/workspace";
 const API_ADMIN_USERS = "/api/admin/users";
 const API_DETECTION_EXCEPTIONS = "/api/detection-exceptions";
@@ -38,6 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (path === "/") initDashboard();
   else if (path === "/logs") initLogs();
   else if (path === "/analytics") initAnalytics();
+  else if (path === "/detections") initDetectionTuning();
   else if (path === "/settings") initSettings();
   else if (path === "/assets") initAssets();
   else if (path === "/graph") initGraphPage();
@@ -449,48 +451,94 @@ function initSettings() {
     })
     .catch(() => setStatus("Failed to load settings."));
 
-  const ruleStatus = document.getElementById("rule-lifecycle-status");
-  const ruleBody = document.getElementById("rule-lifecycle-body");
+}
 
-  function loadRules() {
-    fetch(API_DETECTION_RULES, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => {
-        const rules = data.rules || [];
-        ruleStatus.textContent = `${rules.length} rules loaded`;
-        ruleBody.innerHTML = rules.map((rule) => `
-          <tr title="${escapeAttr(rule.skip_reason || "")}">
-            <td><span class="font-mono">${escapeHTML(rule.rule_id)}</span><br>${escapeHTML(rule.title)}</td>
-            <td>${escapeHTML(rule.rule_source.toUpperCase())}</td>
-            <td>${escapeHTML(rule.validation_status)}</td>
-            <td>${escapeHTML(rule.last_loaded_at || "-")}</td>
-            <td>${rule.hit_count} · ${rule.never_hit ? "NEVER HIT" : "HIT"}</td>
-            <td>${rule.enabled ? "ENABLED" : "DISABLED"}</td>
-            <td>${rule.rule_source === "sigma" && rule.supported
-              ? `<button class="btn btn-ghost sigma-rule-toggle" data-rule-id="${escapeAttr(rule.rule_id)}" data-enabled="${!rule.enabled}">${rule.enabled ? "Disable" : "Enable"}</button>`
-              : "-"}</td>
-          </tr>`).join("");
-      })
-      .catch(() => { ruleStatus.textContent = "Failed to load rules."; });
+function initDetectionTuning() {
+  const body = document.getElementById("detection-tuning-body");
+  const exceptionBody = document.getElementById("detection-tuning-exceptions");
+  const status = document.getElementById("detection-tuning-status");
+  const filter = document.getElementById("detection-tuning-filter");
+  if (!body || !exceptionBody || !status) return;
+  let rules = [];
+
+  function details(items, render) {
+    return items.length ? items.map(render).join("") : '<span class="muted">None</span>';
   }
 
-  ruleBody?.addEventListener("click", (event) => {
-    const button = event.target.closest(".sigma-rule-toggle");
+  function renderRules() {
+    const query = (filter?.value || "").trim().toLowerCase();
+    const visible = rules.filter((rule) => [
+      rule.rule_id, rule.title, rule.mitre_tactic, rule.mitre_technique,
+    ].some((value) => String(value || "").toLowerCase().includes(query)));
+    body.innerHTML = visible.length ? visible.map((rule) => {
+      const feedback = rule.feedback || {};
+      const ruleExceptions = rule.exceptions || [];
+      const policies = rule.suppression_policies || [];
+      const toggle = CURRENT_ROLE === "admin" && rule.rule_source === "sigma" && rule.supported
+        ? `<button class="btn btn-ghost tuning-rule-toggle" type="button" data-rule-id="${escapeAttr(rule.rule_id)}" data-enabled="${!rule.enabled}">${rule.enabled ? "Disable" : "Enable"}</button>`
+        : "";
+      return `<tr title="${escapeAttr(rule.skip_reason || "")}">
+        <td><span class="font-mono">${escapeHTML(rule.rule_id)}</span><br>${escapeHTML(rule.title)}<br><span class="muted">${escapeHTML(rule.hit_count)} hits</span></td>
+        <td>${rule.enabled ? "ENABLED" : "DISABLED"}<br><span class="muted">${escapeHTML(String(rule.rule_source || "").toUpperCase())}${rule.supported ? "" : " · UNSUPPORTED"}</span></td>
+        <td>${escapeHTML(feedback.last_validation_result || "UNAVAILABLE")}<br><span class="muted">${escapeHTML(feedback.validation_scenario_count || 0)} scenarios · ${escapeHTML(rule.validation_status)}</span></td>
+        <td>TP ${escapeHTML(feedback.true_positives || 0)} · FP ${escapeHTML(feedback.false_positives || 0)}<br><span class="muted">Benign ${escapeHTML(feedback.benign_expected || 0)} · Unclassified ${escapeHTML(feedback.unclassified || 0)}</span></td>
+        <td>${details(ruleExceptions, (record) => `<div>${escapeHTML(record.scope_value)}<br><span class="muted">Expires ${escapeHTML(record.expires_at || "Never")}</span></div>`)}</td>
+        <td>${details(policies, (policy) => `<div>${escapeHTML(policy.correlation_key)}<br><span class="muted">${escapeHTML(policy.window_seconds)} seconds</span></div>`)}</td>
+        <td>${escapeHTML(rule.mitre_tactic)}<br><span class="font-mono">${escapeHTML(rule.mitre_technique)}</span></td>
+        <td class="detection-tuning-actions"><a class="btn btn-ghost" href="/logs?q=${encodeURIComponent(rule.rule_id)}">Review alerts</a>${toggle}</td>
+      </tr>`;
+    }).join("") : '<tr><td colspan="8" class="muted">No matching detection rules.</td></tr>';
+    status.textContent = `${visible.length} of ${rules.length} rules shown`;
+  }
+
+  function renderExceptions(records) {
+    exceptionBody.innerHTML = records.length ? records.map((record) => `<tr>
+      <td>${escapeHTML(record.scope_type)}</td>
+      <td class="font-mono">${escapeHTML(record.scope_value)}</td>
+      <td>${escapeHTML(record.reason)}</td>
+      <td>${escapeHTML(record.creator)}</td>
+      <td>${escapeHTML(record.expires_at || "Never")}</td>
+    </tr>`).join("") : '<tr><td colspan="5" class="muted">No active detection exceptions.</td></tr>';
+  }
+
+  async function loadTuning() {
+    try {
+      const response = await fetch(API_DETECTION_TUNING, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Detection tuning data unavailable");
+      rules = data.rules || [];
+      const exceptions = data.active_exceptions || [];
+      document.getElementById("tuning-rule-count").textContent = rules.length;
+      document.getElementById("tuning-enabled-count").textContent = rules.filter((rule) => rule.enabled).length;
+      document.getElementById("tuning-validated-count").textContent = rules.filter((rule) => rule.feedback?.last_validation_result === "PASS").length;
+      document.getElementById("tuning-exception-count").textContent = exceptions.length;
+      renderRules();
+      renderExceptions(exceptions);
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  }
+
+  filter?.addEventListener("input", renderRules);
+  body.addEventListener("click", async (event) => {
+    const button = event.target.closest(".tuning-rule-toggle");
     if (!button) return;
     button.disabled = true;
-    fetch(`${API_DETECTION_RULES}/${encodeURIComponent(button.dataset.ruleId)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
-      body: JSON.stringify({ enabled: button.dataset.enabled === "true" }),
-    })
-      .then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || "Update failed");
-        loadRules();
-      })
-      .catch((error) => { ruleStatus.textContent = error.message; button.disabled = false; });
+    try {
+      const response = await fetch(`${API_DETECTION_RULES}/${encodeURIComponent(button.dataset.ruleId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify({ enabled: button.dataset.enabled === "true" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Rule update failed");
+      await loadTuning();
+    } catch (error) {
+      status.textContent = error.message;
+      button.disabled = false;
+    }
   });
-  loadRules();
+  loadTuning();
 }
 
 // --- ASSET INVENTORY ---
@@ -1296,6 +1344,7 @@ function initLogs() {
 
   tableBody.addEventListener("focusin", () => setLive(false));
 
+  if (inpQ) inpQ.value = new URLSearchParams(window.location.search).get("q")?.slice(0, 200) || "";
   readFiltersFromUI();
   setLive(true);
 }

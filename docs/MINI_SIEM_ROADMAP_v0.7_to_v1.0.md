@@ -626,7 +626,7 @@ feat: add configurable alert suppression policies
 
 ## M20.5 — Detection Tuning Workspace
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### UI
 
@@ -643,10 +643,29 @@ Rule
 
 ### Tasks
 
-- [ ] Admin controls mutation.
-- [ ] Analyst may submit feedback.
-- [ ] CSRF/RBAC enforced.
-- [ ] Active exception expiry visible.
+- [x] Admin controls mutation.
+- [x] Analyst may submit feedback.
+- [x] CSRF/RBAC enforced.
+- [x] Active exception expiry visible.
+
+### Local verification — 2026-08-25
+
+| Check | Result |
+|---|:---:|
+| Analyst/admin tuning workspace with viewer access denied | PASS |
+| Rule status, hit count, validation, feedback, exception, suppression, and MITRE context | PASS |
+| Evidence-bound analyst feedback path through filtered alerts | PASS |
+| Admin-only Sigma mutation with global CSRF enforcement | PASS |
+| Active exception scopes and expiry visible; expired records excluded | PASS |
+| Untrusted exception and rule values escaped before HTML rendering | PASS |
+| Unsupported Sigma rules remain visible with an unmapped MITRE state | PASS |
+| Responsive filter, rule table, exception table, and role-aware navigation | PASS |
+| 51 executable regression modules on source and built image | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Dependency layers reused from cache without reinstalling packages | PASS |
+| Dashboard-only rollout, 11-rule live payload read, and health smoke test | PASS |
+| Age-bounded cache cleanup retained 12.72 MiB of fresh BuildKit cache | PASS |
+| Docker VHDX compacted from 13.39 GiB to 11.81 GiB | PASS |
 
 ### Suggested commit
 
@@ -1950,18 +1969,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M20.5 — Detection Tuning Workspace
+M21.1 — Versioned Event Envelope
 ```
 
-M20.4 established configurable alert suppression windows:
+M20.5 consolidated detection tuning into one analyst/admin workspace:
 
 ```text
-exact rule + correlation-key policy
-→ grouped repeat count + preserved first/last seen
-→ no repeated response, AI, forwarding, or notification side effects
+rule status + validation + MITRE context
+→ feedback + active exceptions + suppression context
+→ analyst review path and admin-only mutation
 ```
 
-Next, add only M20.5 detection tuning workspace; keep event-envelope work in M21.1.
+Next, add only M21.1 versioned event envelope; keep clock-skew handling in M21.2.
 
 ---
 
@@ -2149,14 +2168,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M20.5 — Detection Tuning Workspace
+M21.1 — Versioned Event Envelope
 ```
 
-M20.4 now groups exact repeated detections without hiding the valid representative alert. Success for the next batch is:
+M20.5 now exposes cohesive tuning context without duplicating policy storage or feedback workflows. Success for the next batch is:
 
 ```text
-rule status + hit and validation context
-+ feedback, exception, suppression, and MITRE context
-+ admin mutation, analyst feedback, CSRF/RBAC, and visible expiry
-= cohesive detection tuning workspace
+schema version + stable event identity
++ source/collector identity + received/observed timestamps
++ validation and backward compatibility
+= reliable versioned event envelope
 ```
