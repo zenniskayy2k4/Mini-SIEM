@@ -851,7 +851,7 @@ feat: detect stale telemetry sources
 
 ## M21.5 — Release v0.7.0
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```text
 v0.7.0 — Detection Validation & Data Quality
@@ -859,21 +859,35 @@ v0.7.0 — Detection Validation & Data Quality
 
 ### Release Gate
 
-- [ ] Scenario validation exists.
-- [ ] Replay is deterministic.
-- [ ] Core detections have scenarios.
-- [ ] Scenario CI gate runs.
-- [ ] Detection feedback exists.
-- [ ] Rule quality metrics exist.
-- [ ] Exceptions and suppression are audited.
-- [ ] Event envelope is versioned.
-- [ ] Parser failures are observable.
-- [ ] Ingestion metrics exist.
-- [ ] Stale collectors are detectable.
-- [ ] Existing regressions still pass.
-- [ ] README/CHANGELOG/upgrade notes updated.
-- [ ] Clean clone passes.
-- [ ] Tag only after CI passes.
+- [x] Scenario validation exists.
+- [x] Replay is deterministic.
+- [x] Core detections have scenarios.
+- [x] Scenario CI gate runs.
+- [x] Detection feedback exists.
+- [x] Rule quality metrics exist.
+- [x] Exceptions and suppression are audited.
+- [x] Event envelope is versioned.
+- [x] Parser failures are observable.
+- [x] Ingestion metrics exist.
+- [x] Stale collectors are detectable.
+- [x] Existing regressions still pass.
+- [x] README/CHANGELOG/upgrade notes updated.
+- [x] Clean snapshot passes.
+- [x] Tag only after CI passes.
+
+### Release verification — 2026-08-26
+
+| Check | Result |
+|---|:---:|
+| Deterministic offline replay corpus: 18 scenarios and 14 rules | PASS |
+| Feedback, rule quality, exception, suppression, and audit contracts | PASS |
+| Versioned envelope, redacted failures, bounded metrics, and stale-collector diagnostics | PASS |
+| 53 executable regression modules on source and release image | PASS |
+| Python/JavaScript/PowerShell syntax and Docker Compose validation | PASS |
+| README, CHANGELOG, release notes, history, upgrade notes, and latest-release links | PASS |
+| Release artifact gate and clean staged snapshot | PASS |
+| Tracked runtime-file and secret review | PASS |
+| Release commit and annotated tag gated by GitHub Actions | PASS |
 
 ### Suggested commit
 
@@ -2032,18 +2046,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M21.5 — Release v0.7.0
+M22.1 — Configuration Validator
 ```
 
-M21.4 now detects telemetry gaps from bounded collector heartbeats:
+M21 is complete in release v0.7.0:
 
 ```text
-authenticated heartbeat + calibrated stale threshold
-→ offline / idle / endpoint-unavailable / healthy diagnostic state
-→ aggregate public health and collector detail for administrators
+deterministic validation + audited tuning
+→ versioned event data + observable ingestion quality
+→ CI-gated Detection Validation & Data Quality release
 ```
 
-Next, perform only the M21.5 v0.7.0 release gate.
+Next, add only the M22.1 configuration validator.
 
 ---
 
@@ -2231,14 +2245,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M21.5 — Release v0.7.0
+M22.1 — Configuration Validator
 ```
 
-M21.4 now exposes bounded, side-effect-free collector gap diagnostics. Success for the next batch is:
+v0.7.0 closes M19–M21 with deterministic validation and ingestion quality controls. Success for the next batch is:
 
 ```text
-complete v0.7.0 release gate
-+ README / changelog / upgrade-note synchronization
-+ clean-clone and regression qualification
-= CI-verified v0.7.0 release candidate
+python -m tools.validate_config
++ actionable secret / TLS / provider / retention / response validation
++ deterministic non-secret diagnostics
+= fail-fast secure-deployment configuration checks
 ```

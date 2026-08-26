@@ -4,11 +4,32 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-26
+
+Detection Validation and Data Quality release.
+
 ### Added
 
 - Time-filtered per-rule quality metrics from the latest analyst feedback per alert, including explicit classified/unclassified sample sizes and deterministic validation scenario context without precision/recall claims.
 - Analyst detection feedback with SQLite-backed rule/alert linkage, session-derived actor identity, false-positive reason enforcement, read-only viewer visibility, and hash-chained audit records without altering alert evidence.
 - Versioned offline detection scenarios with an 18-case Linux, Windows, Sigma, NIDS, and cross-source corpus, deterministic replay through existing detection paths, isolated temporary state, normalized CI output, generated Markdown/JSON rule-validation coverage separate from runtime hit counts, and a required provider-disabled CI gate with failure artifacts.
+- Audited, exact-match detection exceptions; deterministic time-window suppression policies; and an analyst tuning workspace that preserves suppressed telemetry without notifying.
+- A versioned normalized event envelope with stable event and collector identities plus backward-compatible unwrap validation.
+- Retained, secret-redacted parser/schema/unsupported ingestion diagnostics and bounded Prometheus ingestion-health metrics.
+- Authenticated Windows collector heartbeats with a configurable stale threshold and offline, idle, endpoint-unavailable, and healthy diagnostic states.
+
+### Security
+
+- Detection feedback, exceptions, suppression changes, and collector health remain server-authorized; untrusted diagnostics are redacted before storage and escaped before rendering.
+- Ingestion metrics use bounded labels, heartbeat identities are admin-only, and persisted collector state is capped to prevent unbounded cardinality.
+
+### Verification
+
+- All 53 executable regression modules pass on source and the built image, including the deterministic 18-scenario replay corpus.
+- GitHub Actions pre-release head `ac5f0ec` passed baseline, Docker smoke, security, and release gate in run `32956979463`.
+- Python, JavaScript, PowerShell, Compose, runtime health, tracked-file, and secret checks pass without an Ollama/network-dependent test.
+
+See the [v0.7.0 release checklist](docs/RELEASE_v0.7.0.md) for setup, upgrade notes, verification details, and known limitations.
 
 ## [0.6.0] - 2026-08-23
 
