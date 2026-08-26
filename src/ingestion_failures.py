@@ -6,10 +6,11 @@ from pathlib import Path
 from uuid import uuid4
 
 from config import config
-from src.alert_schema import utc_iso
+from src.alert_schema import SOURCE_TYPES, utc_iso
 
 
 FAILURE_TYPES = ("parser", "schema", "unsupported")
+INGESTION_HEALTH_SOURCES = ("WINDOWS_EVENT",)
 MAX_PREVIEW_CHARS = 512
 MAX_REASON_CHARS = 500
 _SECRET_NAME = r"password|passwd|pwd|secret|token|api[_-]?key|authorization|cookie"
@@ -39,6 +40,16 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_failures_occurred_at
 ON ingestion_failures(occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ingestion_failures_type
 ON ingestion_failures(failure_type, occurred_at DESC);
+
+CREATE TABLE IF NOT EXISTS ingestion_health (
+    source_type TEXT PRIMARY KEY,
+    events_received INTEGER NOT NULL DEFAULT 0,
+    events_normalized INTEGER NOT NULL DEFAULT 0,
+    events_rejected INTEGER NOT NULL DEFAULT 0,
+    events_deduplicated INTEGER NOT NULL DEFAULT 0,
+    processing_seconds REAL NOT NULL DEFAULT 0,
+    collector_last_seen_at TEXT
+);
 """
 
 
@@ -149,3 +160,81 @@ def get_ingestion_failure_diagnostics(limit=20, now=None) -> dict:
         "counts": normalized,
         "recent": [dict(zip(keys, row)) for row in rows],
     }
+
+
+def record_ingestion_health(summary, source_type, processing_seconds) -> None:
+    source_type = str(source_type).strip().upper()
+    if source_type not in SOURCE_TYPES:
+        raise ValueError("ingestion health source_type is invalid")
+    received = max(0, int(summary.get("read") or 0))
+    imported = max(0, int(summary.get("imported") or 0))
+    duplicates = max(0, int(summary.get("duplicates") or 0))
+    rejected = max(0, int(summary.get("errors") or 0)) + max(
+        0, int(summary.get("unsupported") or 0)
+    )
+    normalized = imported + duplicates
+    last_seen_at = utc_iso() if received else None
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO ingestion_health (
+                source_type, events_received, events_normalized, events_rejected,
+                events_deduplicated, processing_seconds, collector_last_seen_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(source_type) DO UPDATE SET
+                events_received=events_received + excluded.events_received,
+                events_normalized=events_normalized + excluded.events_normalized,
+                events_rejected=events_rejected + excluded.events_rejected,
+                events_deduplicated=events_deduplicated + excluded.events_deduplicated,
+                processing_seconds=processing_seconds + excluded.processing_seconds,
+                collector_last_seen_at=COALESCE(
+                    excluded.collector_last_seen_at, collector_last_seen_at
+                )
+            """,
+            (
+                source_type, received, normalized, rejected, duplicates,
+                max(0.0, float(processing_seconds)), last_seen_at,
+            ),
+        )
+
+
+def get_ingestion_health_metrics(now=None) -> dict:
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT source_type, events_received, events_normalized, events_rejected,
+                   events_deduplicated, processing_seconds, collector_last_seen_at
+            FROM ingestion_health
+            """
+        ).fetchall()
+    result = {
+        source_type: {
+            "events_received_total": 0,
+            "events_normalized_total": 0,
+            "events_rejected_total": 0,
+            "events_deduplicated_total": 0,
+            "event_processing_seconds": 0.0,
+            "collector_last_seen_seconds": None,
+        }
+        for source_type in INGESTION_HEALTH_SOURCES
+    }
+    for source_type, received, normalized, rejected, deduplicated, seconds, last_seen in rows:
+        try:
+            seen = datetime.fromisoformat(str(last_seen).replace("Z", "+00:00"))
+            if seen.tzinfo is None:
+                seen = seen.replace(tzinfo=timezone.utc)
+            age = max(0.0, (now.astimezone(timezone.utc) - seen.astimezone(timezone.utc)).total_seconds())
+        except (TypeError, ValueError):
+            age = None
+        result[source_type] = {
+            "events_received_total": int(received),
+            "events_normalized_total": int(normalized),
+            "events_rejected_total": int(rejected),
+            "events_deduplicated_total": int(deduplicated),
+            "event_processing_seconds": max(0.0, float(seconds)),
+            "collector_last_seen_seconds": age,
+        }
+    return result

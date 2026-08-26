@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import threading
+import time
 from collections import namedtuple
 from pathlib import Path
 from xml.etree import ElementTree
@@ -12,7 +13,7 @@ from src.alert_schema import utc_iso
 from src.event_envelope import (
     build_event_envelope, normalize_collector_id, unwrap_event_envelope,
 )
-from src.ingestion_failures import record_ingestion_failure
+from src.ingestion_failures import record_ingestion_failure, record_ingestion_health
 
 
 PRIORITY_EVENT_IDS = {
@@ -353,6 +354,7 @@ def iter_windows_events(path):
 
 
 def _store_windows_events(records, source_name, output_path=None):
+    started = time.monotonic()
     output_path = Path(output_path or config.WINDOWS_EVENT_FILE)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     collector_id = normalize_collector_id(source_name)
@@ -409,6 +411,10 @@ def _store_windows_events(records, source_name, output_path=None):
                 output.write(json.dumps(envelope, ensure_ascii=False) + "\n")
                 existing.add(envelope["event_id"])
                 summary["imported"] += 1
+    try:
+        record_ingestion_health(summary, "WINDOWS_EVENT", time.monotonic() - started)
+    except Exception as exc:
+        logger.warning("Could not persist ingestion health: %s", type(exc).__name__)
     return summary
 
 

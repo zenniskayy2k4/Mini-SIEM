@@ -71,6 +71,16 @@ def test_prometheus_metrics():
                 patch.object(dashboard, "get_ingestion_failure_diagnostics", return_value={
                     "counts": {"parser": 2, "schema": 1, "unsupported": 3},
                 }),
+                patch.object(dashboard, "get_ingestion_health_metrics", return_value={
+                    "WINDOWS_EVENT": {
+                        "events_received_total": 9,
+                        "events_normalized_total": 7,
+                        "events_rejected_total": 2,
+                        "events_deduplicated_total": 1,
+                        "event_processing_seconds": 0.25,
+                        "collector_last_seen_seconds": 4.5,
+                    },
+                }),
             ):
                 config.METRICS_BEARER_TOKEN = ""
                 response = client.get("/metrics")
@@ -96,10 +106,18 @@ def test_prometheus_metrics():
                     'mini_siem_ingestion_failures{type="parser"} 2',
                     'mini_siem_ingestion_failures{type="schema"} 1',
                     'mini_siem_ingestion_failures{type="unsupported"} 3',
+                    '# TYPE mini_siem_events_received_total counter',
+                    'mini_siem_events_received_total{source="WINDOWS_EVENT"} 9',
+                    'mini_siem_events_normalized_total{source="WINDOWS_EVENT"} 7',
+                    'mini_siem_events_rejected_total{source="WINDOWS_EVENT"} 2',
+                    'mini_siem_events_deduplicated_total{source="WINDOWS_EVENT"} 1',
+                    'mini_siem_event_processing_seconds{source="WINDOWS_EVENT"} 0.25',
+                    'mini_siem_collector_last_seen_seconds{source="WINDOWS_EVENT"} 4.5',
                 ):
                     assert sample in body
                 for secret in ("192.0.2.99", "secret-user", "provider secret", "notification secret"):
                     assert secret not in body
+                assert "collector_id" not in body and "ip_address" not in body
 
                 config.METRICS_BEARER_TOKEN = "metrics-secret"
                 assert client.get("/metrics").status_code == 401

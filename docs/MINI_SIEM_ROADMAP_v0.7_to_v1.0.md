@@ -772,7 +772,7 @@ feat: add ingestion dead-letter diagnostics
 
 ## M21.3 — Ingestion Health Metrics
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```text
 events_received_total
@@ -785,8 +785,25 @@ collector_last_seen_seconds
 
 ### Rules
 
-- [ ] No raw IP/user labels.
-- [ ] Keep label cardinality bounded.
+- [x] No raw IP/user labels.
+- [x] Keep label cardinality bounded.
+
+### Local verification — 2026-08-26
+
+| Check | Result |
+|---|:---:|
+| Received, normalized, rejected, and deduplicated totals persisted in SQLite | PASS |
+| Cumulative processing duration and collector last-seen age recorded | PASS |
+| Stable zero-value Windows metric series available before first batch | PASS |
+| Prometheus totals emitted as counters; duration and age emitted as gauges | PASS |
+| Metrics use only the bounded `WINDOWS_EVENT` source label | PASS |
+| No collector ID, raw IP, or user label exposed | PASS |
+| Metric storage failure does not block primary ingestion | PASS |
+| Regression ingestion writes isolated from live telemetry state | PASS |
+| 53 executable regression modules on source and built image | PASS |
+| Python/JavaScript syntax and Docker Compose validation | PASS |
+| Dependency layers reused from cache without reinstalling packages | PASS |
+| Dashboard and agent rollout, six-metric smoke check, and health verification | PASS |
 
 ### Suggested commit
 
@@ -2000,18 +2017,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M21.3 — Ingestion Health Metrics
+M21.4 — Event Gap Detection
 ```
 
-M21.2 now retains safe, bounded ingestion failure diagnostics:
+M21.3 now persists bounded ingestion health aggregates:
 
 ```text
-parser + schema + unsupported-event failures
-→ redacted bounded previews + automatic retention
-→ bounded metrics + admin-only diagnostics
+received + normalized + rejected + deduplicated totals
+→ cumulative processing duration + collector last-seen age
+→ source-only Prometheus labels without raw identity values
 ```
 
-Next, add only M21.3 ingestion health metrics.
+Next, add only M21.4 event gap detection.
 
 ---
 
@@ -2199,14 +2216,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M21.3 — Ingestion Health Metrics
+M21.4 — Event Gap Detection
 ```
 
-M21.2 now records redacted dead-letter diagnostics without blocking primary ingestion. Success for the next batch is:
+M21.3 now exposes persistent ingestion health without adding unbounded labels. Success for the next batch is:
 
 ```text
-received + normalized + rejected + deduplicated counters
-+ processing duration + collector last-seen age
-+ bounded labels without raw IP/user values
-= measurable ingestion health
+collector heartbeat state + calibrated stale threshold
++ offline / idle / endpoint-unavailable distinction
++ diagnostic state + optional deduplicated operational alert
+= actionable event-gap detection without alert storms
 ```

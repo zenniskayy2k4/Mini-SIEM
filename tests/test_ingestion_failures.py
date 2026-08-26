@@ -7,7 +7,7 @@ from unittest.mock import patch
 from config import config
 from src.ingestion_failures import (
     MAX_PREVIEW_CHARS, get_ingestion_failure_diagnostics,
-    record_ingestion_failure,
+    get_ingestion_health_metrics, record_ingestion_failure,
 )
 from src.windows_events import ingest_windows_events
 
@@ -20,6 +20,9 @@ def test_ingestion_failures():
         config.INGESTION_FAILURE_RETENTION_DAYS = 30
         output = directory / "windows-events.jsonl"
         try:
+            empty_health = get_ingestion_health_metrics()["WINDOWS_EVENT"]
+            assert empty_health["events_received_total"] == 0
+            assert empty_health["collector_last_seen_seconds"] is None
             malformed_xml = '<Event><Data Name="Password">SENSITIVE_XML_123 WITHSPACE</Event>'
             missing_schema = {
                 "timestamp": "2026-08-25T09:00:00Z",
@@ -57,6 +60,25 @@ def test_ingestion_failures():
                 for record in diagnostics["recent"]
             )
 
+            valid = {
+                "event_id": 4625,
+                "timestamp": "2026-08-25T09:01:00Z",
+                "computer": "win-lab",
+                "event_data": {"TargetUserName": "analyst"},
+            }
+            accepted = ingest_windows_events([valid, valid], "win-lab", output)
+            assert accepted == {
+                "read": 2, "imported": 1, "duplicates": 1,
+                "unsupported": 0, "errors": 0,
+            }
+            health = get_ingestion_health_metrics()["WINDOWS_EVENT"]
+            assert health["events_received_total"] == 5
+            assert health["events_normalized_total"] == 2
+            assert health["events_rejected_total"] == 3
+            assert health["events_deduplicated_total"] == 1
+            assert health["event_processing_seconds"] >= 0
+            assert 0 <= health["collector_last_seen_seconds"] < 5
+
             record_ingestion_failure(
                 "schema", "expired", {"pass" + "word": "old-secret"},
                 occurred_at="2020-01-01T00:00:00Z",
@@ -66,8 +88,9 @@ def test_ingestion_failures():
             )
             assert retained["total"] == 3
 
-            with patch(
-                "src.windows_events.record_ingestion_failure", side_effect=OSError,
+            with (
+                patch("src.windows_events.record_ingestion_failure", side_effect=OSError),
+                patch("src.windows_events.record_ingestion_health", side_effect=OSError),
             ):
                 failed_diagnostics = ingest_windows_events(
                     [{"timestamp": "2026-08-25T09:00:00Z"}], "win-lab", output,
@@ -79,4 +102,4 @@ def test_ingestion_failures():
 
 if __name__ == "__main__":
     test_ingestion_failures()
-    print("M21.2 ingestion dead-letter diagnostics passed")
+    print("M21.2/M21.3 ingestion diagnostics and health metrics passed")

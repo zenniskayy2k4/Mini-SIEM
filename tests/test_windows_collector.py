@@ -11,8 +11,12 @@ EVENT_XML = """<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/eve
 
 def test_windows_collector():
     with tempfile.TemporaryDirectory() as directory:
-        original = (config.WINDOWS_COLLECTOR_SECRET, config.WINDOWS_EVENT_FILE)
+        original = (
+            config.WINDOWS_COLLECTOR_SECRET, config.WINDOWS_EVENT_FILE,
+            config.SQLITE_ALERT_DB,
+        )
         config.WINDOWS_EVENT_FILE = str(Path(directory, "windows_events.jsonl"))
+        config.SQLITE_ALERT_DB = str(Path(directory, "mini-siem.db"))
         client = app.test_client()
         try:
             config.WINDOWS_COLLECTOR_SECRET = ""
@@ -61,7 +65,10 @@ def test_windows_collector():
                 "/api/windows-events", headers=headers, json=[EVENT_XML],
             ).status_code == 400
         finally:
-            config.WINDOWS_COLLECTOR_SECRET, config.WINDOWS_EVENT_FILE = original
+            (
+                config.WINDOWS_COLLECTOR_SECRET, config.WINDOWS_EVENT_FILE,
+                config.SQLITE_ALERT_DB,
+            ) = original
 
 
 if __name__ == "__main__":

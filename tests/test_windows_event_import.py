@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+from config import config
 from src.event_envelope import validate_event_envelope
 from src.windows_events import import_windows_events
 
@@ -59,6 +60,8 @@ def _event(event_id, record_id):
 def test_windows_event_import():
     with tempfile.TemporaryDirectory() as directory:
         directory = Path(directory)
+        original_db = config.SQLITE_ALERT_DB
+        config.SQLITE_ALERT_DB = str(directory / "mini-siem.db")
         source = directory / "events.json"
         output = directory / "normalized.jsonl"
         source.write_text(json.dumps([_event(event_id, index) for index, event_id in enumerate(EVENT_IDS, 1)]), encoding="utf-8")
@@ -121,6 +124,7 @@ def test_windows_event_import():
         evtx_event = json.loads(evtx_output.read_text(encoding="utf-8"))
         assert evtx_event["event_id"].startswith("EVT-")
         assert evtx_event["payload"]["event_id"] == 4625
+        config.SQLITE_ALERT_DB = original_db
 
 
 if __name__ == "__main__":

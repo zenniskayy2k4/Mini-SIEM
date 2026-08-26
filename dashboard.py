@@ -17,7 +17,9 @@ from src.audit import append_audit_event, verify_audit_log
 from src.case_connector import CaseExportService
 from src.health import build_system_status
 from src.incident_report import generate_incident_pdf
-from src.ingestion_failures import get_ingestion_failure_diagnostics
+from src.ingestion_failures import (
+    get_ingestion_failure_diagnostics, get_ingestion_health_metrics,
+)
 from src.jira import JiraConnector
 from src.metrics import metrics_unavailable, render_prometheus_metrics
 from src.dashboard_auth import (
@@ -484,6 +486,7 @@ def metrics():
             build_system_status(_effective_settings()),
             config.NOTIFICATION_LOG_FILE,
             get_ingestion_failure_diagnostics(limit=0)["counts"],
+            get_ingestion_health_metrics(),
         )
         status = 200
     except Exception:
