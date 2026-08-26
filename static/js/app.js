@@ -152,11 +152,13 @@ function initSettings() {
     const agent = health.agent || {};
     const database = health.database || {};
     const queue = health.queue || {};
+    const ingestion = health.ingestion || {};
     const summaries = {
       "admin-health-platform": health.status || "unknown",
       "admin-health-agent": `${agent.status || "unknown"}${agent.age_seconds == null ? "" : ` · ${agent.age_seconds}s`}`,
       "admin-health-database": `${database.status || "unknown"} · ${database.check || "not checked"}`,
       "admin-health-ai": `${queue.busy ? "busy" : "idle"} · backlog ${queue.backlog || 0}`,
+      "admin-health-ingestion": `${ingestion.status || "unknown"} · ${(ingestion.collectors || []).length} collectors`,
     };
     Object.entries(summaries).forEach(([id, value]) => {
       const element = document.getElementById(id);

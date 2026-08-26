@@ -114,13 +114,12 @@ function Read-Buffer {
     return @(Get-Content -Raw -LiteralPath $BufferFile | ConvertFrom-Json)
 }
 
-function Send-Batch([object[]]$Items) {
-    if ($Items.Count -eq 0) {
-        return $true
-    }
+function Send-Batch([object[]]$Items, [bool]$EndpointAvailable) {
     $source = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { "windows-host" }
     $payload = @{
         collector_id = $source
+        heartbeat = $true
+        endpoint_available = $EndpointAvailable
         events = @($Items | ForEach-Object { $_.xml })
     } | ConvertTo-Json -Depth 4 -Compress
     for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
@@ -157,6 +156,7 @@ function Get-NewEvents([hashtable]$State) {
         }
         catch {
             $records = @()
+            $State[$channel] = [long]-1
         }
         foreach ($record in $records) {
             $items += [pscustomobject]@{
@@ -185,7 +185,8 @@ $initialized = Initialize-Cursors $state
 do {
     $buffered = @(Read-Buffer)
     if ($buffered.Count -gt 0) {
-        if (Send-Batch $buffered) {
+        $endpointAvailable = @($state.Values | Where-Object { [long]$_ -ge 0 }).Count -gt 0
+        if (Send-Batch $buffered $endpointAvailable) {
             Remove-Item -Force -LiteralPath $BufferFile
         }
         else {
@@ -198,12 +199,21 @@ do {
     if (-not $initialized) {
         Refresh-UnavailableCursors $state
         $events = @(Get-NewEvents $state)
-        if ($events.Count -gt 0) {
-            if (-not (Send-Batch $events)) {
+        $endpointAvailable = @($state.Values | Where-Object { [long]$_ -ge 0 }).Count -gt 0
+        if (-not (Send-Batch $events $endpointAvailable)) {
+            if ($events.Count -gt 0) {
                 Save-JsonAtomic $BufferFile $events
                 Write-Warning "Mini-SIEM unavailable; buffered $($events.Count) events locally."
             }
+        }
+        if ($events.Count -gt 0) {
             Save-Cursors $state $events
+        }
+    }
+    else {
+        $endpointAvailable = @($state.Values | Where-Object { [long]$_ -ge 0 }).Count -gt 0
+        if (-not (Send-Batch -Items @() -EndpointAvailable $endpointAvailable)) {
+            Write-Warning "Mini-SIEM unavailable; heartbeat failed."
         }
     }
     $initialized = $false

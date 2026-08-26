@@ -6,8 +6,9 @@ from unittest.mock import patch
 
 from config import config
 from src.ingestion_failures import (
-    MAX_PREVIEW_CHARS, get_ingestion_failure_diagnostics,
-    get_ingestion_health_metrics, record_ingestion_failure,
+    MAX_PREVIEW_CHARS, get_collector_gap_diagnostics,
+    get_ingestion_failure_diagnostics, get_ingestion_health_metrics,
+    record_collector_heartbeat, record_ingestion_failure,
 )
 from src.windows_events import ingest_windows_events
 
@@ -20,9 +21,46 @@ def test_ingestion_failures():
         config.INGESTION_FAILURE_RETENTION_DAYS = 30
         output = directory / "windows-events.jsonl"
         try:
+            heartbeat_at = datetime(2026, 8, 25, 9, tzinfo=timezone.utc)
+            assert get_collector_gap_diagnostics(
+                now=heartbeat_at, stale_seconds=60,
+            )["status"] == "offline"
+            record_collector_heartbeat("win-lab", now=heartbeat_at)
+            idle = get_collector_gap_diagnostics(
+                now=heartbeat_at, stale_seconds=60,
+            )
+            assert idle["status"] == idle["collectors"][0]["status"] == "idle"
+            record_collector_heartbeat(
+                "win-lab", endpoint_available=False,
+                now=heartbeat_at.replace(second=1),
+            )
+            assert get_collector_gap_diagnostics(
+                now=heartbeat_at.replace(second=1), stale_seconds=60,
+            )["status"] == "endpoint_unavailable"
+            record_collector_heartbeat(
+                "win-lab", events_received=1, now=heartbeat_at.replace(second=2),
+            )
+            healthy_gap = get_collector_gap_diagnostics(
+                now=heartbeat_at.replace(second=2), stale_seconds=60,
+            )
+            assert healthy_gap["status"] == "healthy"
+            assert healthy_gap["collectors"][0]["last_event_age_seconds"] == 0
+            assert get_ingestion_health_metrics(
+                now=heartbeat_at.replace(second=2),
+            )["WINDOWS_EVENT"]["collector_last_seen_seconds"] == 0
+            assert get_collector_gap_diagnostics(
+                now=heartbeat_at.replace(minute=2), stale_seconds=60,
+            )["status"] == "offline"
+            with patch("src.ingestion_failures.MAX_COLLECTOR_HEARTBEATS", 1):
+                try:
+                    record_collector_heartbeat("unbounded-id")
+                    assert False, "collector heartbeat limit was not enforced"
+                except ValueError as exc:
+                    assert str(exc) == "collector heartbeat limit reached"
+
             empty_health = get_ingestion_health_metrics()["WINDOWS_EVENT"]
             assert empty_health["events_received_total"] == 0
-            assert empty_health["collector_last_seen_seconds"] is None
+            assert empty_health["collector_last_seen_seconds"] is not None
             malformed_xml = '<Event><Data Name="Password">SENSITIVE_XML_123 WITHSPACE</Event>'
             missing_schema = {
                 "timestamp": "2026-08-25T09:00:00Z",
@@ -102,4 +140,4 @@ def test_ingestion_failures():
 
 if __name__ == "__main__":
     test_ingestion_failures()
-    print("M21.2/M21.3 ingestion diagnostics and health metrics passed")
+    print("M21.2-M21.4 ingestion diagnostics, metrics, and gap detection passed")

@@ -19,6 +19,7 @@ from src.health import build_system_status
 from src.incident_report import generate_incident_pdf
 from src.ingestion_failures import (
     get_ingestion_failure_diagnostics, get_ingestion_health_metrics,
+    record_collector_heartbeat,
 )
 from src.jira import JiraConnector
 from src.metrics import metrics_unavailable, render_prometheus_metrics
@@ -466,6 +467,7 @@ def health():
         "agent": status["agent"]["status"],
         "alert_store": status["alert_store"]["status"],
         "database": status["database"]["status"],
+        "ingestion": status["ingestion"]["status"],
     }
     return jsonify(public), 503 if status["status"] == "unhealthy" else 200
 
@@ -821,17 +823,36 @@ def api_windows_events():
     if not isinstance(body, dict):
         return jsonify({"error": "request body must be a JSON object"}), 400
     events = body.get("events")
-    if not isinstance(events, list) or not events:
-        return jsonify({"error": "events must be a non-empty list"}), 400
+    heartbeat = body.get("heartbeat", False)
+    endpoint_available = body.get("endpoint_available", True)
+    if not isinstance(events, list) or (not events and heartbeat is not True):
+        return jsonify({"error": "events must be a non-empty list unless heartbeat is true"}), 400
+    if not isinstance(heartbeat, bool) or not isinstance(endpoint_available, bool):
+        return jsonify({"error": "heartbeat and endpoint_available must be boolean"}), 400
     if len(events) > 500:
         return jsonify({"error": "Windows event batch exceeds 500 events"}), 413
+    collector_id = body.get("collector_id") or body.get("source") or "windows-collector"
     try:
-        summary = ingest_windows_events(
-            events, body.get("collector_id") or body.get("source") or "windows-collector",
+        summary = (
+            ingest_windows_events(events, collector_id)
+            if events else {"read": 0, "imported": 0, "duplicates": 0, "unsupported": 0, "errors": 0}
+        )
+        record_collector_heartbeat(
+            collector_id,
+            events_received=len(events),
+            endpoint_available=endpoint_available,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify({"ok": True, **summary})
+    except Exception:
+        app.logger.exception("Could not persist Windows collector heartbeat")
+        return jsonify({"error": "Windows collector heartbeat unavailable"}), 503
+    collector_status = (
+        "endpoint_unavailable" if not endpoint_available
+        else "healthy" if events
+        else "idle"
+    )
+    return jsonify({"ok": True, "collector_status": collector_status, **summary})
 
 
 @app.route("/api/alerts/<alert_id>/status", methods=["PATCH"])

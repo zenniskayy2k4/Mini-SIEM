@@ -10,6 +10,7 @@ from src.ai_analyst import AIAnalyst
 from src.ai_provider import OllamaCloudProvider
 from src.alert_schema import build_alert
 from src.health import write_agent_heartbeat
+from src.ingestion_failures import record_collector_heartbeat
 from src.sqlite_store import SQLiteAlertRepository
 from tests.auth_helpers import login_as
 
@@ -21,9 +22,11 @@ def test_health():
             config.AGENT_HEARTBEAT_FILE,
             config.SQLITE_ALERT_DB,
             config.DASHBOARD_USERS_FILE,
+            config.WINDOWS_COLLECTOR_SECRET,
         )
         config.AGENT_HEARTBEAT_FILE = str(directory / "heartbeat.json")
         config.SQLITE_ALERT_DB = str(directory / "alerts.db")
+        config.WINDOWS_COLLECTOR_SECRET = ""
         repository = SQLiteAlertRepository(config.SQLITE_ALERT_DB)
         alert = build_alert(
             alert_name="Health test",
@@ -55,6 +58,7 @@ def test_health():
                 health = public.get("/health")
                 assert health.status_code == 200
                 assert health.get_json()["status"] == "healthy"
+                assert health.get_json()["ingestion"] == "disabled"
                 assert public.get("/api/system/status").status_code == 401
 
                 viewer = app.test_client()
@@ -74,6 +78,16 @@ def test_health():
                 assert status["queue"] == {"busy": True, "backlog": 0}
                 assert status["sensors"]["nids"]["enabled"] is True
                 assert status["sensors"]["honeypot"]["enabled"] is False
+
+                config.WINDOWS_COLLECTOR_SECRET = "collector-test-secret"
+                assert public.get("/health").get_json()["ingestion"] == "offline"
+                record_collector_heartbeat("win-lab")
+                idle_health = public.get("/health").get_json()
+                assert idle_health["status"] == "healthy"
+                assert idle_health["ingestion"] == "idle"
+                record_collector_heartbeat("win-lab", endpoint_available=False)
+                assert public.get("/health").get_json()["ingestion"] == "endpoint_unavailable"
+                config.WINDOWS_COLLECTOR_SECRET = ""
 
                 heartbeat = json.loads(Path(config.AGENT_HEARTBEAT_FILE).read_text(encoding="utf-8"))
                 heartbeat["timestamp"] = (
@@ -100,6 +114,7 @@ def test_health():
                 config.AGENT_HEARTBEAT_FILE,
                 config.SQLITE_ALERT_DB,
                 config.DASHBOARD_USERS_FILE,
+                config.WINDOWS_COLLECTOR_SECRET,
             ) = original
 
 

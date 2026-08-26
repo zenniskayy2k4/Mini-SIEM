@@ -29,6 +29,28 @@ def test_windows_collector():
                 headers={"X-Mini-SIEM-Secret": "collector-test-secret"},
                 json={"events": []},
             ).status_code == 400
+            heartbeat = client.post(
+                "/api/windows-events",
+                headers={"X-Mini-SIEM-Secret": "collector-test-secret"},
+                json={"collector_id": "win-idle", "heartbeat": True, "events": []},
+            )
+            assert heartbeat.status_code == 200
+            assert heartbeat.get_json()["collector_status"] == "idle"
+            unavailable = client.post(
+                "/api/windows-events",
+                headers={"X-Mini-SIEM-Secret": "collector-test-secret"},
+                json={
+                    "collector_id": "win-idle", "heartbeat": True,
+                    "endpoint_available": False, "events": [],
+                },
+            )
+            assert unavailable.status_code == 200
+            assert unavailable.get_json()["collector_status"] == "endpoint_unavailable"
+            assert client.post(
+                "/api/windows-events",
+                headers={"X-Mini-SIEM-Secret": "collector-test-secret"},
+                json={"heartbeat": "true", "events": []},
+            ).status_code == 400
             assert client.post(
                 "/api/windows-events",
                 headers={"X-Mini-SIEM-Secret": "collector-test-secret"},
@@ -73,4 +95,4 @@ def test_windows_collector():
 
 if __name__ == "__main__":
     test_windows_collector()
-    print("M7.2 Windows collector passed")
+    print("M7.2/M21.4 Windows collector and heartbeat passed")

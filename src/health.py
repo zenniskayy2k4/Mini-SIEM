@@ -6,6 +6,7 @@ from pathlib import Path
 
 from config import config
 from src.alert_schema import utc_iso
+from src.ingestion_failures import get_collector_gap_diagnostics
 from src.storage import alert_repository
 
 
@@ -79,6 +80,15 @@ def build_system_status(settings: dict | None = None) -> dict:
     ai.setdefault("available", None)
     ai.setdefault("enabled", False)
     queue = {"busy": bool(ai.pop("busy", False)), "backlog": int(ai.pop("backlog", 0))}
+    ingestion = (
+        get_collector_gap_diagnostics()
+        if config.WINDOWS_COLLECTOR_SECRET
+        else {
+            "status": "disabled",
+            "stale_after_seconds": config.WINDOWS_COLLECTOR_STALE_SECONDS,
+            "collectors": [],
+        }
+    )
     sensors = {
         "nids": {
             "configured": bool(settings.get("NIDS_ENABLED", False)),
@@ -92,7 +102,11 @@ def build_system_status(settings: dict | None = None) -> dict:
     status = "healthy"
     if database["status"] != "healthy" or alert_store["status"] != "healthy":
         status = "unhealthy"
-    elif agent["status"] != "healthy" or ai.get("enabled") and ai.get("available") is False:
+    elif (
+        agent["status"] != "healthy"
+        or ai.get("enabled") and ai.get("available") is False
+        or ingestion["status"] in {"offline", "endpoint_unavailable"}
+    ):
         status = "degraded"
     return {
         "status": status,
@@ -103,5 +117,6 @@ def build_system_status(settings: dict | None = None) -> dict:
         "database": database,
         "ai": ai,
         "queue": queue,
+        "ingestion": ingestion,
         "sensors": sensors,
     }

@@ -815,16 +815,31 @@ feat: add telemetry ingestion health metrics
 
 ## M21.4 — Event Gap Detection
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Tasks
 
-- [ ] Collector heartbeat state.
-- [ ] Stale threshold.
-- [ ] Distinguish offline / idle / endpoint unavailable.
-- [ ] Add diagnostic state.
-- [ ] Optional internal operational alert.
-- [ ] Avoid repeated alert storm.
+- [x] Collector heartbeat state.
+- [x] Stale threshold.
+- [x] Distinguish offline / idle / endpoint unavailable.
+- [x] Add diagnostic state.
+- [x] Optional internal operational alert deliberately omitted; diagnostic-only mode is sufficient.
+- [x] Avoid repeated alert storm by keeping health evaluation side-effect free.
+
+### Local verification — 2026-08-26
+
+| Check | Result |
+|---|:---:|
+| Authenticated empty heartbeats and legacy event batches accepted | PASS |
+| Heartbeat state persisted with a 100-collector safety bound | PASS |
+| Calibrated 60-second stale threshold exposed through environment configuration | PASS |
+| Offline, idle, endpoint-unavailable, and healthy states determined deterministically | PASS |
+| Public health exposes only aggregate state; admin diagnostics retain collector detail | PASS |
+| Diagnostic-only evaluation produces no operational-alert storm or external call | PASS |
+| 53 executable regression modules on source and built image | PASS |
+| Python, JavaScript, PowerShell syntax and Docker Compose validation | PASS |
+| Dependency layers reused from cache without reinstalling packages | PASS |
+| Dashboard and agent rollout plus live health verification | PASS |
 
 ### Suggested commit
 
@@ -2017,18 +2032,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M21.4 — Event Gap Detection
+M21.5 — Release v0.7.0
 ```
 
-M21.3 now persists bounded ingestion health aggregates:
+M21.4 now detects telemetry gaps from bounded collector heartbeats:
 
 ```text
-received + normalized + rejected + deduplicated totals
-→ cumulative processing duration + collector last-seen age
-→ source-only Prometheus labels without raw identity values
+authenticated heartbeat + calibrated stale threshold
+→ offline / idle / endpoint-unavailable / healthy diagnostic state
+→ aggregate public health and collector detail for administrators
 ```
 
-Next, add only M21.4 event gap detection.
+Next, perform only the M21.5 v0.7.0 release gate.
 
 ---
 
@@ -2216,14 +2231,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M21.4 — Event Gap Detection
+M21.5 — Release v0.7.0
 ```
 
-M21.3 now exposes persistent ingestion health without adding unbounded labels. Success for the next batch is:
+M21.4 now exposes bounded, side-effect-free collector gap diagnostics. Success for the next batch is:
 
 ```text
-collector heartbeat state + calibrated stale threshold
-+ offline / idle / endpoint-unavailable distinction
-+ diagnostic state + optional deduplicated operational alert
-= actionable event-gap detection without alert storms
+complete v0.7.0 release gate
++ README / changelog / upgrade-note synchronization
++ clean-clone and regression qualification
+= CI-verified v0.7.0 release candidate
 ```

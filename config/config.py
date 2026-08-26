@@ -89,6 +89,9 @@ WINDOWS_EVENT_FILE = os.getenv(
     "WINDOWS_EVENT_FILE", os.path.join(BASE_DIR, "data", "windows_events.jsonl")
 )
 WINDOWS_COLLECTOR_SECRET = os.getenv("WINDOWS_COLLECTOR_SECRET", "").strip()
+WINDOWS_COLLECTOR_STALE_SECONDS = max(
+    10, int(os.getenv("WINDOWS_COLLECTOR_STALE_SECONDS", "60"))
+)
 DASHBOARD_USERS_FILE = os.path.join(BASE_DIR, "data", "dashboard_users.json")
 DASHBOARD_SESSION_KEY_FILE = os.path.join(BASE_DIR, "data", "dashboard_session.key")
 DASHBOARD_COOKIE_SECURE = os.getenv("DASHBOARD_COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}

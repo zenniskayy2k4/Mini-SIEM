@@ -7,12 +7,14 @@ from uuid import uuid4
 
 from config import config
 from src.alert_schema import SOURCE_TYPES, utc_iso
+from src.event_envelope import normalize_collector_id
 
 
 FAILURE_TYPES = ("parser", "schema", "unsupported")
 INGESTION_HEALTH_SOURCES = ("WINDOWS_EVENT",)
 MAX_PREVIEW_CHARS = 512
 MAX_REASON_CHARS = 500
+MAX_COLLECTOR_HEARTBEATS = 100
 _SECRET_NAME = r"password|passwd|pwd|secret|token|api[_-]?key|authorization|cookie"
 _SECRET_KEY = re.compile(_SECRET_NAME, re.IGNORECASE)
 _BEARER = re.compile(r"(?i)\bBearer\s+[^\s,;]+")
@@ -49,6 +51,16 @@ CREATE TABLE IF NOT EXISTS ingestion_health (
     events_deduplicated INTEGER NOT NULL DEFAULT 0,
     processing_seconds REAL NOT NULL DEFAULT 0,
     collector_last_seen_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS collector_heartbeats (
+    source_type TEXT NOT NULL,
+    collector_id TEXT NOT NULL,
+    last_heartbeat_at TEXT NOT NULL,
+    last_event_at TEXT,
+    last_batch_events INTEGER NOT NULL DEFAULT 0,
+    endpoint_available INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (source_type, collector_id)
 );
 """
 
@@ -238,3 +250,110 @@ def get_ingestion_health_metrics(now=None) -> dict:
             "collector_last_seen_seconds": age,
         }
     return result
+
+
+def record_collector_heartbeat(
+    collector_id, *, events_received=0, endpoint_available=True,
+    source_type="WINDOWS_EVENT", now=None,
+) -> None:
+    collector_id = normalize_collector_id(collector_id)
+    source_type = str(source_type).strip().upper()
+    if source_type not in SOURCE_TYPES:
+        raise ValueError("collector heartbeat source_type is invalid")
+    if not isinstance(endpoint_available, bool):
+        raise ValueError("endpoint_available must be boolean")
+    events_received = max(0, int(events_received))
+    heartbeat_at = utc_iso(now)
+    event_at = heartbeat_at if events_received else None
+    with _connect() as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO collector_heartbeats (
+                source_type, collector_id, last_heartbeat_at, last_event_at,
+                last_batch_events, endpoint_available
+            )
+            SELECT ?, ?, ?, ?, ?, ?
+            WHERE EXISTS (
+                SELECT 1 FROM collector_heartbeats
+                WHERE source_type = ? AND collector_id = ?
+            ) OR (SELECT COUNT(*) FROM collector_heartbeats) < ?
+            ON CONFLICT(source_type, collector_id) DO UPDATE SET
+                last_heartbeat_at=excluded.last_heartbeat_at,
+                last_event_at=COALESCE(excluded.last_event_at, last_event_at),
+                last_batch_events=excluded.last_batch_events,
+                endpoint_available=excluded.endpoint_available
+            """,
+            (
+                source_type, collector_id, heartbeat_at, event_at,
+                events_received, int(endpoint_available),
+                source_type, collector_id, MAX_COLLECTOR_HEARTBEATS,
+            ),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("collector heartbeat limit reached")
+        connection.execute(
+            """
+            INSERT INTO ingestion_health (source_type, collector_last_seen_at)
+            VALUES (?, ?)
+            ON CONFLICT(source_type) DO UPDATE SET
+                collector_last_seen_at=excluded.collector_last_seen_at
+            """,
+            (source_type, heartbeat_at),
+        )
+
+
+def get_collector_gap_diagnostics(now=None, stale_seconds=None) -> dict:
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    stale_seconds = max(10, int(
+        stale_seconds if stale_seconds is not None
+        else config.WINDOWS_COLLECTOR_STALE_SECONDS
+    ))
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT source_type, collector_id, last_heartbeat_at, last_event_at,
+                   last_batch_events, endpoint_available
+            FROM collector_heartbeats
+            ORDER BY source_type, collector_id
+            """
+        ).fetchall()
+
+    collectors = []
+    for source_type, collector_id, heartbeat_at, event_at, event_count, endpoint_available in rows:
+        heartbeat = datetime.fromisoformat(heartbeat_at.replace("Z", "+00:00"))
+        heartbeat_age = max(0.0, (now.astimezone(timezone.utc) - heartbeat).total_seconds())
+        event_age = None
+        if event_at:
+            event = datetime.fromisoformat(event_at.replace("Z", "+00:00"))
+            event_age = max(0.0, (now.astimezone(timezone.utc) - event).total_seconds())
+        status = (
+            "offline" if heartbeat_age > stale_seconds
+            else "endpoint_unavailable" if not endpoint_available
+            else "idle" if not event_count
+            else "healthy"
+        )
+        collectors.append({
+            "source_type": source_type,
+            "collector_id": collector_id,
+            "status": status,
+            "last_heartbeat_at": heartbeat_at,
+            "last_event_at": event_at,
+            "heartbeat_age_seconds": round(heartbeat_age, 1),
+            "last_event_age_seconds": round(event_age, 1) if event_age is not None else None,
+            "endpoint_available": bool(endpoint_available),
+        })
+
+    states = {collector["status"] for collector in collectors}
+    status = (
+        "offline" if not collectors or "offline" in states
+        else "endpoint_unavailable" if "endpoint_unavailable" in states
+        else "healthy" if "healthy" in states
+        else "idle"
+    )
+    return {
+        "status": status,
+        "stale_after_seconds": stale_seconds,
+        "collectors": collectors,
+    }

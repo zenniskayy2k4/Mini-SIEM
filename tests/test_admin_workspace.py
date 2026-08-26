@@ -40,6 +40,7 @@ def test_admin_workspace():
             "database": {"status": "healthy", "check": "ok"},
             "queue": {"busy": False, "backlog": 0},
             "ai": {"enabled": True, "available": True, "provider": "fixture"},
+            "ingestion": {"status": "idle", "collectors": [{"collector_id": "win-lab"}]},
         }
         try:
             admin = dashboard.app.test_client()
@@ -52,6 +53,7 @@ def test_admin_workspace():
                 for marker in (
                     "Admin workspace", "User Management", "Integrations", "Audit Integrity",
                     "Retention & Backup", "Ingestion Failures", 'id="set-nids-enabled"',
+                    'id="admin-health-ingestion"',
                 ):
                     assert marker in html
                 tuning = admin.get("/detections")
