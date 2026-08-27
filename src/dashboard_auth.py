@@ -15,6 +15,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import config
+from config.secrets import read_secret
 
 
 ROLES = {"viewer": 1, "analyst": 2, "admin": 3}
@@ -61,7 +62,7 @@ def _secure_file(path, value):
 
 
 def init_auth(app):
-    secret = os.getenv("DASHBOARD_SESSION_SECRET", "").strip()
+    secret = read_secret("DASHBOARD_SESSION_SECRET", os.environ)
     if not secret:
         secret = _secure_file(config.DASHBOARD_SESSION_KEY_FILE, secrets.token_hex(32))
     if len(secret) < 32:

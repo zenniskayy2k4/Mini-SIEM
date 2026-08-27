@@ -34,6 +34,8 @@ services:
     image: mini-siem:latest
     build: .
     command: python dashboard.py
+    env_file:
+      - .env
     environment:
       DASHBOARD_HOST: ${DASHBOARD_HOST:-0.0.0.0}
       WINDOWS_COLLECTOR_SECRET: ${WINDOWS_COLLECTOR_SECRET:-}

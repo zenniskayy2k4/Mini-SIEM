@@ -210,6 +210,8 @@ Sessions use HTTP-only cookies, server-side role checks, CSRF protection for mut
 
 Validate `.env` before deployment with `python -m tools.validate_config`. The command checks conditional secrets, app-owned token lengths, cookie/TLS compatibility, AI provider selection, retention, response mode, webhook scheme, bind exposure, and production debug mode without printing secret values. Keep `DEPLOYMENT_ENV=development` for the local lab; production additionally requires explicit session/metrics secrets and HTTPS.
 
+Secrets may instead use the matching `*_FILE` variable for Docker/secret-store mounts; direct and file forms are mutually exclusive. See [File-based secrets](docs/FILE_SECRETS.md).
+
 Viewer accounts land on a read-only overview that reuses the same bounded alert, KPI, and coverage APIs as the other workspaces. Mutation controls are omitted in the browser and analyst/admin authorization remains enforced on every mutation endpoint, so hiding controls is not the security boundary.
 
 ## Response safety

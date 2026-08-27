@@ -986,7 +986,7 @@ feat: add HTTPS reverse-proxy deployment profile
 
 ## M22.3 — File-based Secret Support
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Pattern
 
@@ -999,16 +999,30 @@ Examples:
 ```text
 OLLAMA_API_KEY_FILE
 ABUSEIPDB_API_KEY_FILE
-VT_API_KEY_FILE
+VIRUSTOTAL_API_KEY_FILE
 DASHBOARD_SESSION_SECRET_FILE
 ```
 
 ### Tasks
 
-- [ ] File secret loader.
-- [ ] Conflict handling.
-- [ ] Never log secret contents.
-- [ ] Existing env behavior remains supported.
+- [x] File secret loader.
+- [x] Conflict handling.
+- [x] Never log secret contents.
+- [x] Existing env behavior remains supported.
+
+### Local verification — 2026-08-27
+
+| Check | Result |
+|---|:---:|
+| Existing direct environment secrets remain unchanged | PASS |
+| Generic `*_FILE` loading for all persistent application secrets | PASS |
+| Direct/file conflicts fail without secret value or path disclosure | PASS |
+| Missing, empty, multi-line, non-UTF-8, and oversized files fail closed | PASS |
+| Production configuration validator resolves file-backed session/metrics secrets | PASS |
+| Native Docker Compose secret mount into `/run/secrets` | PASS |
+| 56 executable regression modules in the existing image | PASS |
+| Deterministic offline corpus: 18 scenarios and 14 rules | PASS |
+| Python syntax and base/HTTPS Docker Compose validation | PASS |
 
 ### Suggested commit
 
@@ -2073,7 +2087,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M22.3 — File-based Secret Support
+M22.4 — Security Regression Pack
 ```
 
 M21 is complete in release v0.7.0:
@@ -2084,7 +2098,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-Next, add only M22.3 file-based secret support.
+Next, add only the M22.4 security regression pack.
 
 ---
 
@@ -2272,14 +2286,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M22.3 — File-based Secret Support
+M22.4 — Security Regression Pack
 ```
 
-M22.1–M22.2 now provide fail-fast configuration checks and an isolated local HTTPS profile. Success for the next batch is:
+M22.1–M22.3 now provide validation, local HTTPS, and file-backed secret delivery. Success for the next batch is:
 
 ```text
-*_FILE secret inputs
-+ conflict handling and redacted diagnostics
-+ existing environment behavior retained
-= container-friendly secret delivery
+security regression pack
++ authentication, authorization, CSRF, session, and request-boundary cases
++ deterministic offline execution
+= deployment hardening guarded against regression
 ```

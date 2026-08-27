@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+from config.secrets import SECRET_NAMES, read_secret
+
 
 DEFAULTS = {
     "DEPLOYMENT_ENV": "development",
@@ -49,8 +51,18 @@ def load_environment(path=".env", environ=None):
 
 def validate(values):
     issues = []
+    secrets = {}
+    failed_secrets = set()
+    for name in SECRET_NAMES:
+        try:
+            secrets[name] = read_secret(name, values)
+        except RuntimeError as exc:
+            issues.append({"level": "ERROR", "field": name, "message": str(exc)})
+            failed_secrets.add(name)
 
     def value(name):
+        if name in secrets:
+            return secrets[name]
         return str(values.get(name, DEFAULTS.get(name, ""))).strip()
 
     def add(level, name, message):
@@ -86,11 +98,11 @@ def validate(values):
         else:
             add("ERROR", "CASE_EXPORT_PROVIDER", "must be thehive or jira")
     for name in required:
-        if not value(name):
+        if name not in failed_secrets and not value(name):
             add("ERROR", name, "is required for the selected deployment configuration")
 
     for name in ("DASHBOARD_SESSION_SECRET", "WINDOWS_COLLECTOR_SECRET", "METRICS_BEARER_TOKEN"):
-        if value(name) and len(value(name)) < 32:
+        if name not in failed_secrets and value(name) and len(value(name)) < 32:
             add("ERROR", name, "must contain at least 32 characters")
 
     public_url = urlparse(value("DASHBOARD_PUBLIC_URL"))
@@ -114,7 +126,7 @@ def validate(values):
         add("ERROR", "AI_FALLBACK_PROVIDER", "must be empty, ollama_cloud or ollama_local")
     if fallback and fallback == primary:
         add("ERROR", "AI_FALLBACK_PROVIDER", "must differ from AI_PROVIDER")
-    if "ollama_cloud" in {primary, fallback} and not value("OLLAMA_API_KEY"):
+    if "OLLAMA_API_KEY" not in failed_secrets and "ollama_cloud" in {primary, fallback} and not value("OLLAMA_API_KEY"):
         add("WARNING", "OLLAMA_API_KEY", "is empty; the Ollama Cloud provider will be unavailable")
 
     for name in ("ALERT_RETENTION_DAYS", "INGESTION_FAILURE_RETENTION_DAYS"):

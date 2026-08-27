@@ -209,6 +209,7 @@ __marimo__/
 *.png
 
 /data
+/secrets/
 *.exe
 !static/images/*
 data/runtime_settings.json
