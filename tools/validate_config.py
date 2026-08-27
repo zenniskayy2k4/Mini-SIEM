@@ -12,6 +12,7 @@ DEFAULTS = {
     "DASHBOARD_COOKIE_SECURE": "false",
     "DASHBOARD_HOST": "0.0.0.0",
     "DASHBOARD_PUBLIC_URL": "http://localhost:5000",
+    "DASHBOARD_TRUSTED_PROXY_HOPS": "0",
     "ALERT_RETENTION_DAYS": "90",
     "INGESTION_FAILURE_RETENTION_DAYS": "30",
     "RESPONSE_MODE": "simulation",
@@ -137,6 +138,16 @@ def validate(values):
 
     if value("DASHBOARD_HOST").lower() in {"0.0.0.0", "::", "[::]"}:
         add("WARNING", "DASHBOARD_HOST", "binds every interface; restrict it or enforce firewall/proxy controls")
+    proxy_hops = value("DASHBOARD_TRUSTED_PROXY_HOPS")
+    trusted_hosts = [host.strip() for host in value("DASHBOARD_TRUSTED_HOSTS").split(",") if host.strip()]
+    if proxy_hops not in {"0", "1"}:
+        add("ERROR", "DASHBOARD_TRUSTED_PROXY_HOPS", "must be 0 or 1")
+    elif proxy_hops == "1" and not trusted_hosts:
+        add("ERROR", "DASHBOARD_TRUSTED_HOSTS", "is required when proxy trust is enabled")
+    elif any(not re.fullmatch(r"\.?[A-Za-z0-9:[\].-]{1,253}", host) for host in trusted_hosts):
+        add("ERROR", "DASHBOARD_TRUSTED_HOSTS", "contains an invalid host")
+    elif proxy_hops == "0" and trusted_hosts:
+        add("WARNING", "DASHBOARD_TRUSTED_HOSTS", "is unused while proxy trust is disabled")
     if production and debug is True:
         add("ERROR", "FLASK_DEBUG", "must be false in production")
 

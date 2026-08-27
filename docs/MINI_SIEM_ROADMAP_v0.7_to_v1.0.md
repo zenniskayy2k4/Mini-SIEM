@@ -944,7 +944,7 @@ feat: add deployment configuration validator
 
 ## M22.2 — HTTPS Reverse-proxy Profile
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Architecture
 
@@ -954,13 +954,27 @@ Browser → HTTPS Reverse Proxy → Dashboard
 
 ### Tasks
 
-- [ ] TLS termination.
-- [ ] HTTP → HTTPS redirect.
-- [ ] Trusted proxy handling.
-- [ ] Secure session cookie.
-- [ ] Forwarded-header validation.
-- [ ] Request/body limits.
-- [ ] Local development certificate path documented.
+- [x] TLS termination.
+- [x] HTTP → HTTPS redirect.
+- [x] Trusted proxy handling.
+- [x] Secure session cookie.
+- [x] Forwarded-header validation.
+- [x] Request/body limits.
+- [x] Local development certificate path documented.
+
+### Local verification — 2026-08-27
+
+| Check | Result |
+|---|:---:|
+| Caddy configuration validation with local-CA TLS termination | PASS |
+| HTTPS health and permanent HTTP-to-HTTPS redirect | PASS |
+| Dashboard host port removed and proxy-only Compose network | PASS |
+| One trusted proxy hop, allowlisted forwarded host, and spoofed-header replacement | PASS |
+| Secure session-cookie configuration and 2 MiB proxy/application body limits | PASS |
+| Local CA public-certificate path and trust boundary documented | PASS |
+| 55 executable regression modules in the existing image | PASS |
+| Deterministic offline corpus: 18 scenarios and 14 rules | PASS |
+| Python syntax and base/HTTPS Docker Compose validation | PASS |
 
 ### Suggested commit
 
@@ -2059,7 +2073,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M22.2 — HTTPS Reverse-proxy Profile
+M22.3 — File-based Secret Support
 ```
 
 M21 is complete in release v0.7.0:
@@ -2070,7 +2084,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-Next, add only the M22.2 HTTPS reverse-proxy profile.
+Next, add only M22.3 file-based secret support.
 
 ---
 
@@ -2258,14 +2272,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M22.2 — HTTPS Reverse-proxy Profile
+M22.3 — File-based Secret Support
 ```
 
-M22.1 now provides fail-fast deployment configuration checks. Success for the next batch is:
+M22.1–M22.2 now provide fail-fast configuration checks and an isolated local HTTPS profile. Success for the next batch is:
 
 ```text
-HTTPS reverse proxy
-+ TLS termination and HTTP redirect
-+ trusted forwarded headers and request limits
-= a secure local deployment profile
+*_FILE secret inputs
++ conflict handling and redacted diagnostics
++ existing environment behavior retained
+= container-friendly secret delivery
 ```

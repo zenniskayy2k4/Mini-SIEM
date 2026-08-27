@@ -31,6 +31,7 @@ from src.dashboard_auth import (
     delete_user,
     get_user,
     init_auth,
+    init_proxy,
     login_allowed,
     load_users,
     record_login_failure,
@@ -54,6 +55,7 @@ from src.thehive import TheHiveConnector
 from src.windows_events import ingest_windows_events
 
 app = Flask(__name__)
+init_proxy(app)
 init_auth(app)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")

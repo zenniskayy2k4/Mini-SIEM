@@ -12,6 +12,7 @@ from pathlib import Path
 
 from flask import jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import config
 
@@ -24,6 +25,24 @@ _FAILURE_LOCK = threading.Lock()
 # ponytail: process-local locking fits the single dashboard process; use DB transactions if scaled out.
 _USERS_LOCK = threading.RLock()
 MAX_PASSWORD_LENGTH = 256
+
+
+def init_proxy(app):
+    hops = os.getenv("DASHBOARD_TRUSTED_PROXY_HOPS", "0").strip()
+    if hops not in {"0", "1"}:
+        raise RuntimeError("DASHBOARD_TRUSTED_PROXY_HOPS must be 0 or 1")
+    trusted_hosts = [
+        host.strip() for host in os.getenv("DASHBOARD_TRUSTED_HOSTS", "").split(",")
+        if host.strip()
+    ]
+    if hops == "1" and not trusted_hosts:
+        raise RuntimeError("DASHBOARD_TRUSTED_HOSTS is required when proxy trust is enabled")
+    if any(not re.fullmatch(r"\.?[A-Za-z0-9:[\].-]{1,253}", host) for host in trusted_hosts):
+        raise RuntimeError("DASHBOARD_TRUSTED_HOSTS contains an invalid host")
+    if trusted_hosts:
+        app.config["TRUSTED_HOSTS"] = trusted_hosts
+    if hops == "1":
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 
 def _secure_file(path, value):

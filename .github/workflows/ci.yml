@@ -133,6 +133,24 @@ jobs:
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:5000/login)" = "200"
           docker compose exec -T dashboard python -c "import sqlite3; c=sqlite3.connect('/app/data/mini_siem.db'); assert c.execute('PRAGMA quick_check(1)').fetchone()[0] == 'ok'; assert c.execute('SELECT name FROM sqlite_master WHERE name=?', ('alerts',)).fetchone()"
 
+      - name: Verify HTTPS reverse-proxy profile
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+          healthy=false
+          for attempt in {1..30}; do
+            if curl --fail --silent --insecure https://localhost/health; then
+              healthy=true
+              break
+            fi
+            sleep 2
+          done
+          test "$healthy" = "true"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/health)" = "308"
+          test "$(curl --insecure --silent --output /dev/null --write-out '%{http_code}' -H 'X-Forwarded-Host: evil.example' https://localhost/health)" = "200"
+          test "$(head -c 2097153 /dev/zero | curl --insecure --silent --output /dev/null --write-out '%{http_code}' --data-binary @- https://localhost/login)" = "413"
+          ! curl --fail --silent http://localhost:5000/health
+          docker compose -f docker-compose.yml -f docker-compose.https.yml exec -T dashboard python -c "import dashboard; assert dashboard.app.config['SESSION_COOKIE_SECURE']; assert dashboard.app.config['TRUSTED_HOSTS'] == ['localhost']"
+
       - name: Collect Docker logs on failure
         if: failure()
         run: |
@@ -151,7 +169,7 @@ jobs:
 
       - name: Stop Docker services
         if: always()
-        run: docker compose down --volumes --remove-orphans
+        run: docker compose -f docker-compose.yml -f docker-compose.https.yml down --volumes --remove-orphans
 
   security:
     runs-on: ubuntu-latest

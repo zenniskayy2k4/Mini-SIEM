@@ -1,0 +1,33 @@
+services:
+  dashboard:
+    environment:
+      DASHBOARD_COOKIE_SECURE: "true"
+      DASHBOARD_HOST: 0.0.0.0
+      DASHBOARD_PUBLIC_URL: https://localhost
+      DASHBOARD_TRUSTED_PROXY_HOPS: "1"
+      DASHBOARD_TRUSTED_HOSTS: localhost
+    ports: !reset []
+    expose:
+      - "5000"
+    networks:
+      - proxy
+
+  proxy:
+    image: caddy:2-alpine
+    depends_on:
+      - dashboard
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      - proxy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+
+networks:
+  proxy:
