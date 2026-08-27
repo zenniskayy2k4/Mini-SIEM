@@ -208,6 +208,8 @@ Levels are `LOW` below 25, `MEDIUM` from 25, `HIGH` from 50, and `CRITICAL` from
 
 Sessions use HTTP-only cookies, server-side role checks, CSRF protection for mutations, and an append-only analyst audit log. Set `DASHBOARD_SESSION_SECRET` explicitly for stable deployments and enable `DASHBOARD_COOKIE_SECURE=true` only behind HTTPS.
 
+Validate `.env` before deployment with `python -m tools.validate_config`. The command checks conditional secrets, app-owned token lengths, cookie/TLS compatibility, AI provider selection, retention, response mode, webhook scheme, bind exposure, and production debug mode without printing secret values. Keep `DEPLOYMENT_ENV=development` for the local lab; production additionally requires explicit session/metrics secrets and HTTPS.
+
 Viewer accounts land on a read-only overview that reuses the same bounded alert, KPI, and coverage APIs as the other workspaces. Mutation controls are omitted in the browser and analyst/admin authorization remains enforced on every mutation endpoint, so hiding controls is not the security boundary.
 
 ## Response safety

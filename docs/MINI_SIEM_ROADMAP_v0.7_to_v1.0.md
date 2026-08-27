@@ -133,9 +133,9 @@ M31 — Multi-tenancy Discovery
 | Milestone | Scope | Target | Status |
 |---|---|---|---|
 | M19 | Adversary Replay & Detection Validation | v0.7.0 | ✅ Complete |
-| M20 | Detection Tuning & Exception Management | v0.7.0 | 🟠 In Progress |
-| M21 | Event Quality & Ingestion Reliability | v0.7.0 | ⬜ |
-| M22 | Secure Deployment Profile | v0.8.0 | ⬜ |
+| M20 | Detection Tuning & Exception Management | v0.7.0 | ✅ Complete |
+| M21 | Event Quality & Ingestion Reliability | v0.7.0 | ✅ Complete |
+| M22 | Secure Deployment Profile | v0.8.0 | 🟠 In Progress |
 | M23 | Software Supply-chain Security | v0.8.0 | ⬜ |
 | M24 | Database Migration & Disaster Recovery | v0.8.0 | ⬜ |
 | M25 | Load Testing & Backpressure | v0.9.0 | ⬜ |
@@ -901,7 +901,7 @@ docs: release v0.7.0
 
 ## M22.1 — Configuration Validator
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Command
 
@@ -911,15 +911,28 @@ python -m tools.validate_config
 
 ### Validate
 
-- [ ] Required secrets.
-- [ ] Secret minimum length.
-- [ ] Secure-cookie/TLS compatibility.
-- [ ] AI provider conflicts.
-- [ ] Retention values.
-- [ ] Response mode.
-- [ ] Webhook URL scheme.
-- [ ] Unsafe bind warnings.
-- [ ] Production debug mode forbidden.
+- [x] Required secrets.
+- [x] Secret minimum length.
+- [x] Secure-cookie/TLS compatibility.
+- [x] AI provider conflicts.
+- [x] Retention values.
+- [x] Response mode.
+- [x] Webhook URL scheme.
+- [x] Unsafe bind warnings.
+- [x] Production debug mode forbidden.
+
+### Local verification — 2026-08-27
+
+| Check | Result |
+|---|:---:|
+| Development and production profiles with conditional required secrets | PASS |
+| App-owned secret minimum lengths without secret-value diagnostics | PASS |
+| Secure-cookie, public HTTPS URL, unsafe bind, and production debug checks | PASS |
+| AI provider/fallback, retention, response mode, and webhook validation | PASS |
+| `.env` loading with process-environment precedence | PASS |
+| 54 executable regression modules in the existing image | PASS |
+| Deterministic offline corpus: 18 scenarios and 14 rules | PASS |
+| Python syntax and Docker Compose validation | PASS |
 
 ### Suggested commit
 
@@ -2046,7 +2059,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M22.1 — Configuration Validator
+M22.2 — HTTPS Reverse-proxy Profile
 ```
 
 M21 is complete in release v0.7.0:
@@ -2057,7 +2070,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-Next, add only the M22.1 configuration validator.
+Next, add only the M22.2 HTTPS reverse-proxy profile.
 
 ---
 
@@ -2245,14 +2258,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M22.1 — Configuration Validator
+M22.2 — HTTPS Reverse-proxy Profile
 ```
 
-v0.7.0 closes M19–M21 with deterministic validation and ingestion quality controls. Success for the next batch is:
+M22.1 now provides fail-fast deployment configuration checks. Success for the next batch is:
 
 ```text
-python -m tools.validate_config
-+ actionable secret / TLS / provider / retention / response validation
-+ deterministic non-secret diagnostics
-= fail-fast secure-deployment configuration checks
+HTTPS reverse proxy
++ TLS termination and HTTP redirect
++ trusted forwarded headers and request limits
+= a secure local deployment profile
 ```
