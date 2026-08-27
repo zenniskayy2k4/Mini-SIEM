@@ -135,7 +135,7 @@ M31 — Multi-tenancy Discovery
 | M19 | Adversary Replay & Detection Validation | v0.7.0 | ✅ Complete |
 | M20 | Detection Tuning & Exception Management | v0.7.0 | ✅ Complete |
 | M21 | Event Quality & Ingestion Reliability | v0.7.0 | ✅ Complete |
-| M22 | Secure Deployment Profile | v0.8.0 | 🟠 In Progress |
+| M22 | Secure Deployment Profile | v0.8.0 | ✅ Complete |
 | M23 | Software Supply-chain Security | v0.8.0 | ⬜ |
 | M24 | Database Migration & Disaster Recovery | v0.8.0 | ⬜ |
 | M25 | Load Testing & Backpressure | v0.9.0 | ⬜ |
@@ -1034,18 +1034,29 @@ feat: support file-based application secrets
 
 ## M22.4 — Security Regression Pack
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Cases
 
-- [ ] RBAC denial.
-- [ ] CSRF denial.
-- [ ] Session revocation.
-- [ ] Login throttling.
-- [ ] XSS escaping.
-- [ ] Oversized request rejection.
-- [ ] Collector-secret rejection.
-- [ ] Secure-cookie behavior under HTTPS.
+- [x] RBAC denial.
+- [x] CSRF denial.
+- [x] Session revocation.
+- [x] Login throttling.
+- [x] XSS escaping.
+- [x] Oversized request rejection.
+- [x] Collector-secret rejection.
+- [x] Secure-cookie behavior under HTTPS.
+
+### Local verification — 2026-08-27
+
+| Check | Result |
+|---|:---:|
+| Eight deployment security boundary cases | PASS |
+| Authentication, authorization, CSRF, session, and request limits | PASS |
+| Collector authentication and HTTPS secure-cookie behavior | PASS |
+| 57 executable regression modules in the existing image | PASS |
+| Deterministic offline corpus: 18 scenarios and 14 rules | PASS |
+| Python syntax and Docker Compose validation | PASS |
 
 ### Suggested commit
 
@@ -2087,7 +2098,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M22.4 — Security Regression Pack
+M23.1 — Dependency Reproducibility
 ```
 
 M21 is complete in release v0.7.0:
@@ -2098,7 +2109,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-Next, add only the M22.4 security regression pack.
+Next, add only M23.1 dependency reproducibility.
 
 ---
 
@@ -2286,14 +2297,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M22.4 — Security Regression Pack
+M23.1 — Dependency Reproducibility
 ```
 
-M22.1–M22.3 now provide validation, local HTTPS, and file-backed secret delivery. Success for the next batch is:
+M22 now provides validated configuration, local HTTPS, file-backed secrets, and a deployment security regression pack. Success for the next batch is:
 
 ```text
-security regression pack
-+ authentication, authorization, CSRF, session, and request-boundary cases
-+ deterministic offline execution
-= deployment hardening guarded against regression
+documented dependency pinning policy
++ reproducible production dependency resolution
++ CI consistency check without unnecessary packages
+= repeatable software inputs for v0.8.0
 ```
