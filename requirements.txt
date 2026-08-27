@@ -1,12 +1,44 @@
-watchdog
-pandas
-numpy
-scikit-learn
-flask
-rich
-joblib
-requests
-torch
-scapy
-PyYAML
+# Production lock for Python 3.12. Direct and transitive dependencies are exact.
+--index-url https://pypi.org/simple
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Direct application dependencies
+Flask==3.1.3
+joblib==1.5.3
+numpy==2.5.2
+pandas==3.0.5
 python-evtx==0.8.1
+PyYAML==6.0.3
+requests==2.34.2
+rich==15.0.0
+scapy==2.7.0
+scikit-learn==1.9.0
+torch==2.13.0+cpu
+watchdog==6.0.0
+
+# Transitive production dependencies
+blinker==1.9.0
+certifi==2026.7.22
+charset-normalizer==3.5.1
+click==8.4.2
+filelock==3.32.3
+fsspec==2026.7.0
+hexdump==3.3
+idna==3.19
+itsdangerous==2.2.0
+Jinja2==3.1.6
+markdown-it-py==4.2.0
+MarkupSafe==3.0.3
+mdurl==0.1.2
+mpmath==1.3.0
+narwhals==2.25.0
+networkx==3.6.1
+Pygments==2.21.0
+python-dateutil==2.9.0.post0
+scipy==1.18.1
+six==1.17.0
+sympy==1.14.0
+threadpoolctl==3.6.0
+typing_extensions==4.16.0
+urllib3==2.7.0
+Werkzeug==3.1.8

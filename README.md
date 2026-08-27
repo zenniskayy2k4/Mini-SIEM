@@ -320,8 +320,15 @@ Mini-SIEM/
 
 ## Near-term roadmap
 
-- Add the v0.8 secure deployment profile with configuration validation, TLS/reverse-proxy guidance, hardened headers, and stronger secret management.
+- Complete the v0.8 software supply-chain and database recovery gates.
 - Extend integration reliability only where measurable delivery or reconciliation requirements exist.
 - Keep multi-tenant architecture and production response integrations deferred until a concrete isolation or execution requirement exists.
+
+## Dependency policy
+
+- Production runs on Python 3.12 with every direct and transitive package exactly pinned in `requirements.txt`.
+- Packages come only from PyPI and the official PyTorch CPU index; Docker and CI install the lock once and run `python -m pip check`.
+- Dependabot proposes grouped weekly updates. Merge a pin change only after dependency audit, full regression, and Docker smoke gates pass.
+- Add a direct dependency only when runtime code uses it, and remove unused packages in the same change.
 
 Contributions should keep detections explainable, failure modes observable, and response actions safe by default.

@@ -136,7 +136,7 @@ M31 — Multi-tenancy Discovery
 | M20 | Detection Tuning & Exception Management | v0.7.0 | ✅ Complete |
 | M21 | Event Quality & Ingestion Reliability | v0.7.0 | ✅ Complete |
 | M22 | Secure Deployment Profile | v0.8.0 | ✅ Complete |
-| M23 | Software Supply-chain Security | v0.8.0 | ⬜ |
+| M23 | Software Supply-chain Security | v0.8.0 | 🟠 In Progress |
 | M24 | Database Migration & Disaster Recovery | v0.8.0 | ⬜ |
 | M25 | Load Testing & Backpressure | v0.9.0 | ⬜ |
 | M26 | Storage & Query Performance | v0.9.0 | ⬜ |
@@ -1070,13 +1070,25 @@ test: add deployment security regression pack
 
 ## M23.1 — Dependency Reproducibility
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] Define pinning policy.
-- [ ] Pin production dependencies reproducibly.
-- [ ] Keep security update workflow.
-- [ ] Avoid unnecessary dependencies.
-- [ ] CI validates consistency.
+- [x] Define pinning policy.
+- [x] Pin production dependencies reproducibly.
+- [x] Keep security update workflow.
+- [x] Avoid unnecessary dependencies.
+- [x] CI validates consistency.
+
+### Local verification — 2026-08-27
+
+| Check | Result |
+|---|:---:|
+| 12 direct and 25 transitive production dependencies exactly pinned | PASS |
+| Single-install Docker and CI path with official PyTorch CPU index | PASS |
+| Native `pip check`, exact-pin CI gate, and weekly grouped Dependabot updates | PASS |
+| No new Python dependency or local package installation | PASS |
+| 57 executable regression modules in the existing image | PASS |
+| Deterministic offline corpus: 18 scenarios and 14 rules | PASS |
+| Python syntax and Docker Compose validation | PASS |
 
 ### Suggested commit
 
@@ -2098,7 +2110,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M23.1 — Dependency Reproducibility
+M23.2 — SBOM Generation
 ```
 
 M21 is complete in release v0.7.0:
@@ -2109,7 +2121,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-Next, add only M23.1 dependency reproducibility.
+Next, add only M23.2 SBOM generation.
 
 ---
 
@@ -2297,14 +2309,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M23.1 — Dependency Reproducibility
+M23.2 — SBOM Generation
 ```
 
-M22 now provides validated configuration, local HTTPS, file-backed secrets, and a deployment security regression pack. Success for the next batch is:
+M23.1 now provides a fully pinned Python production lock with native consistency and update gates. Success for the next batch is:
 
 ```text
-documented dependency pinning policy
-+ reproducible production dependency resolution
-+ CI consistency check without unnecessary packages
-= repeatable software inputs for v0.8.0
+CI-generated software bill of materials
++ Python and feasible container package inventory
++ release artifact retention
+= auditable v0.8.0 software contents
 ```
