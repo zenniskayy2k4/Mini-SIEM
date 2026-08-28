@@ -177,11 +177,19 @@ jobs:
           jq -e '[.packages[]?.externalRefs[]?.referenceLocator | select(type == "string" and startswith("pkg:pypi/"))] | length > 0' mini-siem-sbom.spdx.json
           jq -e '[.packages[]?.externalRefs[]?.referenceLocator | select(type == "string" and startswith("pkg:deb/debian/"))] | length > 0' mini-siem-sbom.spdx.json
 
+      - name: Generate and verify release checksums
+        shell: bash
+        run: |
+          sha256sum mini-siem-sbom.spdx.json > mini-siem-sbom.spdx.json.sha256
+          sha256sum --check mini-siem-sbom.spdx.json.sha256
+
       - name: Upload SPDX SBOM
         uses: actions/upload-artifact@v6
         with:
           name: mini-siem-sbom
-          path: mini-siem-sbom.spdx.json
+          path: |
+            mini-siem-sbom.spdx.json
+            mini-siem-sbom.spdx.json.sha256
           if-no-files-found: error
           retention-days: 14
 
@@ -298,11 +306,13 @@ jobs:
       contents: write
 
     steps:
-      - name: Attach verified SBOM to release
+      - name: Attach verified SBOM and checksum to release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           mkdir -p release-artifacts
           gh run download "$GITHUB_RUN_ID" --name mini-siem-sbom --dir release-artifacts
-          gh release upload "$RELEASE_TAG" release-artifacts/mini-siem-sbom.spdx.json --clobber
+          cd release-artifacts
+          sha256sum --check mini-siem-sbom.spdx.json.sha256
+          gh release upload "$RELEASE_TAG" mini-siem-sbom.spdx.json mini-siem-sbom.spdx.json.sha256 --clobber

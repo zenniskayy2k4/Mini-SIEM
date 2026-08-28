@@ -331,7 +331,11 @@ Mini-SIEM/
 - Dependabot proposes grouped weekly updates. Merge a pin change only after dependency audit, full regression, and Docker smoke gates pass.
 - Add a direct dependency only when runtime code uses it, and remove unused packages in the same change.
 
-CI scans the smoke-tested container image into `mini-siem-sbom.spdx.json`, verifies both Python and Debian package inventories, and retains the artifact for 14 days. Publishing a GitHub Release reruns the gates and attaches the verified SBOM to that release.
+CI scans the smoke-tested container image into `mini-siem-sbom.spdx.json`, verifies both Python and Debian package inventories, and retains the artifact for 14 days. Publishing a GitHub Release reruns the gates, verifies `mini-siem-sbom.spdx.json.sha256`, and attaches both files to that release. After downloading them into the same directory, verify the SBOM with:
+
+```bash
+sha256sum --check mini-siem-sbom.spdx.json.sha256
+```
 
 ## Container vulnerability policy
 

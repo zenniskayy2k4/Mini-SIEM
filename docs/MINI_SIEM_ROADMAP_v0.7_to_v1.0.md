@@ -136,7 +136,7 @@ M31 — Multi-tenancy Discovery
 | M20 | Detection Tuning & Exception Management | v0.7.0 | ✅ Complete |
 | M21 | Event Quality & Ingestion Reliability | v0.7.0 | ✅ Complete |
 | M22 | Secure Deployment Profile | v0.8.0 | ✅ Complete |
-| M23 | Software Supply-chain Security | v0.8.0 | 🟠 In Progress |
+| M23 | Software Supply-chain Security | v0.8.0 | ✅ Complete |
 | M24 | Database Migration & Disaster Recovery | v0.8.0 | ⬜ |
 | M25 | Load Testing & Backpressure | v0.9.0 | ⬜ |
 | M26 | Storage & Query Performance | v0.9.0 | ⬜ |
@@ -1172,11 +1172,23 @@ ci: scan Mini-SIEM container image
 
 ## M23.4 — Release Checksums
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] Generate SHA-256 checksums.
-- [ ] Verify before publication.
-- [ ] Document verification.
+- [x] Generate SHA-256 checksums.
+- [x] Verify before publication.
+- [x] Document verification.
+
+### Local verification — 2026-08-28
+
+| Check | Result |
+|---|:---:|
+| Native SHA-256 manifest generation for the verified SPDX SBOM | PASS |
+| Immediate checksum verification before CI artifact upload | PASS |
+| Checksum verification repeated before GitHub Release publication | PASS |
+| SBOM and checksum retained and published together | PASS |
+| Operator verification command documented in README and release checklist | PASS |
+| Workflow YAML parsing and checksum round-trip | PASS |
+| No new dependency, local package installation, or image build | PASS |
 
 ### Suggested commit
 
@@ -2140,7 +2152,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M23.4 — Release Checksums
+M24.1 — Schema Migration Table
 ```
 
 M21 is complete in release v0.7.0:
@@ -2151,7 +2163,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-Next, add only M23.4 release checksums.
+M23 is complete. Next, add only M24.1 schema migration tracking.
 
 ---
 
@@ -2339,14 +2351,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M23.4 — Release Checksums
+M24.1 — Schema Migration Table
 ```
 
-M23.1–M23.3 now provide pinned dependencies, a release SBOM, and a built-image vulnerability gate. Success for the next batch is:
+M23 now provides pinned dependencies, a release SBOM, a built-image vulnerability gate, and verified release checksums. Success for the next batch is:
 
 ```text
-SHA-256 release checksums
-+ publication and verification workflow
-+ documented operator command
-= integrity-verifiable v0.8.0 release artifacts
+schema_migrations table
++ deterministic baseline record
++ checksum-backed migration identity
+= auditable database schema state
 ```
