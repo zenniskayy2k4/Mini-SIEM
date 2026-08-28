@@ -1100,7 +1100,7 @@ build: tighten dependency reproducibility
 
 ## M23.2 — SBOM Generation
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Output
 
@@ -1110,10 +1110,25 @@ CycloneDX or SPDX
 
 ### Tasks
 
-- [ ] Generate in CI.
-- [ ] Include Python dependencies.
-- [ ] Include container packages where feasible.
-- [ ] Attach to releases.
+- [x] Generate in CI.
+- [x] Include Python dependencies.
+- [x] Include container packages where feasible.
+- [x] Attach to releases.
+
+### Local verification — 2026-08-28
+
+| Check | Result |
+|---|:---:|
+| Existing Docker SBOM plugin generated valid SPDX JSON from `mini-siem:latest` | PASS |
+| 55 Python/PyPI and 166 Debian package references discovered | PASS |
+| CI generation runs only after HTTP/HTTPS image smoke checks | PASS |
+| SPDX version plus Python and Debian package inventories gated with `jq` | PASS |
+| Workflow artifact retained for 14 days | PASS |
+| Published releases attach the verified artifact only after the release gate | PASS |
+| Anchore action pinned to `v0.24.0`; no project dependency or local image build | PASS |
+| 57 executable regression modules in the existing image | PASS |
+| Deterministic offline corpus: 18 scenarios and 14 rules | PASS |
+| Python syntax, workflow YAML, and Docker Compose validation | PASS |
 
 ### Suggested commit
 
@@ -2110,7 +2125,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M23.2 — SBOM Generation
+M23.3 — Container Vulnerability Scan
 ```
 
 M21 is complete in release v0.7.0:
@@ -2121,7 +2136,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-Next, add only M23.2 SBOM generation.
+Next, add only M23.3 container vulnerability scanning.
 
 ---
 
@@ -2309,14 +2324,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M23.2 — SBOM Generation
+M23.3 — Container Vulnerability Scan
 ```
 
-M23.1 now provides a fully pinned Python production lock with native consistency and update gates. Success for the next batch is:
+M23.1–M23.2 now provide a pinned dependency lock and a verified release SBOM. Success for the next batch is:
 
 ```text
-CI-generated software bill of materials
-+ Python and feasible container package inventory
-+ release artifact retention
-= auditable v0.8.0 software contents
+built-image vulnerability scan
++ explicit severity gate and exception policy
++ failure artifact retention
+= actionable container risk gate for v0.8.0
 ```

@@ -3,6 +3,8 @@ name: CI
 on:
   push:
   pull_request:
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -159,6 +161,30 @@ jobs:
           ! curl --fail --silent http://localhost:5000/health
           docker compose -f docker-compose.yml -f docker-compose.https.yml exec -T dashboard python -c "import dashboard; assert dashboard.app.config['SESSION_COOKIE_SECURE']; assert dashboard.app.config['TRUSTED_HOSTS'] == ['localhost']"
 
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0.24.0
+        with:
+          image: mini-siem:latest
+          format: spdx-json
+          output-file: mini-siem-sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Verify SBOM contents
+        shell: bash
+        run: |
+          jq -e '.spdxVersion | startswith("SPDX-2.")' mini-siem-sbom.spdx.json
+          jq -e '[.packages[]?.externalRefs[]?.referenceLocator | select(type == "string" and startswith("pkg:pypi/"))] | length > 0' mini-siem-sbom.spdx.json
+          jq -e '[.packages[]?.externalRefs[]?.referenceLocator | select(type == "string" and startswith("pkg:deb/debian/"))] | length > 0' mini-siem-sbom.spdx.json
+
+      - name: Upload SPDX SBOM
+        uses: actions/upload-artifact@v6
+        with:
+          name: mini-siem-sbom
+          path: mini-siem-sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Collect Docker logs on failure
         if: failure()
         run: |
@@ -240,3 +266,22 @@ jobs:
           docker compose --profile train config --quiet
           test -z "$(git ls-files -- .env 'data/**' 'logs/**')"
           git diff --exit-code
+
+  release-sbom:
+    if: github.event_name == 'release'
+    needs: release-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Attach verified SBOM to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mkdir -p release-artifacts
+          gh run download "$GITHUB_RUN_ID" --name mini-siem-sbom --dir release-artifacts
+          gh release upload "$RELEASE_TAG" release-artifacts/mini-siem-sbom.spdx.json --clobber
