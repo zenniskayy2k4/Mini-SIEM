@@ -137,7 +137,7 @@ M31 — Multi-tenancy Discovery
 | M21 | Event Quality & Ingestion Reliability | v0.7.0 | ✅ Complete |
 | M22 | Secure Deployment Profile | v0.8.0 | ✅ Complete |
 | M23 | Software Supply-chain Security | v0.8.0 | ✅ Complete |
-| M24 | Database Migration & Disaster Recovery | v0.8.0 | ⬜ |
+| M24 | Database Migration & Disaster Recovery | v0.8.0 | 🟠 In Progress |
 | M25 | Load Testing & Backpressure | v0.9.0 | ⬜ |
 | M26 | Storage & Query Performance | v0.9.0 | ⬜ |
 | M27 | Collector Reliability & Offline Recovery | v0.9.0 | ⬜ |
@@ -1202,7 +1202,7 @@ build: add release artifact checksums
 
 ## M24.1 — Schema Migration Table
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```text
 schema_migrations
@@ -1219,10 +1219,23 @@ checksum
 
 ### Tasks
 
-- [ ] Baseline current schema.
-- [ ] Deterministic order.
-- [ ] Idempotent detection.
-- [ ] Failed migration not marked complete.
+- [x] Baseline current schema.
+- [x] Deterministic order.
+- [x] Idempotent detection.
+- [x] Failed migration not marked complete.
+
+### Local verification — 2026-08-28
+
+| Check | Result |
+|---|:---:|
+| Baseline v1 records the v0.7.0 schema name, UTC application time, and SHA-256 checksum | PASS |
+| Integer primary key and ordered history query provide deterministic migration order | PASS |
+| Repeated initialization retains exactly one baseline row | PASS |
+| Changed baseline checksum is rejected | PASS |
+| Invalid DDL rolls back both partial schema and migration history | PASS |
+| 58 executable regression modules in the existing image | PASS |
+| Python syntax validation | PASS |
+| No new dependency, local package installation, or image build | PASS |
 
 ### Suggested commit
 
@@ -2152,7 +2165,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M24.1 — Schema Migration Table
+M24.2 — Migration Runner
 ```
 
 M21 is complete in release v0.7.0:
@@ -2163,7 +2176,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M23 is complete. Next, add only M24.1 schema migration tracking.
+M24.1 is complete. Next, add only M24.2 migration runner.
 
 ---
 
@@ -2351,14 +2364,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M24.1 — Schema Migration Table
+M24.2 — Migration Runner
 ```
 
-M23 now provides pinned dependencies, a release SBOM, a built-image vulnerability gate, and verified release checksums. Success for the next batch is:
+M24.1 now provides checksum-backed, transactional baseline schema tracking. Success for the next batch is:
 
 ```text
-schema_migrations table
-+ deterministic baseline record
-+ checksum-backed migration identity
-= auditable database schema state
+backup-first migration command
++ source/target validation and dry-run
++ ordered transactional execution and integrity check
+= safe, observable database upgrades
 ```

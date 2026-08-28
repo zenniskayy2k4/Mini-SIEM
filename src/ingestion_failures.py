@@ -8,6 +8,7 @@ from uuid import uuid4
 from config import config
 from src.alert_schema import SOURCE_TYPES, utc_iso
 from src.event_envelope import normalize_collector_id
+from src.sqlite_store import ensure_database_schema
 
 
 FAILURE_TYPES = ("parser", "schema", "unsupported")
@@ -28,43 +29,6 @@ _XML_TAG = re.compile(
     rf"(?is)(<(?:{_SECRET_NAME})\b[^>]*>).*?(</(?:{_SECRET_NAME})\s*>)"
 )
 _URL_CREDENTIALS = re.compile(r"(?i)([a-z][a-z0-9+.-]*://)[^/@\s:]+:[^/@\s]+@")
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS ingestion_failures (
-    failure_id TEXT PRIMARY KEY,
-    occurred_at TEXT NOT NULL,
-    source_type TEXT NOT NULL,
-    collector_id TEXT NOT NULL,
-    failure_type TEXT NOT NULL CHECK(failure_type IN ('parser', 'schema', 'unsupported')),
-    reason TEXT NOT NULL,
-    payload_preview TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_ingestion_failures_occurred_at
-ON ingestion_failures(occurred_at DESC);
-CREATE INDEX IF NOT EXISTS idx_ingestion_failures_type
-ON ingestion_failures(failure_type, occurred_at DESC);
-
-CREATE TABLE IF NOT EXISTS ingestion_health (
-    source_type TEXT PRIMARY KEY,
-    events_received INTEGER NOT NULL DEFAULT 0,
-    events_normalized INTEGER NOT NULL DEFAULT 0,
-    events_rejected INTEGER NOT NULL DEFAULT 0,
-    events_deduplicated INTEGER NOT NULL DEFAULT 0,
-    processing_seconds REAL NOT NULL DEFAULT 0,
-    collector_last_seen_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS collector_heartbeats (
-    source_type TEXT NOT NULL,
-    collector_id TEXT NOT NULL,
-    last_heartbeat_at TEXT NOT NULL,
-    last_event_at TEXT,
-    last_batch_events INTEGER NOT NULL DEFAULT 0,
-    endpoint_available INTEGER NOT NULL DEFAULT 1,
-    PRIMARY KEY (source_type, collector_id)
-);
-"""
-
-
 def _redact_text(value) -> str:
     text = str(value)
     text = _BEARER.sub("Bearer [REDACTED]", text)
@@ -99,7 +63,7 @@ def _connect():
     connection = sqlite3.connect(path, timeout=30)
     connection.execute("PRAGMA journal_mode = WAL")
     connection.execute("PRAGMA busy_timeout = 30000")
-    connection.executescript(_SCHEMA)
+    ensure_database_schema(connection)
     return connection
 
 

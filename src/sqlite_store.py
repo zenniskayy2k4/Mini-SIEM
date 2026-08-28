@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import sqlite3
@@ -11,7 +12,7 @@ from src.assets import normalize_ip_address, validate_asset
 from src.audit import append_audit_event
 
 
-SCHEMA = """
+CORE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS alerts (
     alert_id TEXT PRIMARY KEY,
     timestamp TEXT NOT NULL,
@@ -129,6 +130,81 @@ CREATE TABLE IF NOT EXISTS asset_ip_addresses (
 CREATE INDEX IF NOT EXISTS idx_asset_ip_address ON asset_ip_addresses(ip_address);
 """
 
+INGESTION_SCHEMA = """
+CREATE TABLE IF NOT EXISTS ingestion_failures (
+    failure_id TEXT PRIMARY KEY,
+    occurred_at TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    collector_id TEXT NOT NULL,
+    failure_type TEXT NOT NULL CHECK(failure_type IN ('parser', 'schema', 'unsupported')),
+    reason TEXT NOT NULL,
+    payload_preview TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ingestion_failures_occurred_at
+ON ingestion_failures(occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ingestion_failures_type
+ON ingestion_failures(failure_type, occurred_at DESC);
+
+CREATE TABLE IF NOT EXISTS ingestion_health (
+    source_type TEXT PRIMARY KEY,
+    events_received INTEGER NOT NULL DEFAULT 0,
+    events_normalized INTEGER NOT NULL DEFAULT 0,
+    events_rejected INTEGER NOT NULL DEFAULT 0,
+    events_deduplicated INTEGER NOT NULL DEFAULT 0,
+    processing_seconds REAL NOT NULL DEFAULT 0,
+    collector_last_seen_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS collector_heartbeats (
+    source_type TEXT NOT NULL,
+    collector_id TEXT NOT NULL,
+    last_heartbeat_at TEXT NOT NULL,
+    last_event_at TEXT,
+    last_batch_events INTEGER NOT NULL DEFAULT 0,
+    endpoint_available INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (source_type, collector_id)
+);
+"""
+
+BASELINE_SCHEMA = CORE_SCHEMA + INGESTION_SCHEMA
+
+SCHEMA_MIGRATIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY CHECK(version > 0),
+    name TEXT NOT NULL UNIQUE,
+    applied_at TEXT NOT NULL,
+    checksum TEXT NOT NULL CHECK(length(checksum) = 64)
+);
+"""
+BASELINE_VERSION = 1
+BASELINE_NAME = "baseline_v0.7.0"
+BASELINE_CHECKSUM = hashlib.sha256(BASELINE_SCHEMA.encode("utf-8")).hexdigest()
+
+
+def ensure_database_schema(connection):
+    try:
+        connection.executescript(
+            "BEGIN IMMEDIATE;\n" + BASELINE_SCHEMA + SCHEMA_MIGRATIONS_TABLE
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO schema_migrations (
+                version, name, applied_at, checksum
+            ) VALUES (?, ?, ?, ?)
+            """,
+            (BASELINE_VERSION, BASELINE_NAME, utc_iso(), BASELINE_CHECKSUM),
+        )
+        recorded = connection.execute(
+            "SELECT name, checksum FROM schema_migrations WHERE version = ?",
+            (BASELINE_VERSION,),
+        ).fetchone()
+        if recorded != (BASELINE_NAME, BASELINE_CHECKSUM):
+            raise RuntimeError("Database baseline migration does not match this build")
+    except Exception:
+        connection.rollback()
+        raise
+    connection.commit()
+
 
 class _SQLiteRepository:
     def __init__(self, path=None):
@@ -155,7 +231,7 @@ class _SQLiteRepository:
             if self._schema_path == self.path and os.path.exists(self.path):
                 return
             with self._connect() as connection:
-                connection.executescript(SCHEMA)
+                ensure_database_schema(connection)
             self._schema_path = self.path
 
 
