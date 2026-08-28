@@ -1140,12 +1140,27 @@ ci: generate release software bill of materials
 
 ## M23.3 — Container Vulnerability Scan
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] Scan built image.
-- [ ] Define severity gate.
-- [ ] Document exceptions.
-- [ ] Save artifact on failure.
+- [x] Scan built image.
+- [x] Define severity gate.
+- [x] Document exceptions.
+- [x] Save artifact on failure.
+
+### Local verification — 2026-08-28
+
+| Check | Result |
+|---|:---:|
+| Scan reuses the verified SPDX inventory from the smoke-tested image | PASS |
+| HIGH and CRITICAL findings fail the build, including findings without fixes | PASS |
+| Empty deny-by-default Grype exception list | PASS |
+| Exact vulnerability/package scope, owner, reason, issue, and 30-day expiry policy | PASS |
+| Failed JSON report retained for 7 days | PASS |
+| Anchore scan action pinned to `v7.4.0` | PASS |
+| Workflow and Grype YAML parsing | PASS |
+| 57 executable regression modules in the existing image | PASS |
+| Deterministic offline corpus: 18 scenarios and 14 rules | PASS |
+| No local scanner/database download, dependency installation, or image build | PASS |
 
 ### Suggested commit
 
@@ -2125,7 +2140,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M23.3 — Container Vulnerability Scan
+M23.4 — Release Checksums
 ```
 
 M21 is complete in release v0.7.0:
@@ -2136,7 +2151,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-Next, add only M23.3 container vulnerability scanning.
+Next, add only M23.4 release checksums.
 
 ---
 
@@ -2324,14 +2339,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M23.3 — Container Vulnerability Scan
+M23.4 — Release Checksums
 ```
 
-M23.1–M23.2 now provide a pinned dependency lock and a verified release SBOM. Success for the next batch is:
+M23.1–M23.3 now provide pinned dependencies, a release SBOM, and a built-image vulnerability gate. Success for the next batch is:
 
 ```text
-built-image vulnerability scan
-+ explicit severity gate and exception policy
-+ failure artifact retention
-= actionable container risk gate for v0.8.0
+SHA-256 release checksums
++ publication and verification workflow
++ documented operator command
+= integrity-verifiable v0.8.0 release artifacts
 ```

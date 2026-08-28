@@ -185,6 +185,27 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Scan container vulnerabilities
+        id: vulnerability-scan
+        uses: anchore/scan-action@v7.4.0
+        with:
+          sbom: mini-siem-sbom.spdx.json
+          config: .grype.yaml
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: false
+          output-format: json
+          output-file: container-vulnerability-report.json
+
+      - name: Upload vulnerability scan failure
+        if: failure() && steps.vulnerability-scan.outcome == 'failure'
+        uses: actions/upload-artifact@v6
+        with:
+          name: mini-siem-vulnerability-report
+          path: container-vulnerability-report.json
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Collect Docker logs on failure
         if: failure()
         run: |

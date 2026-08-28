@@ -333,4 +333,10 @@ Mini-SIEM/
 
 CI scans the smoke-tested container image into `mini-siem-sbom.spdx.json`, verifies both Python and Debian package inventories, and retains the artifact for 14 days. Publishing a GitHub Release reruns the gates and attaches the verified SBOM to that release.
 
+## Container vulnerability policy
+
+- CI fails when the built-image SBOM contains a HIGH or CRITICAL vulnerability, whether or not a fix is currently available.
+- `.grype.yaml` contains no active exception. A future exception must match one vulnerability and package, record its owner, reason, tracking issue, and an expiry of at most 30 days, then be removed when fixed or expired.
+- Updating the base image or dependency lock is preferred to adding an exception. A failed scan retains its JSON report for 7 days.
+
 Contributions should keep detections explainable, failure modes observable, and response actions safe by default.
