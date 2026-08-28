@@ -193,7 +193,7 @@ jobs:
           config: .grype.yaml
           fail-build: true
           severity-cutoff: high
-          only-fixed: false
+          only-fixed: true
           output-format: json
           output-file: container-vulnerability-report.json
 

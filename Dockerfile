@@ -1,10 +1,8 @@
 FROM python:3.12-slim AS base
 
-# Install system dependencies for Scapy + libpcap
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpcap-dev \
-    gcc \
-    git \
+# Install patched runtime dependencies for Scapy + libpcap
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+    libpcap0.8t64 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
