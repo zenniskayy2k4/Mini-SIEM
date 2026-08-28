@@ -71,6 +71,7 @@ def test_sigma_lifecycle():
                 patch.object(config, "SIGMA_RULE_STATE_FILE", str(state_file)),
                 patch.object(config, "ANALYST_AUDIT_FILE", str(audit_file)),
                 patch.object(dashboard, "alert_repository", repository),
+                patch("logging.warning"),
             ):
                 dashboard._reload_detection_rules()
                 client = dashboard.app.test_client()

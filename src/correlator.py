@@ -194,7 +194,7 @@ class AlertCorrelator:
             return active
 
         chain_str = " → ".join(matched_stages)
-        logger.warning(f"[Correlator] Kill chain detected: {ip}  {chain_str}")
+        logger.info(f"[Correlator] Kill chain detected: {ip}  {chain_str}")
 
         result = build_alert(
             alert_name="Multi-Stage Attack Chain Detected",
@@ -240,7 +240,7 @@ class AlertCorrelator:
             active["sources"] = sorted(sources)
             return active
 
-        logger.warning(
+        logger.info(
             "[Correlator] Cross-source alert: %s  sources=%s", ip, sorted(sources)
         )
 
@@ -316,7 +316,7 @@ class AlertCorrelator:
 
         severity = "CRITICAL" if category in ("INITIAL_ACCESS", "PRIV_ESC") else "HIGH"
 
-        logger.warning(f"[Correlator] Campaign: {campaign_name}  ip={ip}  events={len(same_cat)}")
+        logger.info(f"[Correlator] Campaign: {campaign_name}  ip={ip}  events={len(same_cat)}")
 
         result = build_alert(
             alert_name=campaign_name,

@@ -1,5 +1,6 @@
 import json
 import threading
+from unittest.mock import patch
 
 from src.ai_analyst import AIAnalyst
 from src.ai_provider import AIProvider, FallbackAIProvider, build_ai_provider
@@ -77,11 +78,12 @@ def test_ai_provider_fallback():
     second = FixtureProvider("ollama_local", "local:model", failure=RuntimeError("local secret"))
     failed_analyst = AIAnalyst(FallbackAIProvider(first, second))
     callback_results, completed = [], threading.Event()
-    failed_analyst.enrich_async(
-        _alert("All providers fail"),
-        lambda alert: (callback_results.append(alert), completed.set()),
-    )
-    assert completed.wait(2) and len(callback_results) == 1
+    with patch("src.ai_analyst.logger.warning"):
+        failed_analyst.enrich_async(
+            _alert("All providers fail"),
+            lambda alert: (callback_results.append(alert), completed.set()),
+        )
+        assert completed.wait(2) and len(callback_results) == 1
     assert first.calls == 1 and second.calls == 1
     failure = callback_results[0]["ai_analysis"]
     assert failure["error"] == "All configured AI providers are unavailable"

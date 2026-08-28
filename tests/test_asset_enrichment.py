@@ -71,11 +71,12 @@ def test_asset_enrichment():
                 assert alert["asset_id"] is None
 
             store_failure = _alert(hostname="edge-01.example.test")
-            persist_and_enrich(
-                store_failure,
-                stix_store=None,
-                asset_repository=FailingAssetRepository(),
-            )
+            with patch("src.alert_pipeline.logger.warning"):
+                persist_and_enrich(
+                    store_failure,
+                    stix_store=None,
+                    asset_repository=FailingAssetRepository(),
+                )
             assert store_failure["asset_id"] is None
 
         assert upsert.call_count == 6

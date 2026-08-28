@@ -129,6 +129,7 @@ def test_ingestion_failures():
             with (
                 patch("src.windows_events.record_ingestion_failure", side_effect=OSError),
                 patch("src.windows_events.record_ingestion_health", side_effect=OSError),
+                patch("src.windows_events.logger.warning"),
             ):
                 failed_diagnostics = ingest_windows_events(
                     [{"timestamp": "2026-08-25T09:00:00Z"}], "win-lab", output,

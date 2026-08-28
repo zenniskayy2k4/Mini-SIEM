@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS base
+FROM python:3.13-slim AS base
 
 # Install patched runtime dependencies for Scapy + libpcap
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \

@@ -105,7 +105,10 @@ def test_health():
             ):
                 analyst._safe_enrich({})
             assert analyst.health_status()["available"] is True
-            with patch.object(analyst, "_enrich", side_effect=RuntimeError("offline")):
+            with (
+                patch.object(analyst, "_enrich", side_effect=RuntimeError("offline")),
+                patch("src.ai_analyst.logger.warning"),
+            ):
                 analyst._safe_enrich({})
             assert analyst.health_status()["available"] is False
             analyst.shutdown()

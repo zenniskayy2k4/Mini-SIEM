@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from src.detector import ThreatDetector
 from src.sigma import load_sigma_rules
@@ -10,7 +11,8 @@ CORPUS = Path(__file__).parent / "fixtures" / "sigma"
 
 
 def test_sigma_corpus():
-    rules, errors = load_sigma_rules(str(CORPUS), str(CORPUS / "no-state.json"))
+    with patch("logging.warning"):
+        rules, errors = load_sigma_rules(str(CORPUS), str(CORPUS / "no-state.json"))
     assert not errors
     active = [rule for rule in rules if rule["enabled"]]
     skipped = [rule for rule in rules if not rule["enabled"]]
