@@ -21,6 +21,19 @@ Operational rotation covers `logs/auth.log`, Windows events, response logs, and 
 docker compose run --rm dashboard python -m tools.maintenance backup
 ```
 
+## Upgrade the database schema
+
+Stop writers, inspect the source and target versions without changing the database, then run the migration:
+
+```powershell
+docker compose stop agent dashboard
+docker compose run --rm dashboard python -m tools.migrate_db --dry-run
+docker compose run --rm dashboard python -m tools.migrate_db
+docker compose up -d dashboard agent
+```
+
+A pending migration creates an integrity-checked backup under `data/backups/` before applying ordered changes in a SQLite transaction. The command rejects unknown versions or changed checksums and prints the source, target, result, backup, and integrity status. An already-current database is a no-op and does not create a redundant backup.
+
 ## Restore a full SQLite backup
 
 Stop services, preserve the current database, copy the selected backup into place, then verify it before restarting:

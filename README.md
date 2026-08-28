@@ -295,6 +295,10 @@ docker compose exec agent python tools/attack_sim.py
 # Back up SQLite or apply retention offline
 docker compose run --rm dashboard python -m tools.maintenance backup
 docker compose run --rm dashboard python -m tools.maintenance retention --days 90
+
+# Preview, then apply pending SQLite schema migrations
+docker compose run --rm dashboard python -m tools.migrate_db --dry-run
+docker compose run --rm dashboard python -m tools.migrate_db
 ```
 
 ## Project layout

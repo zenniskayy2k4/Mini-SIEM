@@ -179,6 +179,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 BASELINE_VERSION = 1
 BASELINE_NAME = "baseline_v0.7.0"
 BASELINE_CHECKSUM = hashlib.sha256(BASELINE_SCHEMA.encode("utf-8")).hexdigest()
+MIGRATIONS = ((BASELINE_VERSION, BASELINE_NAME, BASELINE_CHECKSUM, BASELINE_SCHEMA),)
 
 
 def ensure_database_schema(connection):

@@ -1247,7 +1247,7 @@ refactor: add database schema migration tracking
 
 ## M24.2 — Migration Runner
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```text
 python -m tools.migrate_db
@@ -1255,13 +1255,29 @@ python -m tools.migrate_db
 
 ### Tasks
 
-- [ ] Backup first.
-- [ ] Validate source version.
-- [ ] Ordered migrations.
-- [ ] Transaction where possible.
-- [ ] Integrity check.
-- [ ] `--dry-run`.
-- [ ] Print current/target version.
+- [x] Backup first.
+- [x] Validate source version.
+- [x] Ordered migrations.
+- [x] Transaction where possible.
+- [x] Integrity check.
+- [x] `--dry-run`.
+- [x] Print current/target version.
+
+### Local verification — 2026-08-28
+
+| Check | Result |
+|---|:---:|
+| Pending migration creates and validates a SQLite backup before database writes | PASS |
+| Unknown versions, history gaps, and changed checksums are rejected | PASS |
+| Central version-ordered registry with one transaction per migration | PASS |
+| Post-migration and read-only preflight integrity checks | PASS |
+| Dry-run reports source/target/pending state without changing the database | PASS |
+| Current database CLI preflight reported source 1, target 1, and integrity `ok` | PASS |
+| Already-current database is a no-op without a redundant backup | PASS |
+| Migration operation documented in README and retention/backup runbook | PASS |
+| 59 executable regression modules in the existing image | PASS |
+| Python syntax validation | PASS |
+| No new dependency, local package installation, or image build | PASS |
 
 ### Suggested commit
 
@@ -2165,7 +2181,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M24.2 — Migration Runner
+M24.3 — Automated Restore Drill
 ```
 
 M21 is complete in release v0.7.0:
@@ -2176,7 +2192,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M24.1 is complete. Next, add only M24.2 migration runner.
+M24.1–M24.2 are complete. Next, add only M24.3 automated restore drill.
 
 ---
 
@@ -2364,14 +2380,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M24.2 — Migration Runner
+M24.3 — Automated Restore Drill
 ```
 
-M24.1 now provides checksum-backed, transactional baseline schema tracking. Success for the next batch is:
+M24.1–M24.2 now provide checksum-backed schema tracking and a backup-first migration command. Success for the next batch is:
 
 ```text
-backup-first migration command
-+ source/target validation and dry-run
-+ ordered transactional execution and integrity check
-= safe, observable database upgrades
+sample operational data
++ backup, damage, and restore flow
++ integrity and state verification
+= repeatable disaster-recovery evidence
 ```
