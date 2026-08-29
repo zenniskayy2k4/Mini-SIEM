@@ -44,7 +44,7 @@ class NetworkMonitor:
     def __init__(
         self, correlator=None, responder=None, ai_analyst=None,
         geoip_service=None, abuseipdb_service=None, virustotal_service=None,
-        emitter=None, clock=None,
+        emitter=None, clock=None, overload_state=None,
     ):
         self.correlator = correlator
         self.responder = responder
@@ -54,6 +54,7 @@ class NetworkMonitor:
         self.virustotal_service = virustotal_service
         self._emitter = emitter
         self._clock = clock or time.time
+        self._overload_state = overload_state or (lambda: "healthy")
         self.elk = None if emitter else ELKForwarder()
 
         self._lock = threading.Lock()
@@ -88,11 +89,12 @@ class NetworkMonitor:
         if self.responder:
             alert = self.responder.handle_incident(alert)
 
-        self.elk.send_alert(alert)
         persist_and_enrich(
             alert, self.ai_analyst, self.geoip_service, self.abuseipdb_service,
             self.virustotal_service,
+            overload_state=self._overload_state(),
         )
+        self.elk.send_alert(alert)
 
         print(f"\n[!] NETWORK ALERT: {alert['alert_name']} [{alert['severity']}] src={alert.get('ip_address')}")
 

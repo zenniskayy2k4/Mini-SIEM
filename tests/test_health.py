@@ -84,6 +84,18 @@ def test_health():
                 assert status["sensors"]["nids"]["enabled"] is True
                 assert status["sensors"]["honeypot"]["enabled"] is False
 
+                heartbeat = json.loads(Path(config.AGENT_HEARTBEAT_FILE).read_text(encoding="utf-8"))
+                heartbeat["ingestion_queue"]["status"] = "degraded"
+                Path(config.AGENT_HEARTBEAT_FILE).write_text(json.dumps(heartbeat), encoding="utf-8")
+                assert public.get("/health").get_json()["status"] == "degraded"
+                heartbeat["ingestion_queue"]["status"] = "saturated"
+                Path(config.AGENT_HEARTBEAT_FILE).write_text(json.dumps(heartbeat), encoding="utf-8")
+                saturated = public.get("/health")
+                assert saturated.status_code == 503
+                assert saturated.get_json()["status"] == "saturated"
+                heartbeat["ingestion_queue"]["status"] = "healthy"
+                Path(config.AGENT_HEARTBEAT_FILE).write_text(json.dumps(heartbeat), encoding="utf-8")
+
                 config.WINDOWS_COLLECTOR_SECRET = "collector-test-secret"
                 assert public.get("/health").get_json()["ingestion"] == "offline"
                 record_collector_heartbeat("win-lab")

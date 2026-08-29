@@ -43,9 +43,14 @@ class BoundedIngestionQueue:
     def status(self) -> dict:
         depth = self._queue.qsize()
         capacity = self._queue.maxsize
+        state = (
+            "saturated" if depth >= capacity
+            else "degraded" if depth * 5 >= capacity * 4
+            else "healthy"
+        )
         with self._condition:
             return {
-                "status": "saturated" if depth >= capacity else "healthy",
+                "status": state,
                 "depth": depth,
                 "capacity": capacity,
                 "backpressure_total": self._backpressure_total,

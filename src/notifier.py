@@ -58,7 +58,7 @@ class WebhookNotifier:
             pass
         return sent
 
-    def notify(self, alert):
+    def notify(self, alert, overload_state="healthy"):
         if not self.url or not self._eligible(alert):
             return None
         key = self._key(alert)
@@ -68,8 +68,10 @@ class WebhookNotifier:
         with self._lock:
             if key in self._sent:
                 return {"dedup_key": key, "status": "DEDUPLICATED", "attempts": 0}
+            if overload_state == "saturated":
+                return self._audit(key, alert, "SKIPPED_OVERLOAD", 0)
 
-            # ponytail: serialize delivery per process; add a queue only if webhook throughput matters.
+            # ponytail: the lock bounds delivery to one request; saturated ingestion skips the network.
             safe_alert = self._safe_payload(alert)
             payload = (
                 {"content": f"[{safe_alert['severity']}] {safe_alert['alert_name']} ({safe_alert['incident_id'] or safe_alert['alert_id']})"}

@@ -47,6 +47,24 @@ def test_ingestion_queue():
         log_rejection.assert_called_once()
     assert queue.status()["rejected_total"] == 1
 
+    state_queue = BoundedIngestionQueue(5)
+    state_started = threading.Event()
+    state_release = threading.Event()
+
+    def hold():
+        state_started.set()
+        state_release.wait(2)
+
+    assert state_queue.submit(hold)
+    assert state_started.wait(1)
+    for _ in range(4):
+        assert state_queue.submit(lambda: None)
+    assert state_queue.status()["status"] == "degraded"
+    assert state_queue.submit(lambda: None)
+    assert state_queue.status()["status"] == "saturated"
+    state_release.set()
+    state_queue.shutdown()
+
     class Detector:
         def __init__(self):
             self.events = []

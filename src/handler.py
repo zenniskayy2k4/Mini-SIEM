@@ -70,8 +70,8 @@ class LogHandler(FileSystemEventHandler):
         if handle_alert_suppression(alert):
             return
         alert = self.responder.handle_incident(alert)
-        self.elk.send_alert(alert)
         self._handle_alert(alert)
+        self.elk.send_alert(alert)
 
     def _handle_alert(self, alert):
         """
@@ -94,6 +94,10 @@ class LogHandler(FileSystemEventHandler):
         persist_and_enrich(
             alert, getattr(self.detector, "ai_analyst", None), self.geoip_service,
             self.abuseipdb_service, self.virustotal_service,
+            overload_state=(
+                self.ingestion_queue.status()["status"]
+                if self.ingestion_queue else "healthy"
+            ),
         )
 
 

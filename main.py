@@ -164,6 +164,7 @@ def main():
             geoip_service=geoip_service,
             abuseipdb_service=abuseipdb_service,
             virustotal_service=virustotal_service,
+            overload_state=lambda: ingestion_queue.status()["status"],
         )
         threading.Thread(target=nids.start, daemon=True).start()
         print("[+] NIDS enabled.")
@@ -188,6 +189,7 @@ def main():
             geoip_service=geoip_service,
             abuseipdb_service=abuseipdb_service,
             virustotal_service=virustotal_service,
+            overload_state=lambda: ingestion_queue.status()["status"],
         )
         threading.Thread(target=hp.start, daemon=True).start()
         print("[+] Honeypot enabled.")

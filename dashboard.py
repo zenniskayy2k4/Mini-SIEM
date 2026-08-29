@@ -472,7 +472,7 @@ def health():
         "ingestion": status["ingestion"]["status"],
         "ingestion_queue": status["ingestion_queue"]["status"],
     }
-    return jsonify(public), 503 if status["status"] == "unhealthy" else 200
+    return jsonify(public), 503 if status["status"] in {"unhealthy", "saturated"} else 200
 
 
 @app.route("/metrics")

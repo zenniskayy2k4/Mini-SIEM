@@ -100,13 +100,16 @@ def _persist_geoip(alert, future, asset_repository):
         logger.warning("GeoIP enrichment failed for %s: %s", alert.get("alert_id"), exc)
 
 
-def _dispatch_ai(alert, ai_analyst, asset_repository):
+def _dispatch_ai(alert, ai_analyst, asset_repository, overload_state="healthy"):
     if (
         ai_analyst
         and alert.get("severity") in {"HIGH", "CRITICAL"}
         and not alert.get("suppressed_count")
         and not alert.get("deduplicated_events")
     ):
+        if overload_state != "healthy":
+            alert["ai_analysis"] = {"skipped": "overload"}
+            return
         ai_analyst.enrich_async(
             alert,
             on_complete=lambda completed: _persist_and_notify(completed, asset_repository),
@@ -167,16 +170,22 @@ def _file_hash(alert):
 
 def _initial_threat_intel(
     alert, geoip_service, abuseipdb_service, virustotal_service, stix_store,
+    overload_state="healthy",
 ):
     intel = alert.setdefault("threat_intel", {})
 
     def state(provider, ioc_type, ioc, enabled):
+        status = "skipped" if overload_state != "healthy" and enabled else (
+            "pending" if enabled else "unavailable"
+        )
         intel[provider] = {
             "ioc_type": ioc_type,
             "ioc": ioc,
             "provider": provider,
-            "status": "pending" if enabled else "unavailable",
+            "status": status,
         }
+        if status == "skipped":
+            intel[provider]["reason"] = "overload"
 
     ip = alert.get("ip_address")
     if ip:
@@ -185,12 +194,13 @@ def _initial_threat_intel(
     file_hash = _file_hash(alert)
     if file_hash:
         state("virustotal", file_hash[0], file_hash[1], bool(virustotal_service))
-    try:
-        stix_summary = summarize_stix_matches(stix_store.match_alert(alert)) if stix_store else None
-        if stix_summary:
-            intel["stix"] = stix_summary
-    except Exception as exc:
-        logger.warning("STIX matching failed for %s: %s", alert.get("alert_id"), exc)
+    if overload_state == "healthy":
+        try:
+            stix_summary = summarize_stix_matches(stix_store.match_alert(alert)) if stix_store else None
+            if stix_summary:
+                intel["stix"] = stix_summary
+        except Exception as exc:
+            logger.warning("STIX matching failed for %s: %s", alert.get("alert_id"), exc)
     if not intel:
         alert.pop("threat_intel", None)
     return file_hash
@@ -199,6 +209,7 @@ def _initial_threat_intel(
 def persist_and_enrich(
     alert: dict, ai_analyst=None, geoip_service=None, abuseipdb_service=None,
     virustotal_service=None, stix_store=_STIX_STORE, asset_repository=_ASSET_REPOSITORY,
+    overload_state="healthy",
 ) -> dict:
     """Persist every alert before dispatching optional asynchronous enrichment."""
     if handle_detection_exception(alert, asset_repository):
@@ -207,27 +218,35 @@ def persist_and_enrich(
         return alert
     file_hash = _initial_threat_intel(
         alert, geoip_service, abuseipdb_service, virustotal_service, stix_store,
+        overload_state,
     )
+    overloaded = overload_state != "healthy"
+    if overloaded:
+        alert["processing_state"] = overload_state
+        alert["degraded_features"] = ["ai", "external_threat_intelligence"]
+        _dispatch_ai(alert, ai_analyst, asset_repository, overload_state)
+        if overload_state == "saturated":
+            alert["degraded_features"].append("notifications")
     _score_alert(alert, asset_repository)
     upsert_alert(alert)
-    if geoip_service and alert.get("ip_address"):
+    if not overloaded and geoip_service and alert.get("ip_address"):
         future = geoip_service.lookup_async("ip", alert["ip_address"])
         future.add_done_callback(
             lambda completed: _persist_geoip(alert, completed, asset_repository)
         )
-    if abuseipdb_service and alert.get("ip_address"):
+    if not overloaded and abuseipdb_service and alert.get("ip_address"):
         future = abuseipdb_service.lookup_async("ip", alert["ip_address"])
         future.add_done_callback(
             lambda completed: _persist_abuseipdb(
                 alert, completed, ai_analyst, asset_repository,
             )
         )
-    else:
+    elif not overloaded:
         _dispatch_ai(alert, ai_analyst, asset_repository)
-    if virustotal_service and file_hash:
+    if not overloaded and virustotal_service and file_hash:
         future = virustotal_service.lookup_async(*file_hash)
         future.add_done_callback(
             lambda completed: _persist_virustotal(alert, completed, asset_repository)
         )
-    notification_service.notify(alert)
+    notification_service.notify(alert, overload_state=overload_state)
     return alert

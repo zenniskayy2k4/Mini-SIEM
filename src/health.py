@@ -110,11 +110,13 @@ def build_system_status(settings: dict | None = None) -> dict:
     status = "healthy"
     if database["status"] != "healthy" or alert_store["status"] != "healthy":
         status = "unhealthy"
+    elif ingestion_queue.get("status") == "saturated":
+        status = "saturated"
     elif (
         agent["status"] != "healthy"
         or ai.get("enabled") and ai.get("available") is False
         or ingestion["status"] in {"offline", "endpoint_unavailable"}
-        or ingestion_queue.get("status") == "saturated"
+        or ingestion_queue.get("status") == "degraded"
     ):
         status = "degraded"
     return {

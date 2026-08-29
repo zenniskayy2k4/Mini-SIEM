@@ -1575,7 +1575,7 @@ feat: add bounded ingestion backpressure
 
 ## M25.4 — Graceful Degradation
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### States
 
@@ -1587,10 +1587,34 @@ saturated
 
 ### Rules
 
-- [ ] Core detection/persistence has priority.
-- [ ] AI/TI can degrade first.
-- [ ] Notifications remain bounded.
-- [ ] Health exposes overload.
+- [x] Core detection/persistence has priority.
+- [x] AI/TI can degrade first.
+- [x] Notifications remain bounded.
+- [x] Health exposes overload.
+
+### Overload behavior
+
+| State | Core persistence | AI/external TI | Notifications | Public health |
+|---|---|---|---|---|
+| `healthy` | Active | Active and single-flight | Serialized | HTTP 200 |
+| `degraded` | Active | New work skipped and recorded | Serialized | HTTP 200, degraded |
+| `saturated` | Active | New work skipped and recorded | Network call skipped and audited | HTTP 503, saturated |
+
+### Local verification — 2026-08-29
+
+| Check | Result |
+|---|:---:|
+| Queue transitions at healthy, 80% degraded, and full saturated thresholds | PASS |
+| Core alert persisted before optional notification handling | PASS |
+| AI and external TI skip new work with explicit overload evidence | PASS |
+| TI provider async submission is single-flight with explicit busy result | PASS |
+| Saturated notification makes no network call and writes `SKIPPED_OVERLOAD` audit | PASS |
+| Optional ELK forwarding occurs after primary persistence | PASS |
+| Agent, NIDS, and honeypot use the shared overload state | PASS |
+| Public health reports degraded and returns HTTP 503 for saturated | PASS |
+| 65 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No new dependency or runtime external service call | PASS |
 
 ### Suggested commit
 
@@ -2288,7 +2312,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M25.4 — Graceful Degradation
+M26.1 — SQLite Query Plan Audit
 ```
 
 M21 is complete in release v0.7.0:
@@ -2299,7 +2323,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M25.3 now provides observable bounded ingestion backpressure with no silent overload drops. Next, add only M25.4 graceful degradation.
+M25.4 now preserves core persistence while optional work degrades safely under load. Next, audit only the M26.1 SQLite query plans.
 
 ---
 
@@ -2487,15 +2511,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M25.4 — Graceful Degradation
+M26.1 — SQLite Query Plan Audit
 ```
 
-M25.3 now bounds the shared HIDS/Windows ingestion worker and exposes saturation. Success for the next batch is:
+M25.4 now exposes healthy, degraded, and saturated behavior while preserving core persistence. Success for the next batch is:
 
 ```text
-healthy/degraded/saturated states
-+ detection and persistence retain priority
-+ AI/TI and notifications degrade safely under overload
-+ overload exposed through health
-= graceful overload behavior
+EXPLAIN QUERY PLAN for the listed dashboard and repository queries
++ documented scans and measured before/after plans
++ indexes only where the planner evidence justifies them
+= auditable SQLite query performance
 ```
