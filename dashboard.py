@@ -470,6 +470,7 @@ def health():
         "alert_store": status["alert_store"]["status"],
         "database": status["database"]["status"],
         "ingestion": status["ingestion"]["status"],
+        "ingestion_queue": status["ingestion_queue"]["status"],
     }
     return jsonify(public), 503 if status["status"] == "unhealthy" else 200
 

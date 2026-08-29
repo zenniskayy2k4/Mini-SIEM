@@ -49,6 +49,10 @@ def test_health():
             },
             True,
             False,
+            {
+                "status": "healthy", "depth": 0, "capacity": 1024,
+                "backpressure_total": 0, "rejected_total": 0, "dropped_total": 0,
+            },
         )
         try:
             with patch("src.health.alert_repository", repository), patch(
@@ -76,6 +80,7 @@ def test_health():
                 assert status["ai"]["available"] is True
                 assert status["ai"]["last_successful_enrichment"] == "2026-08-14T01:02:03Z"
                 assert status["queue"] == {"busy": True, "backlog": 0}
+                assert status["ingestion_queue"]["capacity"] == 1024
                 assert status["sensors"]["nids"]["enabled"] is True
                 assert status["sensors"]["honeypot"]["enabled"] is False
 

@@ -15,6 +15,7 @@ from src.ai_analyst import AIAnalyst
 from src.ai_provider import build_ai_provider
 from src.rules import load_detection_rules
 from src.health import write_agent_heartbeat
+from src.ingestion_queue import BoundedIngestionQueue
 from src.threat_intel import (
     AbuseIPDBProvider,
     GeoIPProvider,
@@ -125,12 +126,14 @@ def main():
     
     correlator = AlertCorrelator(config.CORRELATION_WINDOW_MINUTES)
     responder = IncidentResponder()
+    ingestion_queue = BoundedIngestionQueue(config.INGESTION_QUEUE_CAPACITY)
 
     # --- HIDS: file watcher ---
     observer = Observer()
     event_handler = LogHandler(
         config.LOG_FILE_TO_WATCH, detector, correlator, responder,
         geoip_service, abuseipdb_service, virustotal_service,
+        ingestion_queue,
     )
 
     log_dir = os.path.dirname(config.LOG_FILE_TO_WATCH) or "."
@@ -138,6 +141,7 @@ def main():
     windows_handler = WindowsEventHandler(
         config.WINDOWS_EVENT_FILE, detector, correlator, responder,
         geoip_service, abuseipdb_service, virustotal_service,
+        ingestion_queue,
     )
     observer.schedule(
         windows_handler,
@@ -258,7 +262,10 @@ def main():
     def heartbeat_writer():
         while not stop_event.is_set():
             try:
-                write_agent_heartbeat(ai_analyst.health_status(), nids is not None, hp is not None)
+                write_agent_heartbeat(
+                    ai_analyst.health_status(), nids is not None, hp is not None,
+                    ingestion_queue.status(),
+                )
             except OSError as exc:
                 logging.warning("[-] Agent heartbeat write failed: %s", exc)
             stop_event.wait(5)
@@ -276,6 +283,7 @@ def main():
         print("\n[+] Monitoring SIEM Agent stopped.")
 
     observer.join()
+    ingestion_queue.shutdown()
     if geoip_service:
         geoip_service.close()
     if abuseipdb_service:

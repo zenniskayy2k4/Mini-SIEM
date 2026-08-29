@@ -13,7 +13,10 @@ from src.storage import alert_repository
 HEARTBEAT_STALE_SECONDS = 15
 
 
-def write_agent_heartbeat(ai: dict, nids_enabled: bool, honeypot_enabled: bool) -> None:
+def write_agent_heartbeat(
+    ai: dict, nids_enabled: bool, honeypot_enabled: bool,
+    ingestion_queue: dict | None = None,
+) -> None:
     path = Path(config.AGENT_HEARTBEAT_FILE)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -24,6 +27,7 @@ def write_agent_heartbeat(ai: dict, nids_enabled: bool, honeypot_enabled: bool) 
             "honeypot_enabled": bool(honeypot_enabled),
         },
         "ai": ai,
+        "ingestion_queue": ingestion_queue or {},
     }
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -80,6 +84,10 @@ def build_system_status(settings: dict | None = None) -> dict:
     ai.setdefault("available", None)
     ai.setdefault("enabled", False)
     queue = {"busy": bool(ai.pop("busy", False)), "backlog": int(ai.pop("backlog", 0))}
+    ingestion_queue = agent.get("ingestion_queue") or {
+        "status": "unknown", "depth": 0, "capacity": 0,
+        "backpressure_total": 0, "rejected_total": 0, "dropped_total": 0,
+    }
     ingestion = (
         get_collector_gap_diagnostics()
         if config.WINDOWS_COLLECTOR_SECRET
@@ -106,6 +114,7 @@ def build_system_status(settings: dict | None = None) -> dict:
         agent["status"] != "healthy"
         or ai.get("enabled") and ai.get("available") is False
         or ingestion["status"] in {"offline", "endpoint_unavailable"}
+        or ingestion_queue.get("status") == "saturated"
     ):
         status = "degraded"
     return {
@@ -117,6 +126,7 @@ def build_system_status(settings: dict | None = None) -> dict:
         "database": database,
         "ai": ai,
         "queue": queue,
+        "ingestion_queue": ingestion_queue,
         "ingestion": ingestion,
         "sensors": sensors,
     }

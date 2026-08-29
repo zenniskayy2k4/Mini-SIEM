@@ -49,6 +49,10 @@ def test_prometheus_metrics():
     system_status = {
         "agent": {"age_seconds": 2.5},
         "queue": {"busy": True, "backlog": 3},
+        "ingestion_queue": {
+            "depth": 7, "capacity": 1024, "backpressure_total": 4,
+            "rejected_total": 1, "dropped_total": 0,
+        },
     }
     rules = [{"rule_id": "DET-TEST-001", "rule_source": "native", "hit_count": 2}]
 
@@ -103,6 +107,11 @@ def test_prometheus_metrics():
                     "mini_siem_agent_heartbeat_age_seconds 2.5",
                     "mini_siem_ai_worker_busy 1",
                     "mini_siem_ai_queue_backlog 3",
+                    "mini_siem_ingestion_queue_depth 7",
+                    "mini_siem_ingestion_queue_capacity 1024",
+                    "mini_siem_ingestion_queue_backpressure_total 4",
+                    "mini_siem_ingestion_queue_rejected_total 1",
+                    "mini_siem_ingestion_queue_dropped_total 0",
                     'mini_siem_ingestion_failures{type="parser"} 2',
                     'mini_siem_ingestion_failures{type="schema"} 1',
                     'mini_siem_ingestion_failures{type="unsupported"} 3',

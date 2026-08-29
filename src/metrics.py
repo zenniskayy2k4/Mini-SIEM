@@ -75,6 +75,7 @@ def render_prometheus_metrics(
 
     notifications = _notification_counts(notification_log)
     queue = system_status.get("queue") or {}
+    ingestion_queue = system_status.get("ingestion_queue") or {}
     heartbeat_age = (system_status.get("agent") or {}).get("age_seconds")
     lines = []
     _family(lines, "mini_siem_metrics_up", "Whether metric collection succeeded.", [({}, 1)])
@@ -110,6 +111,16 @@ def render_prometheus_metrics(
     _family(lines, "mini_siem_ai_queue_backlog", "Current AI queue backlog.", [
         ({}, max(0, int(queue.get("backlog") or 0)))
     ])
+    for name, description, metric_type in (
+        ("depth", "Current bounded ingestion queue depth.", "gauge"),
+        ("capacity", "Bounded ingestion queue capacity.", "gauge"),
+        ("backpressure_total", "Ingestion submissions delayed by a full queue.", "counter"),
+        ("rejected_total", "Ingestion submissions explicitly rejected.", "counter"),
+        ("dropped_total", "Ingestion events dropped without processing.", "counter"),
+    ):
+        _family(lines, f"mini_siem_ingestion_queue_{name}", description, [
+            ({}, max(0, int(ingestion_queue.get(name) or 0)))
+        ], metric_type)
     failures = ingestion_failures or {}
     _family(lines, "mini_siem_ingestion_failures", "Retained ingestion failures by bounded type.", [
         ({"type": failure_type}, max(0, int(failures.get(failure_type) or 0)))

@@ -1530,17 +1530,40 @@ perf: add single-node throughput benchmark
 
 ## M25.3 — Bounded Ingestion Queue
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Tasks
 
-- [ ] Bounded queue.
-- [ ] Queue-depth metric.
-- [ ] Explicit overload policy.
-- [ ] Prefer backpressure where supported.
-- [ ] Never silently drop.
-- [ ] Count rejected/dropped events.
-- [ ] Health reports saturation.
+- [x] Bounded queue.
+- [x] Queue-depth metric.
+- [x] Explicit overload policy.
+- [x] Prefer backpressure where supported.
+- [x] Never silently drop.
+- [x] Count rejected/dropped events.
+- [x] Health reports saturation.
+
+### Overload policy
+
+```text
+HIDS/Windows durable files → bounded shared queue → single ingestion worker
+queue full               → block producer (backpressure)
+worker failure           → log and increment dropped_total
+queue stopped            → reject explicitly and increment rejected_total
+```
+
+### Local verification — 2026-08-29
+
+| Check | Result |
+|---|:---:|
+| Shared HIDS and Windows ingestion through one bounded stdlib queue | PASS |
+| Forced capacity-one saturation blocks the producer and preserves FIFO order | PASS |
+| Queue depth, capacity, backpressure, rejected, and dropped metrics | PASS |
+| Processing failure is logged and counted; stopped queue rejects explicitly | PASS |
+| Agent heartbeat, system status, and public health expose saturation | PASS |
+| Queue drains before worker shutdown | PASS |
+| 64 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No new dependency or runtime external service call | PASS |
 
 ### Suggested commit
 
@@ -2265,7 +2288,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M25.3 — Bounded Ingestion Queue
+M25.4 — Graceful Degradation
 ```
 
 M21 is complete in release v0.7.0:
@@ -2276,7 +2299,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M25.2 now provides the bounded single-node throughput baseline. Next, add only the M25.3 bounded ingestion queue.
+M25.3 now provides observable bounded ingestion backpressure with no silent overload drops. Next, add only M25.4 graceful degradation.
 
 ---
 
@@ -2464,14 +2487,15 @@ This roadmap is complete when:
 
 ```text
 START:
-M25.3 — Bounded Ingestion Queue
+M25.4 — Graceful Degradation
 ```
 
-M25.2 now measures the synchronous baseline without touching live alert data. Success for the next batch is:
+M25.3 now bounds the shared HIDS/Windows ingestion worker and exposes saturation. Success for the next batch is:
 
 ```text
-bounded ingestion queue + queue-depth metric
-+ explicit backpressure/rejection policy with no silent drops
-+ saturation exposed through health
-= observable bounded overload behavior
+healthy/degraded/saturated states
++ detection and persistence retain priority
++ AI/TI and notifications degrade safely under overload
++ overload exposed through health
+= graceful overload behavior
 ```

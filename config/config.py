@@ -94,6 +94,7 @@ WINDOWS_COLLECTOR_SECRET = read_secret("WINDOWS_COLLECTOR_SECRET", os.environ)
 WINDOWS_COLLECTOR_STALE_SECONDS = max(
     10, int(os.getenv("WINDOWS_COLLECTOR_STALE_SECONDS", "60"))
 )
+INGESTION_QUEUE_CAPACITY = max(1, int(os.getenv("INGESTION_QUEUE_CAPACITY", "1024")))
 DASHBOARD_USERS_FILE = os.path.join(BASE_DIR, "data", "dashboard_users.json")
 DASHBOARD_SESSION_KEY_FILE = os.path.join(BASE_DIR, "data", "dashboard_session.key")
 DASHBOARD_COOKIE_SECURE = os.getenv("DASHBOARD_COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
