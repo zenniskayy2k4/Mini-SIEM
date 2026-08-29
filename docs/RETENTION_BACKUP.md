@@ -44,6 +44,10 @@ docker compose run --rm dashboard python -m tests.test_restore_drill
 
 The drill works only in a temporary directory. It creates sample alert, incident, asset, external-case, analyst-note, schema-history, and audit-chain state; backs up SQLite; damages the working copy; restores it; and requires both integrity and exact state verification to pass.
 
+## Historical upgrade matrix
+
+CI upgrades deterministic `v0.6.0`, `v0.7.0`, and fresh SQLite fixtures to the current schema, checks backup creation and integrity, and verifies historical alert, incident, asset, external-case, tuning, and ingestion state. The matrix derives its required supported releases from `CHANGELOG.md`; publishing a new release without adding its fixture fails the baseline job and therefore blocks the release gate.
+
 ## Restore a full SQLite backup
 
 Stop services, preserve the current database, copy the selected backup into place, then verify it before restarting:

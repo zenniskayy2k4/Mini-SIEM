@@ -1337,7 +1337,7 @@ test: automate database backup and restore drill
 
 ## M24.4 — Historical Upgrade Matrix
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Minimum
 
@@ -1349,8 +1349,24 @@ fresh database → current
 
 ### Rules
 
-- [ ] Extend for every new release.
-- [ ] Upgrade failure blocks release.
+- [x] Extend for every new release.
+- [x] Upgrade failure blocks release.
+
+### Local verification — 2026-08-29
+
+| Check | Result |
+|---|---|
+| Frozen representative v0.6.0 fixture → current | PASS |
+| Frozen representative v0.7.0 fixture → current | PASS |
+| Fresh database → current | PASS |
+| Backups preserve the source schema at version 0 | PASS |
+| Historical alert, incident, asset, and external-case state preserved | PASS |
+| v0.7.0 detection feedback and ingestion-health state preserved | PASS |
+| `CHANGELOG.md`-derived fixture coverage rejects an unrepresented release | PASS |
+| Baseline failure propagates to the release gate | PASS |
+| 61 executable regression modules | PASS |
+| Python syntax validation | PASS |
+| No new dependency, local package installation, or image build | PASS |
 
 ### Suggested commit
 
@@ -2197,7 +2213,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M24.4 — Historical Upgrade Matrix
+M24.5 — Release v0.8.0
 ```
 
 M21 is complete in release v0.7.0:
@@ -2208,7 +2224,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M24.1–M24.3 are complete. Next, add only M24.4 historical upgrade matrix.
+M24.1–M24.4 are complete. Next, prepare only M24.5 release v0.8.0.
 
 ---
 
@@ -2396,14 +2412,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M24.4 — Historical Upgrade Matrix
+M24.5 — Release v0.8.0
 ```
 
-M24.1–M24.3 now provide schema tracking, backup-first migration, and repeatable restore evidence. Success for the next batch is:
+M24.1–M24.4 now provide schema tracking, backup-first migration, repeatable restore evidence, and historical upgrade coverage. Success for the next batch is:
 
 ```text
-historical release fixtures
-+ upgrade each supported version to current
-+ block release on upgrade failure
-= verified backward upgrade compatibility
+all v0.8.0 release gates pass
++ release notes and documentation synchronized
++ tag only after CI passes
+= CI-verified Platform & Supply-chain Hardening release
 ```
