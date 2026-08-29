@@ -1,9 +1,12 @@
+import atexit
 import copy
 from collections import Counter
 import json
 import logging
 import os
+import queue
 import threading
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -19,6 +22,7 @@ except ImportError:  # Windows host fallback; production runs in Linux container
 logger = logging.getLogger(__name__)
 _json_lock = threading.Lock()
 _dual_lock = threading.Lock()
+_STOP = object()
 
 
 class JsonAlertRepository:
@@ -199,10 +203,91 @@ class JsonAlertRepository:
         return dict(counts)
 
 
+class BoundedSQLiteAlertWriter:
+    """FIFO SQLite batches backed by the durable JSON mirror."""
+
+    def __init__(self, repository, batch_size, flush_delay, capacity):
+        self.repository = repository
+        self.batch_size = max(1, int(batch_size))
+        self.flush_delay = max(0.001, float(flush_delay))
+        self._queue = queue.Queue(maxsize=max(self.batch_size, int(capacity)))
+        self._condition = threading.Condition()
+        self._accepting = True
+        self._submitters = 0
+        self._error = None
+        self._worker = threading.Thread(
+            target=self._run, name="sqlite-alert-writer", daemon=True,
+        )
+        self._worker.start()
+
+    def submit(self, alert):
+        with self._condition:
+            if not self._accepting:
+                raise RuntimeError("SQLite alert writer is shut down")
+            self._submitters += 1
+        try:
+            self._queue.put(copy.deepcopy(alert))
+        finally:
+            with self._condition:
+                self._submitters -= 1
+                self._condition.notify_all()
+
+    def flush(self):
+        self._queue.join()
+        if self._error is not None:
+            raise RuntimeError("SQLite alert batch write failed") from self._error
+
+    def shutdown(self):
+        with self._condition:
+            if not self._accepting:
+                return
+            self._accepting = False
+            while self._submitters:
+                self._condition.wait()
+        self._queue.put(_STOP)
+        self._queue.join()
+        self._worker.join()
+
+    def _run(self):
+        while True:
+            first = self._queue.get()
+            if first is _STOP:
+                self._queue.task_done()
+                return
+            batch = [first]
+            stop = False
+            deadline = time.monotonic() + self.flush_delay
+            while len(batch) < self.batch_size:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                try:
+                    item = self._queue.get(timeout=remaining)
+                except queue.Empty:
+                    break
+                if item is _STOP:
+                    stop = True
+                    break
+                batch.append(item)
+            try:
+                self.repository.create_alerts(batch)
+            except Exception as exc:
+                self._error = exc
+                logger.error("SQLite alert batch write failed: %s", exc)
+            finally:
+                for _ in batch:
+                    self._queue.task_done()
+                if stop:
+                    self._queue.task_done()
+            if stop:
+                return
+
+
 class DualWriteAlertRepository:
-    def __init__(self, json_repository, sqlite_repository):
+    def __init__(self, json_repository, sqlite_repository, sqlite_writer=None):
         self.json = json_repository
         self.sqlite = sqlite_repository
+        self.sqlite_writer = sqlite_writer
         try:
             self.sqlite.ensure_schema()
         except Exception as exc:
@@ -222,17 +307,29 @@ class DualWriteAlertRepository:
                     fcntl.flock(lock_file, fcntl.LOCK_UN)
 
     def _save_both(self, alert):
-        repositories = [("SQLite", self.sqlite)]
-        if getattr(config, "JSON_DUAL_WRITE_ENABLED", True):
-            repositories.append(("JSON", self.json))
+        json_enabled = getattr(config, "JSON_DUAL_WRITE_ENABLED", True)
+        sqlite_async = self.sqlite_writer is not None and json_enabled
         failures = []
-        for name, repository in repositories:
+        try:
+            if sqlite_async:
+                self.sqlite_writer.submit(alert)
+            else:
+                self.sqlite.create_alert(alert)
+        except Exception as exc:
+            failures.append(("SQLite", exc))
+            logger.error("SQLite alert write failed for %s: %s", alert.get("alert_id"), exc)
+        if json_enabled:
             try:
-                repository.create_alert(alert)
+                self.json.create_alert(alert)
             except Exception as exc:
-                failures.append((name, exc))
-                logger.error("%s alert write failed for %s: %s", name, alert.get("alert_id"), exc)
-        if len(failures) == len(repositories):
+                failures.append(("JSON", exc))
+                logger.error("JSON alert write failed for %s: %s", alert.get("alert_id"), exc)
+                if sqlite_async:
+                    try:
+                        self.sqlite_writer.flush()
+                    except Exception as sqlite_exc:
+                        failures.append(("SQLite", sqlite_exc))
+        if len({name for name, _ in failures}) == 1 + int(json_enabled):
             raise RuntimeError("All alert storage backends failed") from failures[0][1]
         return alert
 
@@ -240,12 +337,17 @@ class DualWriteAlertRepository:
         if not getattr(config, "SQLITE_READ_ENABLED", True):
             return getattr(self.json, method)(*args, **kwargs)
         try:
+            self._flush_sqlite()
             return getattr(self.sqlite, method)(*args, **kwargs)
         except Exception as exc:
             if not getattr(config, "JSON_READ_FALLBACK_ENABLED", True):
                 raise
             logger.error("SQLite alert read failed; falling back to JSON: %s", exc)
             return getattr(self.json, method)(*args, **kwargs)
+
+    def _flush_sqlite(self):
+        if self.sqlite_writer is not None:
+            self.sqlite_writer.flush()
 
     def create_alert(self, alert: dict) -> dict:
         with self._locked():
@@ -282,11 +384,13 @@ class DualWriteAlertRepository:
     def create_detection_feedback(
         self, alert_id: str, classification: str, reason: str, actor: str, role=None,
     ) -> dict | None:
+        self._flush_sqlite()
         return self.sqlite.create_detection_feedback(
             alert_id, classification, reason, actor, role,
         )
 
     def rule_quality(self, from_timestamp: str, to_timestamp: str) -> list[dict]:
+        self._flush_sqlite()
         return self.sqlite.rule_quality(from_timestamp, to_timestamp)
 
     def create_detection_exception(
@@ -320,6 +424,7 @@ class DualWriteAlertRepository:
 
     def apply_alert_suppression(self, alert: dict) -> dict:
         with self._locked():
+            self._flush_sqlite()
             result = self.sqlite.apply_alert_suppression(copy.deepcopy(alert))
             if result["suppressed"]:
                 self._save_both(copy.deepcopy(result["alert"]))
@@ -327,12 +432,28 @@ class DualWriteAlertRepository:
 
     def soc_kpis(self, from_timestamp: str, to_timestamp: str) -> dict:
         """Analytics intentionally requires the indexed primary SQLite store."""
+        self._flush_sqlite()
         return self.sqlite.soc_kpis(from_timestamp, to_timestamp)
 
     def soc_analytics(self, from_timestamp: str, to_timestamp: str) -> dict:
+        self._flush_sqlite()
         return self.sqlite.soc_analytics(from_timestamp, to_timestamp)
+
+    def flush(self):
+        self._flush_sqlite()
+
+    def shutdown(self):
+        if self.sqlite_writer is not None:
+            self.sqlite_writer.shutdown()
 
 
 json_repository = JsonAlertRepository()
 sqlite_repository = SQLiteAlertRepository()
-alert_repository = DualWriteAlertRepository(json_repository, sqlite_repository)
+sqlite_writer = BoundedSQLiteAlertWriter(
+    sqlite_repository,
+    config.SQLITE_WRITE_BATCH_SIZE,
+    config.SQLITE_WRITE_FLUSH_SECONDS,
+    config.INGESTION_QUEUE_CAPACITY,
+)
+alert_repository = DualWriteAlertRepository(json_repository, sqlite_repository, sqlite_writer)
+atexit.register(alert_repository.shutdown)

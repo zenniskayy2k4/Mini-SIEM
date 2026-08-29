@@ -277,33 +277,45 @@ class SQLiteAlertRepository(_SQLiteRepository):
     MAX_SUPPRESSION_RULE_ID_LENGTH = 200
     MAX_SUPPRESSION_KEY_LENGTH = 500
 
-    def create_alert(self, alert: dict) -> dict:
-        self.ensure_schema()
+    @staticmethod
+    def _write_alert(connection, alert):
         payload = json.dumps(alert, ensure_ascii=False)
+        connection.execute(
+            """
+            INSERT INTO alerts (
+                alert_id, timestamp, alert_name, severity, source_type,
+                incident_id, payload_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(alert_id) DO UPDATE SET
+                timestamp=excluded.timestamp,
+                alert_name=excluded.alert_name,
+                severity=excluded.severity,
+                source_type=excluded.source_type,
+                incident_id=excluded.incident_id,
+                payload_json=excluded.payload_json,
+                created_at=excluded.created_at,
+                updated_at=excluded.updated_at
+            """,
+            (
+                alert["alert_id"], alert["timestamp"], alert["alert_name"],
+                alert["severity"], alert["source_type"], alert.get("incident_id"),
+                payload, alert.get("created_at"), alert["updated_at"],
+            ),
+        )
+        SQLiteAlertRepository._sync_incident(connection, alert)
+
+    def create_alerts(self, alerts) -> list[dict]:
+        alerts = list(alerts)
+        if not alerts:
+            return alerts
+        self.ensure_schema()
         with self._connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO alerts (
-                    alert_id, timestamp, alert_name, severity, source_type,
-                    incident_id, payload_json, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(alert_id) DO UPDATE SET
-                    timestamp=excluded.timestamp,
-                    alert_name=excluded.alert_name,
-                    severity=excluded.severity,
-                    source_type=excluded.source_type,
-                    incident_id=excluded.incident_id,
-                    payload_json=excluded.payload_json,
-                    created_at=excluded.created_at,
-                    updated_at=excluded.updated_at
-                """,
-                (
-                    alert["alert_id"], alert["timestamp"], alert["alert_name"],
-                    alert["severity"], alert["source_type"], alert.get("incident_id"),
-                    payload, alert.get("created_at"), alert["updated_at"],
-                ),
-            )
-            self._sync_incident(connection, alert)
+            for alert in alerts:
+                self._write_alert(connection, alert)
+        return alerts
+
+    def create_alert(self, alert: dict) -> dict:
+        self.create_alerts((alert,))
         return alert
 
     @staticmethod

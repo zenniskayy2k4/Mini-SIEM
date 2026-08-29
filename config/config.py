@@ -38,6 +38,10 @@ LOG_ROTATE_BACKUPS = max(1, int(os.getenv("LOG_ROTATE_BACKUPS", "5")))
 SQLITE_READ_ENABLED = os.getenv("SQLITE_READ_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_READ_FALLBACK_ENABLED = os.getenv("JSON_READ_FALLBACK_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_DUAL_WRITE_ENABLED = os.getenv("JSON_DUAL_WRITE_ENABLED", "true").lower() in {"1", "true", "yes"}
+SQLITE_WRITE_BATCH_SIZE = min(100, max(1, int(os.getenv("SQLITE_WRITE_BATCH_SIZE", "10"))))
+SQLITE_WRITE_FLUSH_SECONDS = min(
+    1.0, max(0.001, float(os.getenv("SQLITE_WRITE_FLUSH_SECONDS", "0.05")))
+)
 RISK_WEIGHTS = {
     "detection_severity": max(0, int(os.getenv("RISK_WEIGHT_SEVERITY", "40"))),
     "asset_criticality": max(0, int(os.getenv("RISK_WEIGHT_ASSET", "20"))),

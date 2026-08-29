@@ -16,6 +16,7 @@ from src.ai_provider import build_ai_provider
 from src.rules import load_detection_rules
 from src.health import write_agent_heartbeat
 from src.ingestion_queue import BoundedIngestionQueue
+from src.storage import alert_repository
 from src.threat_intel import (
     AbuseIPDBProvider,
     GeoIPProvider,
@@ -292,6 +293,10 @@ def main():
         abuseipdb_service.close()
     if virustotal_service:
         virustotal_service.close()
+    try:
+        alert_repository.flush()
+    except RuntimeError as exc:
+        logging.error("[-] Final SQLite alert flush failed; JSON mirror remains durable: %s", exc)
 
 if __name__ == "__main__":
     main()
