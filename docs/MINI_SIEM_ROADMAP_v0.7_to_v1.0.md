@@ -1289,7 +1289,7 @@ feat: add versioned database migration runner
 
 ## M24.3 — Automated Restore Drill
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Flow
 
@@ -1304,12 +1304,28 @@ Sample data
 
 ### Verify
 
-- [ ] alerts
-- [ ] incidents
-- [ ] assets
-- [ ] external case IDs
-- [ ] schema version
-- [ ] audit-related state as applicable
+- [x] alerts
+- [x] incidents
+- [x] assets
+- [x] external case IDs
+- [x] schema version
+- [x] audit-related state as applicable
+
+### Local verification — 2026-08-29
+
+| Check | Result |
+|---|:---:|
+| Deterministic sample alert, incident, asset, external case, note, and audit state | PASS |
+| Integrity-checked SQLite backup created before damage | PASS |
+| Working database and WAL/SHM state replaced with a damaged copy | PASS |
+| Backup restore returned `PRAGMA integrity_check` result `ok` | PASS |
+| Alert payload, incident workflow, asset, external case ID, and analyst note preserved | PASS |
+| Schema migration version restored to v1 | PASS |
+| External audit file remained unchanged and its hash chain stayed valid | PASS |
+| Drill isolated entirely in a temporary directory and documented in the runbook | PASS |
+| 60 executable regression modules in the existing image | PASS |
+| Python syntax validation | PASS |
+| No new dependency, local package installation, or image build | PASS |
 
 ### Suggested commit
 
@@ -2181,7 +2197,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M24.3 — Automated Restore Drill
+M24.4 — Historical Upgrade Matrix
 ```
 
 M21 is complete in release v0.7.0:
@@ -2192,7 +2208,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M24.1–M24.2 are complete. Next, add only M24.3 automated restore drill.
+M24.1–M24.3 are complete. Next, add only M24.4 historical upgrade matrix.
 
 ---
 
@@ -2380,14 +2396,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M24.3 — Automated Restore Drill
+M24.4 — Historical Upgrade Matrix
 ```
 
-M24.1–M24.2 now provide checksum-backed schema tracking and a backup-first migration command. Success for the next batch is:
+M24.1–M24.3 now provide schema tracking, backup-first migration, and repeatable restore evidence. Success for the next batch is:
 
 ```text
-sample operational data
-+ backup, damage, and restore flow
-+ integrity and state verification
-= repeatable disaster-recovery evidence
+historical release fixtures
++ upgrade each supported version to current
++ block release on upgrade failure
+= verified backward upgrade compatibility
 ```

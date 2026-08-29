@@ -34,6 +34,16 @@ docker compose up -d dashboard agent
 
 A pending migration creates an integrity-checked backup under `data/backups/` before applying ordered changes in a SQLite transaction. The command rejects unknown versions or changed checksums and prints the source, target, result, backup, and integrity status. An already-current database is a no-op and does not create a redundant backup.
 
+## Automated restore drill
+
+Run the deterministic drill without touching the configured database:
+
+```powershell
+docker compose run --rm dashboard python -m tests.test_restore_drill
+```
+
+The drill works only in a temporary directory. It creates sample alert, incident, asset, external-case, analyst-note, schema-history, and audit-chain state; backs up SQLite; damages the working copy; restores it; and requires both integrity and exact state verification to pass.
+
 ## Restore a full SQLite backup
 
 Stop services, preserve the current database, copy the selected backup into place, then verify it before restarting:
