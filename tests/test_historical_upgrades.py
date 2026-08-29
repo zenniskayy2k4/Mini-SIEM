@@ -48,6 +48,13 @@ CREATE TABLE asset_ip_addresses (
 """
 
 V07_ADDITIONS = """
+CREATE TABLE incident_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_id TEXT NOT NULL REFERENCES incidents(incident_id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    payload_json TEXT NOT NULL
+);
 CREATE TABLE detection_feedback (
     feedback_id TEXT PRIMARY KEY,
     alert_id TEXT NOT NULL REFERENCES alerts(alert_id) ON DELETE CASCADE,

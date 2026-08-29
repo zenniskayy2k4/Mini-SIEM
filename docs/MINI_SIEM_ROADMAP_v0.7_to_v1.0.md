@@ -1628,25 +1628,43 @@ feat: add graceful overload degradation
 
 ## M26.1 — SQLite Query Plan Audit
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Audit
 
-- [ ] alert list
-- [ ] time range
-- [ ] incident status
-- [ ] rule coverage
-- [ ] KPIs
-- [ ] analytics
-- [ ] assets
-- [ ] feedback/rule quality
+- [x] alert list
+- [x] time range
+- [x] incident status
+- [x] rule coverage
+- [x] KPIs
+- [x] analytics
+- [x] assets
+- [x] feedback/rule quality
 
 ### Tasks
 
-- [ ] Use `EXPLAIN QUERY PLAN`.
-- [ ] Document scans.
-- [ ] Add justified indexes only.
-- [ ] Measure before/after.
+- [x] Use `EXPLAIN QUERY PLAN`.
+- [x] Document scans.
+- [x] Add justified indexes only.
+- [x] Measure before/after.
+
+Detailed plans and rejected index candidates are recorded in
+[SQLite Query Plan Audit](SQLITE_QUERY_PLAN_AUDIT.md).
+
+### Local verification — 2026-08-29
+
+| Check | Result |
+|---|:---:|
+| Alert ordering uses `idx_alerts_timestamp_id` without a temporary order tree | PASS |
+| ISO time range uses a bounded index search instead of an ordered scan | PASS |
+| Severity filter and ordering use `idx_alerts_severity_timestamp_id` | PASS |
+| False-positive trend uses `idx_incident_events_type_timestamp` | PASS |
+| Rule-quality latest feedback uses scoped indexed lookup instead of a full feedback scan | PASS |
+| Incident-status and asset-enabled candidate indexes rejected after slower measurements | PASS |
+| Backup-first schema migration v2 and historical upgrade matrix | PASS |
+| 66 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No temporary `check_m*.py`, new dependency, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2312,7 +2330,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M26.1 — SQLite Query Plan Audit
+M26.2 — Bounded Batched Writes
 ```
 
 M21 is complete in release v0.7.0:
@@ -2323,7 +2341,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M25.4 now preserves core persistence while optional work degrades safely under load. Next, audit only the M26.1 SQLite query plans.
+M26.1 now provides measured query plans and only evidence-backed indexes. Next, evaluate M26.2 batching only if transaction benchmarks justify it.
 
 ---
 
@@ -2511,14 +2529,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M26.1 — SQLite Query Plan Audit
+M26.2 — Bounded Batched Writes
 ```
 
-M25.4 now exposes healthy, degraded, and saturated behavior while preserving core persistence. Success for the next batch is:
+M26.1 now removes avoidable alert ordering and feedback scans without speculative indexes. Success for the next batch is:
 
 ```text
-EXPLAIN QUERY PLAN for the listed dashboard and repository queries
-+ documented scans and measured before/after plans
-+ indexes only where the planner evidence justifies them
-= auditable SQLite query performance
+measure transaction overhead before changing write semantics
++ implement safe bounded batching only if evidence justifies it
++ preserve ordering and flush on shutdown if implemented
+= measured write-path decision, including an explicit no-change result
 ```

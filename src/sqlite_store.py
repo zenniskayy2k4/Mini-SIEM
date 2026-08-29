@@ -179,11 +179,38 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 BASELINE_VERSION = 1
 BASELINE_NAME = "baseline_v0.7.0"
 BASELINE_CHECKSUM = hashlib.sha256(BASELINE_SCHEMA.encode("utf-8")).hexdigest()
-MIGRATIONS = ((BASELINE_VERSION, BASELINE_NAME, BASELINE_CHECKSUM, BASELINE_SCHEMA),)
+QUERY_INDEX_SCHEMA = """
+DROP INDEX IF EXISTS idx_alerts_timestamp;
+DROP INDEX IF EXISTS idx_alerts_severity;
+CREATE INDEX IF NOT EXISTS idx_alerts_timestamp_id
+ON alerts(timestamp DESC, alert_id DESC);
+CREATE INDEX IF NOT EXISTS idx_alerts_severity_timestamp_id
+ON alerts(severity, timestamp DESC, alert_id DESC);
+CREATE INDEX IF NOT EXISTS idx_incident_events_type_timestamp
+ON incident_events(event_type, timestamp);
+"""
+QUERY_INDEX_VERSION = 2
+QUERY_INDEX_NAME = "query_indexes_v0.9.0"
+QUERY_INDEX_CHECKSUM = hashlib.sha256(QUERY_INDEX_SCHEMA.encode("utf-8")).hexdigest()
+MIGRATIONS = (
+    (BASELINE_VERSION, BASELINE_NAME, BASELINE_CHECKSUM, BASELINE_SCHEMA),
+    (QUERY_INDEX_VERSION, QUERY_INDEX_NAME, QUERY_INDEX_CHECKSUM, QUERY_INDEX_SCHEMA),
+)
 
 
 def ensure_database_schema(connection):
     try:
+        has_history = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'"
+        ).fetchone()
+        if has_history:
+            expected = {version: (name, checksum) for version, name, checksum, _ in MIGRATIONS}
+            recorded = connection.execute(
+                "SELECT version, name, checksum FROM schema_migrations ORDER BY version"
+            ).fetchall()
+            if not recorded or any(expected.get(row[0]) != row[1:] for row in recorded):
+                raise RuntimeError("Database migration history does not match this build")
+            return
         connection.executescript(
             "BEGIN IMMEDIATE;\n" + BASELINE_SCHEMA + SCHEMA_MIGRATIONS_TABLE
         )
@@ -388,7 +415,7 @@ class SQLiteAlertRepository(_SQLiteRepository):
                 clauses.append(sql)
                 values.append(f"%{escaped}%")
 
-        exact("UPPER(a.severity) = UPPER(?)", filters.get("severity"))
+        exact("a.severity = UPPER(?)", filters.get("severity"))
         exact(
             "UPPER(COALESCE(i.status, json_extract(a.payload_json, '$.incident_status'), '')) = UPPER(?)",
             filters.get("incident_status"),
@@ -420,10 +447,10 @@ class SQLiteAlertRepository(_SQLiteRepository):
             filters.get("mitre"),
         )
         if filters.get("from"):
-            clauses.append("datetime(a.timestamp) >= datetime(?)")
+            clauses.append("a.timestamp >= ?")
             values.append(filters["from"])
         if filters.get("to"):
-            clauses.append("datetime(a.timestamp) <= datetime(?)")
+            clauses.append("a.timestamp <= ?")
             values.append(filters["to"])
         if filters.get("q"):
             escaped = str(filters["q"]).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -450,7 +477,7 @@ class SQLiteAlertRepository(_SQLiteRepository):
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT a.payload_json" + source + where
-                + " ORDER BY a.timestamp DESC, a.rowid DESC" + page,
+                + " ORDER BY a.timestamp DESC, a.alert_id DESC" + page,
                 values + page_values,
             ).fetchall()
             total = connection.execute(
@@ -568,14 +595,6 @@ class SQLiteAlertRepository(_SQLiteRepository):
                     FROM alerts
                     WHERE created_at >= ? AND created_at < ?
                         AND json_extract(payload_json, '$.rule_id') IS NOT NULL
-                ),
-                latest_feedback AS (
-                    SELECT feedback.alert_id, feedback.classification
-                    FROM detection_feedback feedback
-                    JOIN (
-                        SELECT alert_id, MAX(rowid) AS latest_rowid
-                        FROM detection_feedback GROUP BY alert_id
-                    ) latest ON latest.latest_rowid = feedback.rowid
                 )
                 SELECT
                     scoped.rule_id,
@@ -585,7 +604,10 @@ class SQLiteAlertRepository(_SQLiteRepository):
                     COUNT(CASE WHEN feedback.classification = 'BENIGN_EXPECTED' THEN 1 END),
                     COUNT(CASE WHEN feedback.alert_id IS NULL THEN 1 END)
                 FROM scoped_alerts scoped
-                LEFT JOIN latest_feedback feedback ON feedback.alert_id = scoped.alert_id
+                LEFT JOIN detection_feedback feedback ON feedback.rowid = (
+                    SELECT MAX(rowid) FROM detection_feedback
+                    WHERE alert_id = scoped.alert_id
+                )
                 GROUP BY scoped.rule_id
                 ORDER BY COUNT(*) DESC, scoped.rule_id
                 """,

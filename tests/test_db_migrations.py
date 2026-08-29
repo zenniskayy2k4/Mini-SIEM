@@ -16,17 +16,18 @@ def test_db_migrations():
 
         dry_run = migrate_database(database, dry_run=True)
         assert dry_run["source_version"] == 0
-        assert dry_run["target_version"] == 1
+        assert dry_run["target_version"] == 2
         assert dry_run["result_version"] == 0
         assert dry_run["pending_migrations"] == [
-            {"version": 1, "name": "baseline_v0.7.0"}
+            {"version": 1, "name": "baseline_v0.7.0"},
+            {"version": 2, "name": "query_indexes_v0.9.0"},
         ]
         assert dry_run["backup"] is None and not backup.exists()
         assert inspect_database(database) == 0
 
         migrated = migrate_database(database, backup_path=backup)
         assert migrated["source_version"] == 0
-        assert migrated["target_version"] == migrated["result_version"] == 1
+        assert migrated["target_version"] == migrated["result_version"] == 2
         assert migrated["backup"] == str(backup)
         assert migrated["integrity"] == "ok" and backup.is_file()
         with sqlite3.connect(database) as connection:
@@ -39,7 +40,7 @@ def test_db_migrations():
             ).fetchone()[0] == 0
 
         no_op = migrate_database(database)
-        assert no_op["source_version"] == no_op["target_version"] == 1
+        assert no_op["source_version"] == no_op["target_version"] == 2
         assert no_op["pending_migrations"] == [] and no_op["backup"] is None
 
         with sqlite3.connect(database) as connection:
