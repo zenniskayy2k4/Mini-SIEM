@@ -138,7 +138,7 @@ M31 — Multi-tenancy Discovery
 | M22 | Secure Deployment Profile | v0.8.0 | ✅ Complete |
 | M23 | Software Supply-chain Security | v0.8.0 | ✅ Complete |
 | M24 | Database Migration & Disaster Recovery | v0.8.0 | ✅ Complete |
-| M25 | Load Testing & Backpressure | v0.9.0 | ⬜ |
+| M25 | Load Testing & Backpressure | v0.9.0 | 🟠 In Progress |
 | M26 | Storage & Query Performance | v0.9.0 | ⬜ |
 | M27 | Collector Reliability & Offline Recovery | v0.9.0 | ⬜ |
 | M28 | API & Schema Versioning | v1.0.0 | ⬜ |
@@ -1427,7 +1427,7 @@ docs: release v0.8.0
 
 ## M25.1 — Synthetic Telemetry Load Generator
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Modes
 
@@ -1441,9 +1441,24 @@ authentication-heavy
 
 ### Safety
 
-- [ ] Local by default.
-- [ ] Generate telemetry, not exploit traffic.
-- [ ] AI/TI disabled.
+- [x] Local by default.
+- [x] Generate telemetry, not exploit traffic.
+- [x] AI/TI disabled.
+
+### Local verification — 2026-08-29
+
+| Check | Result |
+|---|:---:|
+| `steady`, `burst`, `mixed-source`, `windows-heavy`, and `authentication-heavy` modes | PASS |
+| Deterministic output for fixed mode, count, duration, seed, and start time | PASS |
+| Versioned HIDS, Windows, NIDS, and honeypot event envelopes | PASS |
+| TEST-NET addresses and synthetic records only; no packet or API transmission | PASS |
+| AI and external threat-intelligence providers are never initialized | PASS |
+| Bounded count/duration validation and exclusive local-file creation | PASS |
+| CLI JSONL generation and existing-file protection | PASS |
+| 62 executable regression modules | PASS |
+| Python syntax validation | PASS |
+| No new dependency, package installation, or image build | PASS |
 
 ### Suggested commit
 
@@ -2228,7 +2243,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M25.1 — Synthetic Telemetry Load Generator
+M25.2 — Throughput Benchmark
 ```
 
 M21 is complete in release v0.7.0:
@@ -2239,7 +2254,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M22–M24 are complete in release v0.8.0. Next, add only the M25.1 synthetic telemetry load generator.
+M25.1 now provides safe deterministic telemetry load inputs. Next, add only the M25.2 single-node throughput benchmark.
 
 ---
 
@@ -2427,14 +2442,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M25.1 — Synthetic Telemetry Load Generator
+M25.2 — Throughput Benchmark
 ```
 
-v0.8.0 closes M22–M24 with secure deployment, inspectable supply-chain artifacts, and tested database recovery. Success for the next batch is:
+M25.1 now emits bounded, deterministic local JSONL without sending traffic or starting providers. Success for the next batch is:
 
 ```text
-local synthetic telemetry modes
-+ telemetry generation without exploit traffic
-+ AI and external TI disabled
-= safe deterministic load input for later benchmarks
+replay candidate event rates and burst mode
++ measure pipeline, storage, API, CPU, memory, queue, and rejection behavior
++ calibrate to actual machine capability
+= reproducible single-node throughput baseline
 ```

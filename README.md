@@ -293,6 +293,11 @@ docker compose run --rm -v "${PWD}:/app" dashboard sh -c \
 # Generate authorized lab traffic/events
 docker compose exec agent python tools/attack_sim.py
 
+# Generate deterministic local-only telemetry JSONL (no ingest, packets, AI, or TI)
+docker compose run --rm -v "${PWD}:/app" dashboard python \
+  tools/generate_telemetry_load.py --mode mixed-source --count 1000 \
+  --output data/synthetic-telemetry.jsonl
+
 # Back up SQLite or apply retention offline
 docker compose run --rm dashboard python -m tools.maintenance backup
 docker compose run --rm dashboard python -m tools.maintenance retention --days 90
