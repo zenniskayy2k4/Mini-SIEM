@@ -68,9 +68,25 @@ CREATE TABLE ingestion_health (
 );
 """
 
+V08_ADDITIONS = """
+CREATE TABLE schema_migrations (
+    version INTEGER PRIMARY KEY CHECK(version > 0),
+    name TEXT NOT NULL UNIQUE,
+    applied_at TEXT NOT NULL,
+    checksum TEXT NOT NULL CHECK(length(checksum) = 64)
+);
+INSERT INTO schema_migrations VALUES (
+    1,
+    'baseline_v0.7.0',
+    '2026-08-29T00:00:00Z',
+    '3c2b9bbd28b2ae786760134a1eaa14a607ecfc1e92f4a3e33849091998f99b88'
+);
+"""
+
 HISTORICAL_FIXTURES = {
-    "v0.6.0": V06_SCHEMA,
-    "v0.7.0": V06_SCHEMA + V07_ADDITIONS,
+    "v0.6.0": (V06_SCHEMA, 0),
+    "v0.7.0": (V06_SCHEMA + V07_ADDITIONS, 0),
+    "v0.8.0": (V06_SCHEMA + V07_ADDITIONS + V08_ADDITIONS, 1),
 }
 
 
@@ -127,7 +143,7 @@ def _seed(connection, release, schema):
         "INSERT INTO asset_ip_addresses VALUES (?, ?)",
         (asset_id, f"192.0.2.{60 if release == 'v0.6.0' else 70}"),
     )
-    if release == "v0.7.0":
+    if release != "v0.6.0":
         connection.execute(
             "INSERT INTO detection_feedback VALUES (?, ?, ?, ?, ?, ?, ?)",
             ("FB-070", alert_id, "DET-HIST-001", "TRUE_POSITIVE", "verified", "analyst", timestamp),
@@ -159,19 +175,22 @@ def test_historical_upgrades():
     assert tuple(HISTORICAL_FIXTURES) == _released_versions()
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
-        for release, schema in HISTORICAL_FIXTURES.items():
+        for release, (schema, source_version) in HISTORICAL_FIXTURES.items():
             database = root / f"{release}.db"
             backup = root / f"{release}.backup.db"
             with sqlite3.connect(database) as connection:
                 expected = _seed(connection, release, schema)
             report = migrate_database(database, backup_path=backup)
-            assert report["source_version"] == 0
-            assert report["result_version"] == report["target_version"] == 1
-            assert backup.is_file() and inspect_database(backup) == 0
-            assert inspect_database(database) == 1
+            assert report["source_version"] == source_version
+            assert report["result_version"] == report["target_version"]
+            if report["pending_migrations"]:
+                assert backup.is_file() and inspect_database(backup) == source_version
+            else:
+                assert report["backup"] is None and not backup.exists()
+            assert inspect_database(database) == report["target_version"]
             _verify_upgraded(database, expected)
             with sqlite3.connect(database) as connection:
-                if release == "v0.7.0":
+                if release != "v0.6.0":
                     assert connection.execute("SELECT COUNT(*) FROM detection_feedback").fetchone()[0] == 1
                     assert connection.execute("SELECT events_received FROM ingestion_health").fetchone()[0] == 5
 
@@ -179,8 +198,8 @@ def test_historical_upgrades():
         fresh.touch()
         report = migrate_database(fresh, backup_path=root / "fresh.backup.db")
         assert report["source_version"] == 0
-        assert report["result_version"] == report["target_version"] == 1
-        assert inspect_database(fresh) == 1
+        assert report["result_version"] == report["target_version"]
+        assert inspect_database(fresh) == report["target_version"]
 
 
 if __name__ == "__main__":

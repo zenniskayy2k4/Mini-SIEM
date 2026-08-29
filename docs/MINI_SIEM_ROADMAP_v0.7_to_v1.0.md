@@ -137,7 +137,7 @@ M31 — Multi-tenancy Discovery
 | M21 | Event Quality & Ingestion Reliability | v0.7.0 | ✅ Complete |
 | M22 | Secure Deployment Profile | v0.8.0 | ✅ Complete |
 | M23 | Software Supply-chain Security | v0.8.0 | ✅ Complete |
-| M24 | Database Migration & Disaster Recovery | v0.8.0 | 🟠 In Progress |
+| M24 | Database Migration & Disaster Recovery | v0.8.0 | ✅ Complete |
 | M25 | Load Testing & Backpressure | v0.9.0 | ⬜ |
 | M26 | Storage & Query Performance | v0.9.0 | ⬜ |
 | M27 | Collector Reliability & Offline Recovery | v0.9.0 | ⬜ |
@@ -1358,8 +1358,9 @@ fresh database → current
 |---|---|
 | Frozen representative v0.6.0 fixture → current | PASS |
 | Frozen representative v0.7.0 fixture → current | PASS |
+| Frozen representative v0.8.0 fixture → current | PASS |
 | Fresh database → current | PASS |
-| Backups preserve the source schema at version 0 | PASS |
+| Required migration backups preserve their source schema version | PASS |
 | Historical alert, incident, asset, and external-case state preserved | PASS |
 | v0.7.0 detection feedback and ingestion-health state preserved | PASS |
 | `CHANGELOG.md`-derived fixture coverage rejects an unrepresented release | PASS |
@@ -1378,7 +1379,7 @@ ci: validate historical database upgrades
 
 ## M24.5 — Release v0.8.0
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```text
 v0.8.0 — Platform & Supply-chain Hardening
@@ -1386,19 +1387,33 @@ v0.8.0 — Platform & Supply-chain Hardening
 
 ### Release Gate
 
-- [ ] Config validator.
-- [ ] HTTPS profile.
-- [ ] File secrets.
-- [ ] Security regression pack.
-- [ ] Reproducible dependencies.
-- [ ] SBOM.
-- [ ] Container scan.
-- [ ] Checksums.
-- [ ] Migration framework.
-- [ ] Restore drill.
-- [ ] Historical upgrade tests.
-- [ ] Docs synchronized.
-- [ ] Tag after CI passes.
+- [x] Config validator.
+- [x] HTTPS profile.
+- [x] File secrets.
+- [x] Security regression pack.
+- [x] Reproducible dependencies.
+- [x] SBOM.
+- [x] Container scan.
+- [x] Checksums.
+- [x] Migration framework.
+- [x] Restore drill.
+- [x] Historical upgrade tests.
+- [x] Docs synchronized.
+- [x] Tag only after CI passes.
+
+### Release verification — 2026-08-29
+
+| Check | Result |
+|---|:---:|
+| Configuration validator, HTTPS profile, file secrets, and security regression pack | PASS |
+| Exact dependency pins and installed-package consistency | PASS |
+| SPDX SBOM, HIGH/CRITICAL container gate, and SHA-256 publication path | PASS |
+| Versioned migrations, backup-first runner, restore drill, and v0.6–v0.8 upgrade matrix | PASS |
+| 61 executable regression modules in the existing image | PASS |
+| Base/HTTPS Compose and release-artifact consistency | PASS |
+| README, CHANGELOG, release notes, history, upgrade notes, and latest-release links | PASS |
+| No tracked runtime files or active Gitleaks exceptions | PASS |
+| Release commit and annotated tag gated by GitHub Actions | PASS |
 
 ### Suggested commit
 
@@ -2213,7 +2228,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M24.5 — Release v0.8.0
+M25.1 — Synthetic Telemetry Load Generator
 ```
 
 M21 is complete in release v0.7.0:
@@ -2224,7 +2239,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M24.1–M24.4 are complete. Next, prepare only M24.5 release v0.8.0.
+M22–M24 are complete in release v0.8.0. Next, add only the M25.1 synthetic telemetry load generator.
 
 ---
 
@@ -2393,12 +2408,12 @@ The release is stable rather than feature-driven.
 
 This roadmap is complete when:
 
-- [ ] `v0.7.0` ships with detection replay, tuning, and ingestion quality.
-- [ ] `v0.8.0` ships with secure deployment, supply-chain checks, and tested migration/recovery.
+- [x] `v0.7.0` ships with detection replay, tuning, and ingestion quality.
+- [x] `v0.8.0` ships with secure deployment, supply-chain checks, and tested migration/recovery.
 - [ ] `v0.9.0` ships with measured performance and collector recovery.
 - [ ] API v1 exists.
 - [ ] Alert schema is explicitly versioned.
-- [ ] Historical upgrade tests pass.
+- [x] Historical upgrade tests pass.
 - [ ] Operator diagnostics and runbooks are complete.
 - [ ] Accessibility pass is complete.
 - [ ] Full security review is complete.
@@ -2412,14 +2427,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M24.5 — Release v0.8.0
+M25.1 — Synthetic Telemetry Load Generator
 ```
 
-M24.1–M24.4 now provide schema tracking, backup-first migration, repeatable restore evidence, and historical upgrade coverage. Success for the next batch is:
+v0.8.0 closes M22–M24 with secure deployment, inspectable supply-chain artifacts, and tested database recovery. Success for the next batch is:
 
 ```text
-all v0.8.0 release gates pass
-+ release notes and documentation synchronized
-+ tag only after CI passes
-= CI-verified Platform & Supply-chain Hardening release
+local synthetic telemetry modes
++ telemetry generation without exploit traffic
++ AI and external TI disabled
+= safe deterministic load input for later benchmarks
 ```

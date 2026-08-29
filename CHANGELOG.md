@@ -4,6 +4,36 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-29
+
+Platform and Supply-chain Hardening release.
+
+### Added
+
+- Deployment configuration validation, an optional Caddy HTTPS reverse-proxy profile, secure-cookie/trusted-proxy handling, request limits, and generic file-backed application secrets.
+- A focused security regression pack covering authentication, authorization, CSRF, session revocation, throttling, XSS escaping, oversized requests, collector authentication, and HTTPS cookies.
+- CI-generated SPDX container SBOMs, SHA-256 manifests, and HIGH/CRITICAL Grype gating with reviewable, expiring exception policy.
+- Versioned SQLite schema history, a backup-first migration runner with dry-run inspection, an isolated restore drill, and historical v0.6.0/v0.7.0/v0.8.0 upgrade fixtures.
+
+### Changed
+
+- Production dependencies and transitive packages are exactly pinned and checked consistently by Docker and CI.
+- Release publication verifies the SBOM checksum before attaching both artifacts to the GitHub Release.
+
+### Security
+
+- Production validation fails closed on missing or weak secrets, unsafe TLS/cookie combinations, conflicting secret sources, invalid response modes, and unsafe public bindings.
+- Secret files reject missing, empty, multi-line, non-UTF-8, and oversized values without logging their contents or paths.
+- Container vulnerability exceptions are deny-by-default, narrowly scoped, owned, justified, linked, and limited to 30 days.
+
+### Verification
+
+- All 61 executable regression modules pass locally in the existing image without Ollama, paid-provider, or network-dependent test calls.
+- Base and HTTPS Compose profiles, configuration validation, schema upgrades, backup/restore integrity, and release-artifact consistency pass locally.
+- GitHub Actions must pass baseline, Docker smoke, security, container scan, and release gate on this release commit before `v0.8.0` is tagged.
+
+See the [v0.8.0 release checklist](docs/RELEASE_v0.8.0.md) for setup, upgrade notes, verification details, and known limitations.
+
 ## [0.7.0] - 2026-08-26
 
 Detection Validation and Data Quality release.
@@ -29,7 +59,7 @@ Detection Validation and Data Quality release.
 - GitHub Actions pre-release head `ac5f0ec` passed baseline, Docker smoke, security, and release gate in run `32956979463`.
 - Python, JavaScript, PowerShell, Compose, runtime health, tracked-file, and secret checks pass without an Ollama/network-dependent test.
 
-See the [v0.7.0 release checklist](docs/RELEASE_v0.7.0.md) for setup, upgrade notes, verification details, and known limitations.
+See the [v0.7.0 release history](docs/RELEASE_HISTORY.md#mini-siem-v070-release-checklist) for setup, upgrade notes, verification details, and known limitations.
 
 ## [0.6.0] - 2026-08-23
 

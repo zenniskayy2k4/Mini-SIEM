@@ -23,7 +23,7 @@ Confirm these `.env` values:
 
 ```dotenv
 AI_PROVIDER=ollama_cloud
-OLLAMA_API_KEY=your_ollama_cloud_key
+OLLAMA_API_KEY=
 OLLAMA_BASE_URL=https://ollama.com/api
 OLLAMA_MODEL=gemma4:cloud
 RESPONSE_MODE=simulation

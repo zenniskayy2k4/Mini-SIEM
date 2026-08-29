@@ -46,7 +46,7 @@ The drill works only in a temporary directory. It creates sample alert, incident
 
 ## Historical upgrade matrix
 
-CI upgrades deterministic `v0.6.0`, `v0.7.0`, and fresh SQLite fixtures to the current schema, checks backup creation and integrity, and verifies historical alert, incident, asset, external-case, tuning, and ingestion state. The matrix derives its required supported releases from `CHANGELOG.md`; publishing a new release without adding its fixture fails the baseline job and therefore blocks the release gate.
+CI upgrades deterministic `v0.6.0`, `v0.7.0`, `v0.8.0`, and fresh SQLite fixtures to the current schema, checks required backup creation and integrity, and verifies historical alert, incident, asset, external-case, tuning, and ingestion state. The matrix derives its required supported releases from `CHANGELOG.md`; publishing a new release without adding its fixture fails the baseline job and therefore blocks the release gate.
 
 ## Restore a full SQLite backup
 

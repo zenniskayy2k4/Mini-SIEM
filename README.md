@@ -5,14 +5,14 @@
 ![Ollama](https://img.shields.io/badge/Ollama-Cloud_AI-white?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=flat-square)
-![Release](https://img.shields.io/badge/release-v0.7.0-2ea44f?style=flat-square)
+![Release](https://img.shields.io/badge/release-v0.8.0-2ea44f?style=flat-square)
 [![CI](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml/badge.svg)](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml)
 
 A compact, explainable SIEM lab for learning blue-team workflows. It combines YAML signatures, local anomaly models, event correlation, an optional Ollama Cloud analyst, an authenticated incident dashboard, and safe response simulation.
 
 > **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
 
-Current release: **v0.7.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.7.0.md).
+Current release: **v0.8.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.8.0.md).
 
 ## What is implemented
 
@@ -30,6 +30,7 @@ Current release: **v0.7.0** — see the [changelog](CHANGELOG.md) and [release c
 - Normalized GeoIP, optional AbuseIPDB/VirusTotal metadata, and offline STIX/TAXII indicator matching.
 - Health/status diagnostics, retention, SQLite backup, and log rotation tooling.
 - Deterministic detection scenarios, analyst feedback, audited tuning controls, versioned event envelopes, ingestion diagnostics, and stale-collector detection.
+- Validated deployment configuration, an optional HTTPS reverse-proxy profile, file-backed secrets, reproducible dependencies, release SBOM/checksums, and tested database migration/recovery.
 
 ## Architecture
 
@@ -123,7 +124,7 @@ Copy `.env.example` to `.env` and set:
 ```dotenv
 AI_PROVIDER=ollama_cloud
 AI_FALLBACK_PROVIDER=
-OLLAMA_API_KEY=your_ollama_cloud_key
+OLLAMA_API_KEY=
 OLLAMA_BASE_URL=https://ollama.com/api
 OLLAMA_MODEL=gemma4:cloud
 ```
@@ -231,8 +232,8 @@ CASE_EXPORT_ENABLED=false
 CASE_EXPORT_PROVIDER=thehive
 CASE_EXPORT_TIMEOUT_SECONDS=5
 CASE_EXPORT_MAX_ATTEMPTS=2
-THEHIVE_URL=https://thehive.example
-THEHIVE_API_KEY=replace-with-a-dedicated-api-key
+THEHIVE_URL=
+THEHIVE_API_KEY=
 ```
 
 For Jira Cloud, select `jira` and configure its project and dedicated account:
@@ -278,7 +279,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
 - Runtime hit coverage and manual checks are tracked in the [Detection checklist](DETECTION_CHECKLIST.md); deterministic scenario coverage is published in the [validation coverage matrix](docs/DETECTION_VALIDATION_COVERAGE.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
-- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.7.0 checklist](docs/RELEASE_v0.7.0.md).
+- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.8.0 checklist](docs/RELEASE_v0.8.0.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
 - The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.7–v1.0 roadmap](docs/MINI_SIEM_ROADMAP_v0.7_to_v1.0.md).
 
@@ -324,8 +325,8 @@ Mini-SIEM/
 
 ## Near-term roadmap
 
-- Complete the v0.8 software supply-chain and database recovery gates.
-- Extend integration reliability only where measurable delivery or reconciliation requirements exist.
+- Measure v0.9 single-node load, storage performance, backpressure, and collector recovery.
+- Extend integration reliability only where measured delivery or reconciliation requirements exist.
 - Keep multi-tenant architecture and production response integrations deferred until a concrete isolation or execution requirement exists.
 
 ## Dependency policy
