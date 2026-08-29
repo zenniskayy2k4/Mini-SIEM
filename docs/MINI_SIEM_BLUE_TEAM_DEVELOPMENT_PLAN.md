@@ -960,7 +960,7 @@ feat: add flexible rule matching operators
 - [x] `/api/detection-coverage` tổng hợp hit count bằng SQLite `GROUP BY rule_id`, có JSON streaming fallback.
 - [x] Dashboard hiển thị từng rule với `HIT`/`NEVER HIT` và tổng quan MITRE techniques.
 - [x] Attack simulator hiển thị expected rule ID cho từng mode; mode AI/NIDS ghi rõ không thuộc YAML rule coverage.
-- [x] `DETECTION_CHECKLIST.md` mô tả pass criteria cho simulator và account creation rule.
+- [x] `docs/DETECTION_CHECKLIST.md` mô tả pass criteria cho simulator và account creation rule.
 - [x] Regression trong image, Flask smoke test và live API/UI đều pass.
 
 ### Không bắt buộc

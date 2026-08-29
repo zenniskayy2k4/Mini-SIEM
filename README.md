@@ -277,7 +277,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - The opt-in [local HTTPS profile](docs/HTTPS_DEPLOYMENT.md) terminates TLS with Caddy, closes the direct dashboard port, validates one forwarded-header hop, and documents the development CA certificate path.
 - Retention, backup, restore verification, and log rotation are documented in [Retention and backup](docs/RETENTION_BACKUP.md).
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
-- Runtime hit coverage and manual checks are tracked in the [Detection checklist](DETECTION_CHECKLIST.md); deterministic scenario coverage is published in the [validation coverage matrix](docs/DETECTION_VALIDATION_COVERAGE.md).
+- Runtime hit coverage and manual checks are tracked in the [Detection checklist](docs/DETECTION_CHECKLIST.md); deterministic scenario coverage is published in the [validation coverage matrix](docs/DETECTION_VALIDATION_COVERAGE.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
 - Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.8.0 checklist](docs/RELEASE_v0.8.0.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).

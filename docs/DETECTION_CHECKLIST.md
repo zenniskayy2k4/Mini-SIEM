@@ -17,4 +17,4 @@ Also verify:
 - The MITRE summary counts unique configured techniques and techniques with at least one hit.
 - Each rule-generated alert contains the expected `rule_id`.
 
-Runtime hit counts prove that a rule fired in this installation; they do not prove deterministic behavior. The offline positive/negative corpus and its latest results are tracked separately in the generated [validation coverage matrix](docs/DETECTION_VALIDATION_COVERAGE.md).
+Runtime hit counts prove that a rule fired in this installation; they do not prove deterministic behavior. The offline positive/negative corpus and its latest results are tracked separately in the generated [validation coverage matrix](DETECTION_VALIDATION_COVERAGE.md).
