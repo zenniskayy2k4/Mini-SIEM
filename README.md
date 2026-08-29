@@ -298,6 +298,11 @@ docker compose run --rm -v "${PWD}:/app" dashboard python \
   tools/generate_telemetry_load.py --mode mixed-source --count 1000 \
   --output data/synthetic-telemetry.jsonl
 
+# Benchmark bounded single-node processing against temporary SQLite
+docker compose run --rm -v "${PWD}:/app" dashboard python \
+  tools/benchmark_throughput.py --api-url http://dashboard:5000/health \
+  --json-output data/throughput-report.json
+
 # Back up SQLite or apply retention offline
 docker compose run --rm dashboard python -m tools.maintenance backup
 docker compose run --rm dashboard python -m tools.maintenance retention --days 90

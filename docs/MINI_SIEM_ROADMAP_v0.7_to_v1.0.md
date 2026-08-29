@@ -1470,7 +1470,7 @@ test: add synthetic telemetry load generator
 
 ## M25.2 — Throughput Benchmark
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Measure
 
@@ -1497,6 +1497,28 @@ burst
 ```
 
 Adjust to actual machine capability.
+
+### Local verification — 2026-08-29
+
+| Profile | Achieved events/s | Normalize p95 ms | Detect p95 ms | SQLite p95 ms | CPU % | Peak Python memory bytes |
+|---|---:|---:|---:|---:|---:|---:|
+| 10 events/s | 9.998 | 0.342 | 12.449 | 2.888 | 3.106 | 166972 |
+| 50 events/s | 49.994 | 0.304 | 0.306 | 4.524 | 11.262 | 146890 |
+| 100 events/s | 99.988 | 0.286 | 0.323 | 3.367 | 19.159 | 286880 |
+| 250 events/s | 249.981 | 0.197 | 0.275 | 2.869 | 39.042 | 373507 |
+| Burst (250 events) | 346.414 | 0.155 | 0.075 | 2.933 | 50.736 | 299202 |
+
+| Additional check | Result |
+|---|:---:|
+| Dashboard `/health`, 10 samples, p95 35.913 ms, HTTP 200 | PASS |
+| Temporary SQLite rows equal processed events for every profile | PASS |
+| Queue depth, dropped events, and rejected events remained zero | PASS |
+| AI/TI disabled; benchmark database isolated and removed automatically | PASS |
+| Local-only API allowlist rejects remote hosts and embedded credentials | PASS |
+| Total attempted events bounded to 100,000 | PASS |
+| 63 executable regression modules | PASS |
+| Python syntax validation | PASS |
+| No new dependency, package installation, or image build | PASS |
 
 ### Suggested commit
 
@@ -2243,7 +2265,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M25.2 — Throughput Benchmark
+M25.3 — Bounded Ingestion Queue
 ```
 
 M21 is complete in release v0.7.0:
@@ -2254,7 +2276,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M25.1 now provides safe deterministic telemetry load inputs. Next, add only the M25.2 single-node throughput benchmark.
+M25.2 now provides the bounded single-node throughput baseline. Next, add only the M25.3 bounded ingestion queue.
 
 ---
 
@@ -2442,14 +2464,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M25.2 — Throughput Benchmark
+M25.3 — Bounded Ingestion Queue
 ```
 
-M25.1 now emits bounded, deterministic local JSONL without sending traffic or starting providers. Success for the next batch is:
+M25.2 now measures the synchronous baseline without touching live alert data. Success for the next batch is:
 
 ```text
-replay candidate event rates and burst mode
-+ measure pipeline, storage, API, CPU, memory, queue, and rejection behavior
-+ calibrate to actual machine capability
-= reproducible single-node throughput baseline
+bounded ingestion queue + queue-depth metric
++ explicit backpressure/rejection policy with no silent drops
++ saturation exposed through health
+= observable bounded overload behavior
 ```
