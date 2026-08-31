@@ -216,3 +216,5 @@ data/runtime_settings.json
 
 # Local agent workflow (machine/private instructions)
 AGENTS.md
+
+opencode.jsonc
