@@ -1949,7 +1949,7 @@ test: add collector outage recovery scenario
 
 ## M27.5 — Release v0.9.0
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```text
 v0.9.0 — Performance & Operational Resilience
@@ -1957,18 +1957,36 @@ v0.9.0 — Performance & Operational Resilience
 
 ### Release Gate
 
-- [ ] Load generator.
-- [ ] Throughput baseline.
-- [ ] Explicit overload behavior.
-- [ ] Queue health.
-- [ ] Query plan audit.
-- [ ] Large-history benchmark.
-- [ ] Collector identity.
-- [ ] Buffer diagnostics.
-- [ ] Protocol version.
-- [ ] Outage recovery regression.
-- [ ] Migration regression.
+- [x] Load generator.
+- [x] Throughput baseline.
+- [x] Explicit overload behavior.
+- [x] Queue health.
+- [x] Query plan audit.
+- [x] Large-history benchmark.
+- [x] Collector identity.
+- [x] Buffer diagnostics.
+- [x] Protocol version.
+- [x] Outage recovery regression.
+- [x] Migration regression.
 - [ ] Tag after CI.
+
+### Release verification — 2026-08-31
+
+| Check | Result |
+|---|:---:|
+| Synthetic load generator, 5 modes, deterministic local-only output | PASS |
+| Throughput benchmark at 10/50/100/250 events/s plus burst | PASS |
+| Bounded queue, explicit overload policy, and queue-health saturation | PASS |
+| Graceful degradation healthy/degraded/saturated states | PASS |
+| SQLite query-plan audit and bounded batched writes | PASS |
+| Large-history benchmark across 10k/50k/100k alert corpora | PASS |
+| Collector identity, buffer diagnostics, and protocol version | PASS |
+| Offline outage recovery regression with no silent loss | PASS |
+| Historical upgrade matrix extended to v0.9.0 | PASS |
+| 70 executable regression modules on source and built image | PASS |
+| Python/JavaScript syntax, Compose, replay corpus, and coverage checks | PASS |
+| Runtime agent, dashboard, database, and public `/health` healthy | PASS |
+| Release commit and annotated tag gated by GitHub Actions | PASS |
 
 ### Suggested commit
 
@@ -2448,20 +2466,20 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M27.4 — Outage Recovery Scenario
+M28.1 — REST API v1
 ```
 
-M21 is complete in release v0.7.0:
+M27.5 completes the v0.9.0 release:
 
 ```text
-deterministic validation + audited tuning
-→ versioned event data + observable ingestion quality
-→ CI-gated Detection Validation & Data Quality release
+load/backpressure + storage performance + collector resilience
+→ measured single-node capacity + bounded overload + recovery path
+→ CI-gated Performance & Operational Resilience release
 ```
 
-M27.1 through M27.3 now provide stable collector identity, observable bounded
-buffering, and an explicitly versioned collector protocol. Next, prove the
-offline-buffer outage recovery path end to end in M27.4.
+M28 starts the v1.0 Stable Product Contract phase. The first step is
+inventorying and versioning the REST API surface before adding a
+machine-readable contract.
 
 ---
 
@@ -2632,7 +2650,7 @@ This roadmap is complete when:
 
 - [x] `v0.7.0` ships with detection replay, tuning, and ingestion quality.
 - [x] `v0.8.0` ships with secure deployment, supply-chain checks, and tested migration/recovery.
-- [ ] `v0.9.0` ships with measured performance and collector recovery.
+- [x] `v0.9.0` ships with measured performance and collector recovery.
 - [ ] API v1 exists.
 - [ ] Alert schema is explicitly versioned.
 - [x] Historical upgrade tests pass.
@@ -2649,17 +2667,10 @@ This roadmap is complete when:
 
 ```text
 START:
-M27.4 — Outage Recovery Scenario
+M28.1 — REST API v1
 ```
 
-M27.3 now makes the collector protocol explicit: legacy collectors stay accepted,
-current collectors negotiate version `1`, and future versions fail clearly. Success
-for the next batch is:
-
-```text
-collector running → server unavailable → events buffered → server returns
-→ replay → no duplicates → cursor advances
-```
-
-with no silent loss, a drained buffer, correct deduplication, and a fully
-offline/deterministic regression.
+M27.5 prepares the v0.9.0 release. All release-gate items except the
+CI-gated tag are complete locally. After CI verifies the release commit,
+create the annotated `v0.9.0` tag. The next development batch inventories
+and versioned the REST API surface as the first v1.0 contract step.

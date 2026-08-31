@@ -1,6 +1,6 @@
 # Mini-SIEM Release History
 
-Archived release notes for versions older than the current standalone release. See [v0.8.0](RELEASE_v0.8.0.md) for the latest release.
+Archived release notes for versions older than the current standalone release. See [v0.9.0](RELEASE_v0.9.0.md) for the latest release.
 
 ## Mini-SIEM v0.7.0 Release Checklist
 

@@ -4,6 +4,40 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-31
+
+Performance and Operational Resilience release.
+
+### Added
+
+- A deterministic synthetic telemetry load generator with `steady`, `burst`, `mixed-source`, `windows-heavy`, and `authentication-heavy` modes that produces local-only versioned envelopes with no exploit traffic, AI, or provider calls.
+- A single-node throughput benchmark measuring events/sec, normalization/detection/SQLite latency, dashboard API latency, CPU, memory, queue depth, and dropped/rejected events at 10/50/100/250 events/s and burst profiles.
+- A bounded stdlib ingestion queue with explicit overload policy: backpressure on a full queue, worker-failure counting, explicit rejection when stopped, and saturation surfaced in agent heartbeat, system status, and public health.
+- Graceful degradation across `healthy`, `degraded`, and `saturated` states that keeps core detection and persistence active while AI/external TI skip new work and notifications become serialized or audit `SKIPPED_OVERLOAD` without network calls.
+- Justified SQLite query indexes with an `EXPLAIN QUERY PLAN` audit and bounded batched writes (batch size 10, maximum 50 ms flush) for the durable JSON dual-write profile.
+- Stable collector identity with atomic ID persistence, server-side version/hostname/source/last-seen tracking, and duplicate-ID warning on host change.
+- Bounded per-channel collector buffer diagnostics (500-event cap, oldest-first replay, delete-only-after-acknowledgement, corrupt-buffer quarantine) and a versioned collector ingest protocol that keeps legacy payloads accepted.
+- An offline deterministic outage recovery regression covering buffering, replay, deduplication, cursor advance, and no silent loss.
+
+### Changed
+
+- SQLite telemetry/incident transaction time reduced by 88.9%/87.8% and end-to-end dual-write time by 44.4%/36.7% at the measured batch/flush settings.
+- Collector payloads now send `protocol_version: 1`; missing fields negotiate to legacy `0` and future versions are rejected with HTTP 400.
+- The 100k alert API/search paths remain below 50 ms while the analytics ceiling is recorded in the large-history benchmark.
+
+### Security
+
+- Overload-degradation evidence is explicit and audited: AI/TI skip new work under load, notifications write `SKIPPED_OVERLOAD` without network calls, and core detection/persistence always have priority.
+- Collector buffer metrics and heartbeat diagnostics are bounded and surfaced only through authenticated admin diagnostics; protocol and buffer fields are strictly validated at the collector API trust boundary.
+
+### Verification
+
+- All 70 executable regression modules pass locally in the existing image without Ollama, paid-provider, or network-dependent test calls.
+- Python, PowerShell, Compose, runtime health, and migration regressions pass; the deterministic outage recovery, throughput, large-history, and query-plan modules are covered.
+- GitHub Actions must pass baseline, Docker smoke, security, container scan, and release gate on this release commit before `v0.9.0` is tagged.
+
+See the [v0.9.0 release checklist](docs/RELEASE_v0.9.0.md) for setup, upgrade notes, verification details, and known limitations.
+
 ## [0.8.0] - 2026-08-29
 
 Platform and Supply-chain Hardening release.
