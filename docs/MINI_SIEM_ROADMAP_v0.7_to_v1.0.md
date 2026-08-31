@@ -1761,7 +1761,7 @@ perf: add large-history query benchmark
 
 ## M27.1 — Collector Identity
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Fields:
 
@@ -1773,10 +1773,28 @@ source_type
 last_seen
 ```
 
-- [ ] Stable collector ID.
-- [ ] Server tracks last seen.
-- [ ] Version visible.
-- [ ] Duplicate ID warning.
+- [x] Stable collector ID.
+- [x] Server tracks last seen.
+- [x] Version visible.
+- [x] Duplicate ID warning.
+
+The Windows collector persists a generated ID beside its cursor and buffer state. The
+existing heartbeat inventory now exposes version, hostname, source type, and last seen;
+reusing an ID from a different hostname raises a persistent warning without replacing the
+original host identity.
+
+### Local verification — 2026-08-31
+
+| Check | Result |
+|---|:---:|
+| Stable generated collector ID persisted atomically | PASS |
+| Version, hostname, source type, and last seen returned by API and diagnostics | PASS |
+| Duplicate ID from a different hostname preserves identity and raises warning | PASS |
+| Legacy collector payload remains accepted | PASS |
+| Backup-first migration v3 and historical upgrade matrix | PASS |
+| PowerShell syntax and Python compile checks | PASS |
+| 68 executable regression modules | PASS |
+| No temporary `check_m*.py`, new dependency, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2363,7 +2381,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M27.1 — Collector Identity
+M27.2 — Buffer Diagnostics
 ```
 
 M21 is complete in release v0.7.0:
@@ -2374,7 +2392,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M26 is complete with measured query plans, bounded writes, and disposable 100k-history validation. Next, establish stable collector identity in M27.1.
+M26 is complete with measured query plans, bounded writes, and disposable 100k-history validation. M27.1 adds stable collector identity; next, expose bounded buffer diagnostics in M27.2.
 
 ---
 
@@ -2562,14 +2580,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M27.1 — Collector Identity
+M27.2 — Buffer Diagnostics
 ```
 
-M26 now has evidence for both write throughput and 100k retained-history behavior. Success for the next batch is:
+M27.1 now provides stable collector identity and duplicate-ID visibility. Success for the next batch is:
 
 ```text
-assign a stable collector ID and version
-+ track hostname, source type, and last seen
-+ warn on duplicate collector identity
-= visible collector inventory without weakening ingestion validation
+bound the offline buffer and preserve oldest-first replay
++ report retry, delivery failure, age, and last-success metrics
++ delete buffered data only after server acknowledgement
+= observable outage recovery without silent event loss
 ```

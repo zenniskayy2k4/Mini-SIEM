@@ -13,6 +13,7 @@ from src.health import write_agent_heartbeat
 from src.ingestion_failures import record_collector_heartbeat
 from src.sqlite_store import SQLiteAlertRepository
 from tests.auth_helpers import login_as
+from tools.migrate_db import migrate_database
 
 
 def test_health():
@@ -26,6 +27,8 @@ def test_health():
         )
         config.AGENT_HEARTBEAT_FILE = str(directory / "heartbeat.json")
         config.SQLITE_ALERT_DB = str(directory / "alerts.db")
+        Path(config.SQLITE_ALERT_DB).touch()
+        migrate_database(config.SQLITE_ALERT_DB)
         config.WINDOWS_COLLECTOR_SECRET = ""
         repository = SQLiteAlertRepository(config.SQLITE_ALERT_DB)
         alert = build_alert(

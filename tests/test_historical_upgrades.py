@@ -73,6 +73,15 @@ CREATE TABLE ingestion_health (
     processing_seconds REAL NOT NULL DEFAULT 0,
     collector_last_seen_at TEXT
 );
+CREATE TABLE collector_heartbeats (
+    source_type TEXT NOT NULL,
+    collector_id TEXT NOT NULL,
+    last_heartbeat_at TEXT NOT NULL,
+    last_event_at TEXT,
+    last_batch_events INTEGER NOT NULL DEFAULT 0,
+    endpoint_available INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (source_type, collector_id)
+);
 """
 
 V08_ADDITIONS = """

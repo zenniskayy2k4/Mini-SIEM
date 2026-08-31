@@ -192,9 +192,29 @@ ON incident_events(event_type, timestamp);
 QUERY_INDEX_VERSION = 2
 QUERY_INDEX_NAME = "query_indexes_v0.9.0"
 QUERY_INDEX_CHECKSUM = hashlib.sha256(QUERY_INDEX_SCHEMA.encode("utf-8")).hexdigest()
+COLLECTOR_IDENTITY_SCHEMA = """
+ALTER TABLE collector_heartbeats
+ADD COLUMN collector_version TEXT NOT NULL DEFAULT 'legacy';
+ALTER TABLE collector_heartbeats
+ADD COLUMN hostname TEXT NOT NULL DEFAULT 'unknown';
+ALTER TABLE collector_heartbeats
+ADD COLUMN duplicate_id_warning INTEGER NOT NULL DEFAULT 0
+CHECK(duplicate_id_warning IN (0, 1));
+"""
+COLLECTOR_IDENTITY_VERSION = 3
+COLLECTOR_IDENTITY_NAME = "collector_identity_v0.9.0"
+COLLECTOR_IDENTITY_CHECKSUM = hashlib.sha256(
+    COLLECTOR_IDENTITY_SCHEMA.encode("utf-8")
+).hexdigest()
 MIGRATIONS = (
     (BASELINE_VERSION, BASELINE_NAME, BASELINE_CHECKSUM, BASELINE_SCHEMA),
     (QUERY_INDEX_VERSION, QUERY_INDEX_NAME, QUERY_INDEX_CHECKSUM, QUERY_INDEX_SCHEMA),
+    (
+        COLLECTOR_IDENTITY_VERSION,
+        COLLECTOR_IDENTITY_NAME,
+        COLLECTOR_IDENTITY_CHECKSUM,
+        COLLECTOR_IDENTITY_SCHEMA,
+    ),
 )
 
 

@@ -11,6 +11,7 @@ from src.ingestion_failures import (
     record_collector_heartbeat, record_ingestion_failure,
 )
 from src.windows_events import ingest_windows_events
+from tools.migrate_db import migrate_database
 
 
 def test_ingestion_failures():
@@ -18,6 +19,8 @@ def test_ingestion_failures():
         directory = Path(directory_name)
         original = config.SQLITE_ALERT_DB, config.INGESTION_FAILURE_RETENTION_DAYS
         config.SQLITE_ALERT_DB = str(directory / "mini-siem.db")
+        Path(config.SQLITE_ALERT_DB).touch()
+        migrate_database(config.SQLITE_ALERT_DB)
         config.INGESTION_FAILURE_RETENTION_DAYS = 30
         output = directory / "windows-events.jsonl"
         try:
@@ -25,7 +28,18 @@ def test_ingestion_failures():
             assert get_collector_gap_diagnostics(
                 now=heartbeat_at, stale_seconds=60,
             )["status"] == "offline"
-            record_collector_heartbeat("win-lab", now=heartbeat_at)
+            identity = record_collector_heartbeat(
+                "win-lab", collector_version="0.9.0", hostname="win-lab",
+                now=heartbeat_at,
+            )
+            assert identity == {
+                "collector_id": "win-lab",
+                "collector_version": "0.9.0",
+                "hostname": "win-lab",
+                "source_type": "WINDOWS_EVENT",
+                "last_seen": "2026-08-25T09:00:00Z",
+                "duplicate_id_warning": False,
+            }
             idle = get_collector_gap_diagnostics(
                 now=heartbeat_at, stale_seconds=60,
             )
@@ -45,6 +59,18 @@ def test_ingestion_failures():
             )
             assert healthy_gap["status"] == "healthy"
             assert healthy_gap["collectors"][0]["last_event_age_seconds"] == 0
+            duplicate = record_collector_heartbeat(
+                "win-lab", collector_version="0.9.1", hostname="win-clone",
+                now=heartbeat_at.replace(second=3),
+            )
+            assert duplicate["hostname"] == "win-lab"
+            assert duplicate["collector_version"] == "0.9.0"
+            assert duplicate["duplicate_id_warning"] is True
+            collector = get_collector_gap_diagnostics(
+                now=heartbeat_at.replace(second=3), stale_seconds=60,
+            )["collectors"][0]
+            assert collector["last_seen"] == "2026-08-25T09:00:03Z"
+            assert collector["duplicate_id_warning"] is True
             assert get_ingestion_health_metrics(
                 now=heartbeat_at.replace(second=2),
             )["WINDOWS_EVENT"]["collector_last_seen_seconds"] == 0
@@ -57,6 +83,11 @@ def test_ingestion_failures():
                     assert False, "collector heartbeat limit was not enforced"
                 except ValueError as exc:
                     assert str(exc) == "collector heartbeat limit reached"
+            try:
+                record_collector_heartbeat("win-lab", collector_version="")
+                assert False, "empty collector version was accepted"
+            except ValueError as exc:
+                assert str(exc).startswith("collector_version must contain")
 
             empty_health = get_ingestion_health_metrics()["WINDOWS_EVENT"]
             assert empty_health["events_received_total"] == 0

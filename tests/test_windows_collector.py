@@ -4,6 +4,7 @@ from pathlib import Path
 
 from config import config
 from dashboard import app
+from tools.migrate_db import migrate_database
 
 
 EVENT_XML = """<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Sysmon"/><EventID>3</EventID><TimeCreated SystemTime="2026-08-13T10:00:00Z"/><EventRecordID>702</EventRecordID><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>win-lab</Computer></System><EventData><Data Name="Image">C:\\Windows\\System32\\curl.exe</Data><Data Name="User">LAB\\analyst</Data><Data Name="DestinationIp">198.51.100.21</Data><Data Name="DestinationPort">443</Data><Data Name="Protocol">tcp</Data></EventData></Event>"""
@@ -17,6 +18,8 @@ def test_windows_collector():
         )
         config.WINDOWS_EVENT_FILE = str(Path(directory, "windows_events.jsonl"))
         config.SQLITE_ALERT_DB = str(Path(directory, "mini-siem.db"))
+        Path(config.SQLITE_ALERT_DB).touch()
+        migrate_database(config.SQLITE_ALERT_DB)
         client = app.test_client()
         try:
             config.WINDOWS_COLLECTOR_SECRET = ""
@@ -61,10 +64,20 @@ def test_windows_collector():
             response = client.post(
                 "/api/windows-events",
                 headers=headers,
-                json={"collector_id": "win-lab", "events": [EVENT_XML]},
+                json={
+                    "collector_id": "win-stable-id",
+                    "collector_version": "0.9.0",
+                    "hostname": "win-lab",
+                    "source_type": "WINDOWS_EVENT",
+                    "events": [EVENT_XML],
+                },
             )
             assert response.status_code == 200
-            assert response.get_json()["imported"] == 1
+            payload = response.get_json()
+            assert payload["imported"] == 1
+            assert payload["collector"]["collector_id"] == "win-stable-id"
+            assert payload["collector"]["collector_version"] == "0.9.0"
+            assert payload["collector"]["hostname"] == "win-lab"
 
             duplicate = client.post(
                 "/api/windows-events",
@@ -76,7 +89,7 @@ def test_windows_collector():
             event = json.loads(Path(config.WINDOWS_EVENT_FILE).read_text(encoding="utf-8"))
             assert event["event_schema_version"] == 1
             assert event["event_id"].startswith("EVT-")
-            assert event["collector_id"] == "win-lab"
+            assert event["collector_id"] == "win-stable-id"
             assert event["source_type"] == "WINDOWS_EVENT"
             assert event["payload"]["network"]["destination_port"] == 443
             assert client.post(
@@ -84,8 +97,20 @@ def test_windows_collector():
                 json={"collector_id": {"host": "invalid"}, "events": [EVENT_XML]},
             ).status_code == 400
             assert client.post(
+                "/api/windows-events", headers=headers,
+                json={"source_type": "NIDS", "events": [EVENT_XML]},
+            ).status_code == 400
+            assert client.post(
+                "/api/windows-events", headers=headers,
+                json={"hostname": False, "events": [EVENT_XML]},
+            ).status_code == 400
+            assert client.post(
                 "/api/windows-events", headers=headers, json=[EVENT_XML],
             ).status_code == 400
+            collector_script = Path("tools/windows_event_collector.ps1").read_text(encoding="utf-8")
+            for field in ("collector_id", "collector_version", "hostname", "source_type"):
+                assert f"{field} =" in collector_script
+            assert 'collector-id.txt' in collector_script
         finally:
             (
                 config.WINDOWS_COLLECTOR_SECRET, config.WINDOWS_EVENT_FILE,

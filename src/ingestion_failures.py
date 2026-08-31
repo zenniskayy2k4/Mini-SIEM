@@ -74,6 +74,15 @@ def _cutoff(now=None) -> str:
     return utc_iso(now - timedelta(days=config.INGESTION_FAILURE_RETENTION_DAYS))
 
 
+def _collector_text(value, field, max_length) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be text")
+    value = value.strip()
+    if not value or len(value) > max_length or any(not character.isprintable() for character in value):
+        raise ValueError(f"{field} must contain 1 to {max_length} printable characters")
+    return value
+
+
 def record_ingestion_failure(
     failure_type, reason, payload, *, source_type="WINDOWS_EVENT",
     collector_id="unknown", occurred_at=None,
@@ -218,9 +227,14 @@ def get_ingestion_health_metrics(now=None) -> dict:
 
 def record_collector_heartbeat(
     collector_id, *, events_received=0, endpoint_available=True,
-    source_type="WINDOWS_EVENT", now=None,
-) -> None:
+    source_type="WINDOWS_EVENT", collector_version="legacy", hostname=None,
+    now=None,
+) -> dict:
     collector_id = normalize_collector_id(collector_id)
+    collector_version = _collector_text(collector_version, "collector_version", 64)
+    hostname = _collector_text(
+        collector_id if hostname is None else hostname, "hostname", 255,
+    )
     source_type = str(source_type).strip().upper()
     if source_type not in SOURCE_TYPES:
         raise ValueError("collector heartbeat source_type is invalid")
@@ -234,9 +248,10 @@ def record_collector_heartbeat(
             """
             INSERT INTO collector_heartbeats (
                 source_type, collector_id, last_heartbeat_at, last_event_at,
-                last_batch_events, endpoint_available
+                last_batch_events, endpoint_available, collector_version,
+                hostname, duplicate_id_warning
             )
-            SELECT ?, ?, ?, ?, ?, ?
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, 0
             WHERE EXISTS (
                 SELECT 1 FROM collector_heartbeats
                 WHERE source_type = ? AND collector_id = ?
@@ -245,11 +260,29 @@ def record_collector_heartbeat(
                 last_heartbeat_at=excluded.last_heartbeat_at,
                 last_event_at=COALESCE(excluded.last_event_at, last_event_at),
                 last_batch_events=excluded.last_batch_events,
-                endpoint_available=excluded.endpoint_available
+                endpoint_available=excluded.endpoint_available,
+                collector_version=CASE
+                    WHEN collector_heartbeats.hostname = 'unknown'
+                        OR (
+                            lower(collector_heartbeats.hostname) = lower(excluded.hostname)
+                            AND excluded.collector_version != 'legacy'
+                        )
+                        THEN excluded.collector_version
+                    ELSE collector_heartbeats.collector_version
+                END,
+                hostname=CASE
+                    WHEN collector_heartbeats.hostname = 'unknown' THEN excluded.hostname
+                    ELSE collector_heartbeats.hostname
+                END,
+                duplicate_id_warning=CASE
+                    WHEN lower(collector_heartbeats.hostname) NOT IN ('unknown', lower(excluded.hostname))
+                        THEN 1
+                    ELSE collector_heartbeats.duplicate_id_warning
+                END
             """,
             (
                 source_type, collector_id, heartbeat_at, event_at,
-                events_received, int(endpoint_available),
+                events_received, int(endpoint_available), collector_version, hostname,
                 source_type, collector_id, MAX_COLLECTOR_HEARTBEATS,
             ),
         )
@@ -264,6 +297,22 @@ def record_collector_heartbeat(
             """,
             (source_type, heartbeat_at),
         )
+        row = connection.execute(
+            """
+            SELECT collector_version, hostname, duplicate_id_warning
+            FROM collector_heartbeats
+            WHERE source_type = ? AND collector_id = ?
+            """,
+            (source_type, collector_id),
+        ).fetchone()
+    return {
+        "collector_id": collector_id,
+        "collector_version": row[0],
+        "hostname": row[1],
+        "source_type": source_type,
+        "last_seen": heartbeat_at,
+        "duplicate_id_warning": bool(row[2]),
+    }
 
 
 def get_collector_gap_diagnostics(now=None, stale_seconds=None) -> dict:
@@ -278,14 +327,18 @@ def get_collector_gap_diagnostics(now=None, stale_seconds=None) -> dict:
         rows = connection.execute(
             """
             SELECT source_type, collector_id, last_heartbeat_at, last_event_at,
-                   last_batch_events, endpoint_available
+                   last_batch_events, endpoint_available, collector_version,
+                   hostname, duplicate_id_warning
             FROM collector_heartbeats
             ORDER BY source_type, collector_id
             """
         ).fetchall()
 
     collectors = []
-    for source_type, collector_id, heartbeat_at, event_at, event_count, endpoint_available in rows:
+    for (
+        source_type, collector_id, heartbeat_at, event_at, event_count,
+        endpoint_available, collector_version, hostname, duplicate_id_warning,
+    ) in rows:
         heartbeat = datetime.fromisoformat(heartbeat_at.replace("Z", "+00:00"))
         heartbeat_age = max(0.0, (now.astimezone(timezone.utc) - heartbeat).total_seconds())
         event_age = None
@@ -301,12 +354,16 @@ def get_collector_gap_diagnostics(now=None, stale_seconds=None) -> dict:
         collectors.append({
             "source_type": source_type,
             "collector_id": collector_id,
+            "collector_version": collector_version,
+            "hostname": hostname,
             "status": status,
+            "last_seen": heartbeat_at,
             "last_heartbeat_at": heartbeat_at,
             "last_event_at": event_at,
             "heartbeat_age_seconds": round(heartbeat_age, 1),
             "last_event_age_seconds": round(event_age, 1) if event_age is not None else None,
             "endpoint_available": bool(endpoint_available),
+            "duplicate_id_warning": bool(duplicate_id_warning),
         })
 
     states = {collector["status"] for collector in collectors}

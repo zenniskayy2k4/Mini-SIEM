@@ -835,15 +835,25 @@ def api_windows_events():
     if len(events) > 500:
         return jsonify({"error": "Windows event batch exceeds 500 events"}), 413
     collector_id = body.get("collector_id") or body.get("source") or "windows-collector"
+    collector_version = body.get("collector_version", "legacy")
+    hostname = body.get("hostname")
+    if hostname is None:
+        hostname = collector_id
+    source_type = body.get("source_type", "WINDOWS_EVENT")
     try:
+        if not isinstance(source_type, str) or source_type.strip().upper() != "WINDOWS_EVENT":
+            raise ValueError("source_type must be WINDOWS_EVENT")
         summary = (
             ingest_windows_events(events, collector_id)
             if events else {"read": 0, "imported": 0, "duplicates": 0, "unsupported": 0, "errors": 0}
         )
-        record_collector_heartbeat(
+        collector = record_collector_heartbeat(
             collector_id,
             events_received=len(events),
             endpoint_available=endpoint_available,
+            source_type=source_type,
+            collector_version=collector_version,
+            hostname=hostname,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -855,7 +865,12 @@ def api_windows_events():
         else "healthy" if events
         else "idle"
     )
-    return jsonify({"ok": True, "collector_status": collector_status, **summary})
+    return jsonify({
+        "ok": True,
+        "collector_status": collector_status,
+        "collector": collector,
+        **summary,
+    })
 
 
 @app.route("/api/alerts/<alert_id>/status", methods=["PATCH"])

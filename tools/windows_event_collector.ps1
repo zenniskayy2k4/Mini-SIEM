@@ -45,6 +45,23 @@ $Channels = [ordered]@{
 $Endpoint = ([uri]::new($ServerUrl, "/api/windows-events")).AbsoluteUri
 $StateFile = Join-Path $StateDirectory "collector-state.json"
 $BufferFile = Join-Path $StateDirectory "collector-buffer.json"
+$CollectorIdFile = Join-Path $StateDirectory "collector-id.txt"
+$CollectorVersion = "0.9.0"
+
+function Get-StableCollectorId {
+    if (Test-Path -LiteralPath $CollectorIdFile) {
+        $saved = (Get-Content -Raw -LiteralPath $CollectorIdFile).Trim()
+        if ($saved -notmatch '^win-[0-9a-f]{32}$') {
+            throw "Collector ID file is invalid: $CollectorIdFile"
+        }
+        return $saved
+    }
+    $collectorId = "win-$([guid]::NewGuid().ToString('N'))"
+    $temporary = "$CollectorIdFile.tmp"
+    Set-Content -LiteralPath $temporary -Value $collectorId -Encoding UTF8
+    Move-Item -Force -LiteralPath $temporary -Destination $CollectorIdFile
+    return $collectorId
+}
 
 function Read-State {
     $state = @{}
@@ -115,9 +132,12 @@ function Read-Buffer {
 }
 
 function Send-Batch([object[]]$Items, [bool]$EndpointAvailable) {
-    $source = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { "windows-host" }
+    $hostname = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { "windows-host" }
     $payload = @{
-        collector_id = $source
+        collector_id = $CollectorId
+        collector_version = $CollectorVersion
+        hostname = $hostname
+        source_type = "WINDOWS_EVENT"
         heartbeat = $true
         endpoint_available = $EndpointAvailable
         events = @($Items | ForEach-Object { $_.xml })
@@ -179,6 +199,7 @@ function Save-Cursors([hashtable]$State, [object[]]$Items) {
 }
 
 New-Item -ItemType Directory -Force -Path $StateDirectory | Out-Null
+$CollectorId = Get-StableCollectorId
 $state = Read-State
 $initialized = Initialize-Cursors $state
 
