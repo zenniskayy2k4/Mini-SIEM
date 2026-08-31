@@ -98,6 +98,7 @@ class ThreatIntelService:
         self._cache = {}
         self._cache_lock = threading.Lock()
         self._rate_lock = threading.Lock()
+        self._single_flight = threading.Lock()
         self._next_request = 0.0
         # ponytail: one provider worker bounds calls; split pools only when multiple providers need concurrency.
         self._provider_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ti-provider")
@@ -185,7 +186,30 @@ class ThreatIntelService:
 
     def lookup_async(self, ioc_type: str, ioc: str) -> Future:
         """Submit a lookup without blocking alert persistence or the caller."""
-        return self._control_pool.submit(self.lookup, ioc_type, ioc)
+        kind, normalized = normalize_ioc(ioc_type, ioc)
+        if not self._single_flight.acquire(blocking=False):
+            future = Future()
+            future.set_result(ThreatIntelResult(
+                ioc_type=kind,
+                ioc=normalized,
+                provider=self.provider.name,
+                status="error",
+                checked_at=utc_iso(),
+                error={
+                    "code": "busy",
+                    "message": "Provider lookup skipped while busy",
+                    "retryable": True,
+                },
+                attempts=0,
+            ))
+            return future
+        try:
+            future = self._control_pool.submit(self.lookup, kind, normalized)
+        except Exception:
+            self._single_flight.release()
+            raise
+        future.add_done_callback(lambda _done: self._single_flight.release())
+        return future
 
     def close(self) -> None:
         self._control_pool.shutdown(wait=False, cancel_futures=True)

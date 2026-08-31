@@ -17,6 +17,10 @@ from src.audit import append_audit_event, verify_audit_log
 from src.case_connector import CaseExportService
 from src.health import build_system_status
 from src.incident_report import generate_incident_pdf
+from src.ingestion_failures import (
+    get_ingestion_failure_diagnostics, get_ingestion_health_metrics,
+    record_collector_heartbeat, validate_collector_protocol,
+)
 from src.jira import JiraConnector
 from src.metrics import metrics_unavailable, render_prometheus_metrics
 from src.dashboard_auth import (
@@ -27,6 +31,7 @@ from src.dashboard_auth import (
     delete_user,
     get_user,
     init_auth,
+    init_proxy,
     login_allowed,
     load_users,
     record_login_failure,
@@ -50,9 +55,11 @@ from src.thehive import TheHiveConnector
 from src.windows_events import ingest_windows_events
 
 app = Flask(__name__)
+init_proxy(app)
 init_auth(app)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
+VALIDATION_COVERAGE_FILE = Path(config.BASE_DIR, "docs", "DETECTION_VALIDATION_COVERAGE.json")
 DETECTION_RULES = load_detection_rules(
     config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
 )
@@ -159,7 +166,85 @@ def _detection_rule_records() -> list[dict]:
         "hit_count": int(counts.get(rule["id"], 0)),
         "never_hit": int(counts.get(rule["id"], 0)) == 0,
         "skip_reason": rule.get("skip_reason"),
+        "mitre_tactic": (rule.get("mitre") or {}).get("tactic", "Unmapped"),
+        "mitre_technique": (rule.get("mitre") or {}).get("technique", "Unmapped"),
     } for rule in rules]
+
+
+def _rule_quality_with_validation(rows: list[dict]) -> list[dict]:
+    quality = {row["rule_id"]: row for row in rows}
+    try:
+        artifact = json.loads(VALIDATION_COVERAGE_FILE.read_text(encoding="utf-8"))
+        validation_rules = artifact.get("rules", [])
+        if not isinstance(validation_rules, list):
+            raise ValueError("validation rules must be a list")
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        validation_rules = []
+
+    for validation in validation_rules:
+        if not isinstance(validation, dict) or not isinstance(validation.get("rule_id"), str):
+            continue
+        rule_id = validation["rule_id"].strip()
+        if not rule_id or len(rule_id) > 200:
+            continue
+        scenario_count = validation.get("scenario_count")
+        if isinstance(scenario_count, bool) or not isinstance(scenario_count, int):
+            scenario_count = 0
+        validation_result = str(validation.get("last_validation_result") or "").upper()
+        if validation_result not in {"PASS", "FAIL", "UNVALIDATED"}:
+            validation_result = "UNAVAILABLE"
+        row = quality.setdefault(rule_id, {
+            "rule_id": rule_id,
+            "alerts_generated": 0,
+            "true_positives": 0,
+            "false_positives": 0,
+            "benign_expected": 0,
+            "unclassified": 0,
+            "classified_sample_size": 0,
+            "false_positive_rate_percent": None,
+        })
+        row["validation_scenario_count"] = max(0, scenario_count)
+        row["last_validation_result"] = validation_result
+
+    for row in quality.values():
+        row.setdefault("validation_scenario_count", 0)
+        row.setdefault("last_validation_result", "UNAVAILABLE")
+    return sorted(quality.values(), key=lambda row: (-row["alerts_generated"], row["rule_id"]))
+
+
+def _detection_tuning_payload() -> dict:
+    rules = _detection_rule_records()
+    quality = {
+        row["rule_id"]: row for row in _rule_quality_with_validation(
+            alert_repository.rule_quality("1970-01-01T00:00:00Z", utc_iso())
+        )
+    }
+    exceptions = [
+        record for record in alert_repository.list_detection_exceptions() if record["active"]
+    ]
+    policies = alert_repository.list_alert_suppression_policies()
+    exceptions_by_rule = defaultdict(list)
+    policies_by_rule = defaultdict(list)
+    for record in exceptions:
+        if record["scope_type"] == "rule_id":
+            exceptions_by_rule[record["scope_value"]].append(record)
+    for policy in policies:
+        policies_by_rule[policy["rule_id"]].append(policy)
+    for rule in rules:
+        rule["feedback"] = quality.get(rule["rule_id"], {
+            "alerts_generated": rule["hit_count"],
+            "true_positives": 0,
+            "false_positives": 0,
+            "benign_expected": 0,
+            "unclassified": rule["hit_count"],
+            "classified_sample_size": 0,
+            "false_positive_rate_percent": None,
+            "validation_scenario_count": 0,
+            "last_validation_result": "UNAVAILABLE",
+        })
+        rule["exceptions"] = exceptions_by_rule[rule["rule_id"]]
+        rule["suppression_policies"] = policies_by_rule[rule["rule_id"]]
+    return {"rules": rules, "active_exceptions": exceptions}
 
 
 def _directory_status(path, pattern):
@@ -238,12 +323,14 @@ def _admin_workspace_payload():
             "detail": "Shared secret configured" if config.WINDOWS_COLLECTOR_SECRET else "Not configured",
         },
     ]
+    ingestion_failures = get_ingestion_failure_diagnostics()
     return {
         "current_username": session["username"],
         "users": users,
         "health": health,
         "integrations": integrations,
         "audit": {"valid": audit_valid, "message": audit_message, "events": audit_events},
+        "ingestion_failures": ingestion_failures,
         "maintenance": {
             "retention_days": config.ALERT_RETENTION_DAYS,
             "log_rotate_max_bytes": config.LOG_ROTATE_MAX_BYTES,
@@ -382,8 +469,10 @@ def health():
         "agent": status["agent"]["status"],
         "alert_store": status["alert_store"]["status"],
         "database": status["database"]["status"],
+        "ingestion": status["ingestion"]["status"],
+        "ingestion_queue": status["ingestion_queue"]["status"],
     }
-    return jsonify(public), 503 if status["status"] == "unhealthy" else 200
+    return jsonify(public), 503 if status["status"] in {"unhealthy", "saturated"} else 200
 
 
 @app.route("/metrics")
@@ -401,6 +490,8 @@ def metrics():
             _detection_rule_records(),
             build_system_status(_effective_settings()),
             config.NOTIFICATION_LOG_FILE,
+            get_ingestion_failure_diagnostics(limit=0)["counts"],
+            get_ingestion_health_metrics(),
         )
         status = 200
     except Exception:
@@ -433,6 +524,9 @@ def api_soc_kpis():
     try:
         kpis = alert_repository.soc_kpis(period["from"], period["to"])
         analytics = alert_repository.soc_analytics(period["from"], period["to"])
+        analytics["rule_quality"] = _rule_quality_with_validation(
+            alert_repository.rule_quality(period["from"], period["to"])
+        )
     except Exception:
         return jsonify({"error": "Analytics data unavailable"}), 503
     return jsonify({
@@ -444,6 +538,10 @@ def api_soc_kpis():
             "false_positive_rate_percent": "FALSE_POSITIVE / (RESOLVED + FALSE_POSITIVE)",
             "human_review_rate_percent": "REQUIRES_HUMAN_REVIEW alerts / alerts",
             "ai_enrichment_success_rate_percent": "successful / completed AI enrichments",
+            "rule_quality_false_positive_rate_percent": (
+                "latest FALSE_POSITIVE feedback / alerts with any latest feedback"
+            ),
+            "rule_quality_unclassified": "alerts without analyst feedback",
         },
         "kpis": kpis,
         "analytics": analytics,
@@ -452,6 +550,21 @@ def api_soc_kpis():
 @app.route('/logs')
 def logs():
     return render_template('logs.html', page='logs')
+
+
+@app.route('/detections')
+@role_required("analyst")
+def detections():
+    return render_template('detections.html', page='detections')
+
+
+@app.route('/api/detection-tuning')
+@role_required("analyst")
+def api_detection_tuning():
+    try:
+        return jsonify(_detection_tuning_payload())
+    except Exception:
+        return jsonify({"error": "Detection tuning data unavailable"}), 503
 
 @app.route('/settings')
 @role_required("admin")
@@ -525,6 +638,80 @@ def api_admin_user_delete(username):
     if not deleted:
         return jsonify({"error": "User not found"}), 404
     return jsonify({"ok": True})
+
+
+@app.route("/api/detection-exceptions", methods=["GET", "POST"])
+@role_required("admin")
+def api_detection_exceptions():
+    if request.method == "GET":
+        return jsonify({"exceptions": alert_repository.list_detection_exceptions()})
+    if request.content_length and request.content_length > 8 * 1024:
+        return jsonify({"error": "Detection exception request exceeds 8 KiB"}), 413
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Request body must be a JSON object"}), 400
+    unknown = set(body) - {"scope_type", "scope_value", "reason", "expires_at"}
+    if unknown:
+        return jsonify({"error": f"Unsupported exception fields: {', '.join(sorted(unknown))}"}), 400
+    try:
+        record = alert_repository.create_detection_exception(
+            body.get("scope_type"), body.get("scope_value"), body.get("reason"),
+            session["username"], session.get("role"), body.get("expires_at"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(record), 201
+
+
+@app.route("/api/detection-exceptions/<exception_id>", methods=["DELETE"])
+@role_required("admin")
+def api_detection_exception_delete(exception_id):
+    try:
+        deleted = alert_repository.delete_detection_exception(
+            exception_id, session["username"], session.get("role"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if not deleted:
+        return jsonify({"error": "Detection exception not found"}), 404
+    return "", 204
+
+
+@app.route("/api/alert-suppression-policies", methods=["GET", "POST"])
+@role_required("admin")
+def api_alert_suppression_policies():
+    if request.method == "GET":
+        return jsonify({"policies": alert_repository.list_alert_suppression_policies()})
+    if request.content_length and request.content_length > 8 * 1024:
+        return jsonify({"error": "Suppression policy request exceeds 8 KiB"}), 413
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Request body must be a JSON object"}), 400
+    unknown = set(body) - {"rule_id", "correlation_key", "window_seconds"}
+    if unknown:
+        return jsonify({"error": f"Unsupported policy fields: {', '.join(sorted(unknown))}"}), 400
+    try:
+        policy = alert_repository.create_alert_suppression_policy(
+            body.get("rule_id"), body.get("correlation_key"), body.get("window_seconds"),
+            session["username"], session.get("role"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(policy), 201
+
+
+@app.route("/api/alert-suppression-policies/<policy_id>", methods=["DELETE"])
+@role_required("admin")
+def api_alert_suppression_policy_delete(policy_id):
+    try:
+        deleted = alert_repository.delete_alert_suppression_policy(
+            policy_id, session["username"], session.get("role"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if not deleted:
+        return jsonify({"error": "Alert suppression policy not found"}), 404
+    return "", 204
 
 @app.route("/api/settings/update", methods=["POST"])
 @role_required("admin")
@@ -635,14 +822,58 @@ def api_windows_events():
     if request.content_length and request.content_length > 2 * 1024 * 1024:
         return jsonify({"error": "Windows event batch is too large"}), 413
 
-    body = request.get_json(silent=True) or {}
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "request body must be a JSON object"}), 400
     events = body.get("events")
-    if not isinstance(events, list) or not events:
-        return jsonify({"error": "events must be a non-empty list"}), 400
+    heartbeat = body.get("heartbeat", False)
+    endpoint_available = body.get("endpoint_available", True)
+    if not isinstance(events, list) or (not events and heartbeat is not True):
+        return jsonify({"error": "events must be a non-empty list unless heartbeat is true"}), 400
+    if not isinstance(heartbeat, bool) or not isinstance(endpoint_available, bool):
+        return jsonify({"error": "heartbeat and endpoint_available must be boolean"}), 400
     if len(events) > 500:
         return jsonify({"error": "Windows event batch exceeds 500 events"}), 413
-    summary = ingest_windows_events(events, body.get("source") or "windows-collector")
-    return jsonify({"ok": True, **summary})
+    collector_id = body.get("collector_id") or body.get("source") or "windows-collector"
+    collector_version = body.get("collector_version", "legacy")
+    hostname = body.get("hostname")
+    if hostname is None:
+        hostname = collector_id
+    source_type = body.get("source_type", "WINDOWS_EVENT")
+    try:
+        protocol_version = validate_collector_protocol(body)
+        if not isinstance(source_type, str) or source_type.strip().upper() != "WINDOWS_EVENT":
+            raise ValueError("source_type must be WINDOWS_EVENT")
+        summary = (
+            ingest_windows_events(events, collector_id)
+            if events else {"read": 0, "imported": 0, "duplicates": 0, "unsupported": 0, "errors": 0}
+        )
+        collector = record_collector_heartbeat(
+            collector_id,
+            events_received=len(events),
+            endpoint_available=endpoint_available,
+            source_type=source_type,
+            collector_version=collector_version,
+            hostname=hostname,
+            buffer_diagnostics=body.get("buffer_diagnostics"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        app.logger.exception("Could not persist Windows collector heartbeat")
+        return jsonify({"error": "Windows collector heartbeat unavailable"}), 503
+    collector_status = (
+        "endpoint_unavailable" if not endpoint_available
+        else "healthy" if events
+        else "idle"
+    )
+    return jsonify({
+        "ok": True,
+        "protocol_version": protocol_version,
+        "collector_status": collector_status,
+        "collector": collector,
+        **summary,
+    })
 
 
 @app.route("/api/alerts/<alert_id>/status", methods=["PATCH"])
@@ -786,6 +1017,29 @@ def api_alert_note(alert_id):
         details={"note_length": len(str(body.get("note", "")).strip())},
     )
     return jsonify(alert)
+
+
+@app.route("/api/alerts/<alert_id>/feedback", methods=["POST"])
+@role_required("analyst")
+def api_alert_feedback(alert_id):
+    if request.content_length and request.content_length > 8 * 1024:
+        return jsonify({"error": "Feedback request exceeds 8 KiB"}), 413
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Request body must be a JSON object"}), 400
+    unknown = set(body) - {"classification", "reason"}
+    if unknown:
+        return jsonify({"error": f"Unsupported feedback fields: {', '.join(sorted(unknown))}"}), 400
+    try:
+        feedback = alert_repository.create_detection_feedback(
+            alert_id, body.get("classification"), body.get("reason", ""),
+            session["username"], session.get("role"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if feedback is None:
+        return jsonify({"error": "Alert not found"}), 404
+    return jsonify(feedback), 201
 
 
 @app.route("/api/alerts/<alert_id>/assignee", methods=["PATCH"])

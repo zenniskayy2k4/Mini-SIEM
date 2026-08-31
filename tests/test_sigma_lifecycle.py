@@ -71,14 +71,15 @@ def test_sigma_lifecycle():
                 patch.object(config, "SIGMA_RULE_STATE_FILE", str(state_file)),
                 patch.object(config, "ANALYST_AUDIT_FILE", str(audit_file)),
                 patch.object(dashboard, "alert_repository", repository),
+                patch("logging.warning"),
             ):
                 dashboard._reload_detection_rules()
                 client = dashboard.app.test_client()
                 login_as(client, directory, role="admin", username="sigma-admin")
 
-                settings = client.get("/settings")
-                assert settings.status_code == 200
-                assert b'rule-lifecycle-body' in settings.data
+                workspace = client.get("/detections")
+                assert workspace.status_code == 200
+                assert b'detection-tuning-body' in workspace.data
 
                 response = client.get("/api/detection-rules")
                 assert response.status_code == 200

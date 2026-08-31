@@ -4,7 +4,9 @@ from config import config
 from src.elk_forwarder import ELKForwarder
 from src.response import IncidentResponder
 from src.correlator import AlertCorrelator
-from src.alert_pipeline import persist_and_enrich
+from src.alert_pipeline import (
+    handle_alert_suppression, handle_detection_exception, persist_and_enrich,
+)
 import os
 
 class LogHandler(FileSystemEventHandler):
@@ -15,12 +17,14 @@ class LogHandler(FileSystemEventHandler):
     def __init__(
         self, file_path, detector, correlator=None, responder=None,
         geoip_service=None, abuseipdb_service=None, virustotal_service=None,
+        ingestion_queue=None,
     ):
         self.file_path = file_path
         self.detector = detector
         self.geoip_service = geoip_service
         self.abuseipdb_service = abuseipdb_service
         self.virustotal_service = virustotal_service
+        self.ingestion_queue = ingestion_queue
 
         # Use instances provided by main(); fall back to defaults if not provided.
         self.correlator = correlator or AlertCorrelator(config.CORRELATION_WINDOW_MINUTES)
@@ -45,15 +49,29 @@ class LogHandler(FileSystemEventHandler):
             if not line.strip():
                 continue
 
-            alert = self.detector.analyze(line)
-            if alert:
-                self._process_alert(alert)
+            if self.ingestion_queue:
+                self.ingestion_queue.submit(self._analyze, line)
+            else:
+                self._analyze(line)
+
+    def _analyze(self, line):
+        alert = self.detector.analyze(line)
+        if alert:
+            self._process_alert(alert)
 
     def _process_alert(self, alert):
+        if handle_detection_exception(alert):
+            return
+        if handle_alert_suppression(alert):
+            return
         alert = self.correlator.correlate(alert)
+        if handle_detection_exception(alert):
+            return
+        if handle_alert_suppression(alert):
+            return
         alert = self.responder.handle_incident(alert)
-        self.elk.send_alert(alert)
         self._handle_alert(alert)
+        self.elk.send_alert(alert)
 
     def _handle_alert(self, alert):
         """
@@ -76,6 +94,10 @@ class LogHandler(FileSystemEventHandler):
         persist_and_enrich(
             alert, getattr(self.detector, "ai_analyst", None), self.geoip_service,
             self.abuseipdb_service, self.virustotal_service,
+            overload_state=(
+                self.ingestion_queue.status()["status"]
+                if self.ingestion_queue else "healthy"
+            ),
         )
 
 
@@ -88,10 +110,16 @@ class WindowsEventHandler(LogHandler):
         if src != watched:
             return
         for line in self.file_handle.readlines():
-            try:
-                windows_event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            alert = self.detector.analyze_windows_event(windows_event)
-            if alert:
-                self._process_alert(alert)
+            if self.ingestion_queue:
+                self.ingestion_queue.submit(self._analyze, line)
+            else:
+                self._analyze(line)
+
+    def _analyze(self, line):
+        try:
+            windows_event = json.loads(line)
+        except json.JSONDecodeError:
+            return
+        alert = self.detector.analyze_windows_event(windows_event)
+        if alert:
+            self._process_alert(alert)

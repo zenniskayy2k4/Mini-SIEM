@@ -73,10 +73,36 @@ def test_soc_analytics_dashboard():
             assert page.status_code == 200
             html = page.get_data(as_text=True)
             assert "SOC Analytics" in html and "Last 30 days" in html
-            with patch.object(dashboard, "alert_repository", repository):
+            with (
+                patch.object(dashboard, "alert_repository", repository),
+                patch.object(
+                    dashboard, "VALIDATION_COVERAGE_FILE", Path(directory, "missing-validation.json"),
+                ),
+            ):
                 response = client.get(f"/api/analytics/kpis?from={start}&to={end}")
                 assert response.status_code == 200
-                assert response.get_json()["analytics"] == result
+                analytics = response.get_json()["analytics"]
+                assert analytics.pop("rule_quality") == [
+                    {
+                        "rule_id": "DET-A", "alerts_generated": 2,
+                        "true_positives": 0, "false_positives": 0,
+                        "benign_expected": 0, "unclassified": 2,
+                        "classified_sample_size": 0,
+                        "false_positive_rate_percent": None,
+                        "validation_scenario_count": 0,
+                        "last_validation_result": "UNAVAILABLE",
+                    },
+                    {
+                        "rule_id": "DET-B", "alerts_generated": 1,
+                        "true_positives": 0, "false_positives": 0,
+                        "benign_expected": 0, "unclassified": 1,
+                        "classified_sample_size": 0,
+                        "false_positive_rate_percent": None,
+                        "validation_scenario_count": 0,
+                        "last_validation_result": "UNAVAILABLE",
+                    },
+                ]
+                assert analytics == result
         finally:
             config.DASHBOARD_USERS_FILE = original_users_file
 

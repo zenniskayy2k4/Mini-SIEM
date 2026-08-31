@@ -1,5 +1,6 @@
 import copy
 import json
+from unittest.mock import patch
 
 from src.ai_analyst import AIAnalyst
 from src.ai_provider import AIProvider, OllamaCloudProvider, build_ai_provider
@@ -112,13 +113,15 @@ def test_ai_provider():
 
     failed_provider = DummyProvider(failure=RuntimeError("offline"))
     failed_analyst = AIAnalyst(failed_provider)
-    failure = failed_analyst.enrich_sync(_alert())["ai_analysis"]
+    with patch("src.ai_analyst.logger.warning"):
+        failure = failed_analyst.enrich_sync(_alert())["ai_analysis"]
     assert failure == {"error": "offline", "provider": "fixture", "model": "fixture-model"}
     assert failed_analyst.health_status()["available"] is False
     failed_analyst.shutdown()
 
     disabled_provider = DummyProvider(enabled=False)
-    disabled_analyst = AIAnalyst(disabled_provider)
+    with patch("src.ai_analyst.logger.warning"):
+        disabled_analyst = AIAnalyst(disabled_provider)
     untouched = _alert()
     assert disabled_analyst.enrich_sync(untouched) is untouched
     assert disabled_provider.calls == [] and disabled_analyst.health_status()["enabled"] is False

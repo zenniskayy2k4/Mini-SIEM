@@ -209,6 +209,12 @@ __marimo__/
 *.png
 
 /data
+/secrets/
 *.exe
 !static/images/*
 data/runtime_settings.json
+
+# Local agent workflow (machine/private instructions)
+AGENTS.md
+
+opencode.jsonc

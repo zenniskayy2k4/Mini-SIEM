@@ -1,6 +1,373 @@
 # Mini-SIEM Release History
 
-Archived release notes for versions older than the current standalone release. See [v0.6.0](RELEASE_v0.6.0.md) for the latest release.
+Archived release notes for versions older than the current standalone release. See [v0.9.0](RELEASE_v0.9.0.md) for the latest release.
+
+## Mini-SIEM v0.8.0 Release Checklist
+
+`v0.8.0` hardens deployment configuration, secrets, dependency and container supply-chain checks, and SQLite migration/recovery for the single-node Blue Team lab. Detection evidence remains authoritative, response execution remains simulation-first, and release publication remains gated by CI.
+
+### Upgrade from v0.7.0
+
+- Back up `data/mini_siem.db`, `data/dashboard_users.json`, and `data/analyst_audit.jsonl` before upgrading.
+- Copy the deployment and matching `*_FILE` settings from `.env.example`; set either a direct secret or its file path, never both.
+- Inspect and apply the versioned SQLite migration before starting the upgraded stack:
+
+```bash
+docker compose run --rm dashboard python -m tools.migrate_db --dry-run
+docker compose run --rm dashboard python -m tools.migrate_db
+```
+
+- Rebuild the application image once, validate configuration, and restart the stack. The migration runner creates a verified backup before applying pending migrations.
+- Keep `RESPONSE_MODE=simulation`. This release does not add a production response executor.
+
+### Clean-clone setup
+
+Clone and select the release:
+
+```bash
+git clone https://github.com/zenniskayy2k4/Mini-SIEM.git
+cd Mini-SIEM
+git checkout v0.8.0
+```
+
+Create the local environment file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Validate, build, train, and start:
+
+```bash
+docker compose run --rm dashboard python -m tools.validate_config
+docker compose build
+docker compose --profile train run --rm train
+docker compose up -d
+docker compose exec dashboard python tools/manage_dashboard_user.py admin admin
+```
+
+Open <http://localhost:5000>, then verify `docker compose ps` and `curl http://localhost:5000/health`.
+
+### Secure deployment profile
+
+For a network-exposed lab, configure production secrets and the public URL, then use the optional HTTPS profile:
+
+```dotenv
+DEPLOYMENT_ENV=production
+DASHBOARD_PUBLIC_URL=
+DASHBOARD_SESSION_SECRET_FILE=
+METRICS_BEARER_TOKEN_FILE=
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+```
+
+The profile terminates TLS with Caddy, redirects HTTP, limits request bodies, trusts one proxy hop, enables secure cookies, and removes the direct dashboard host port. See [HTTPS deployment](HTTPS_DEPLOYMENT.md) and [file secrets](FILE_SECRETS.md) before exposing the lab beyond localhost.
+
+### Supply-chain and recovery checks
+
+- `requirements.txt` exactly pins direct and transitive production dependencies; CI runs `pip check` and weekly grouped Dependabot updates.
+- CI generates an SPDX inventory from the smoke-tested image, verifies Python and Debian packages, scans HIGH/CRITICAL vulnerabilities, and emits a SHA-256 manifest.
+- GitHub Release publication re-verifies the checksum before attaching the SBOM and checksum artifacts.
+- `python -m tools.migrate_db --dry-run` inspects pending schema changes without writing; the normal command is backup-first.
+- `python -m tests.test_restore_drill` verifies isolated backup, damage, restore, integrity, schema history, application state, and audit-chain preservation.
+- `python -m tests.test_historical_upgrades` covers representative v0.6.0, v0.7.0, v0.8.0, and fresh databases.
+
+### Regression command
+
+Run all executable modules with the current source mounted into the existing image:
+
+```bash
+docker compose run --rm -v "${PWD}:/app" dashboard sh -c \
+  'for test in tests/test_*.py; do module=$(printf "%s" "${test%.py}" | tr "/" "."); python -m "$module" || exit 1; done'
+```
+
+### Release verification record
+
+| Check | Result |
+|---|---|
+| Semantic version | `v0.8.0` selected for Platform and Supply-chain Hardening |
+| Secure deployment | Config validator, HTTPS proxy, file secrets, and security regression contracts passed |
+| Supply chain | Exact pins, SPDX/checksum workflow, deny-by-default Grype policy, and publication path validated |
+| Database recovery | Versioned migration, backup-first execution, restore drill, and historical upgrade matrix passed |
+| Regression | 61/61 executable test modules passed locally in the existing image |
+| Release artifacts | README, changelog, standalone notes, history, Compose, and tracked-file checks passed |
+| GitHub Actions | The release commit and tag remain blocked until baseline, Docker smoke, security, container scan, and release gate are green |
+| Secret review | No active Gitleaks exception; `.env`, `data/`, and `logs/` remain untracked |
+| Runtime | Agent, dashboard, database, and public `/health` are healthy |
+
+### Known limitations
+
+- This remains an educational single-node lab, not a production SIEM, EDR, firewall, or high-availability service.
+- The bundled Caddy profile uses its local CA for lab deployment; public certificates, DNS, firewall, and network policy remain operator responsibilities.
+- File-backed secrets improve delivery but are not a centralized secret manager; rotation and host-file permissions remain operator responsibilities.
+- The vulnerability database changes over time. HIGH/CRITICAL findings block CI and require dependency/base-image remediation or a narrowly reviewed, expiring exception.
+- SQLite migration and recovery are single-node procedures. Automatic failover, point-in-time recovery, and remote backup replication are not included.
+- Historical fixtures validate supported schema and representative state, not every possible production dataset.
+- Dashboard identity remains local-file based; SSO, MFA, password recovery, multi-tenant isolation, and distributed session revocation are not included.
+- AI uses one shared worker with bounded primary/fallback attempts and no durable queue. AI output remains advisory.
+- Response actions remain allowlisted workflow simulations; no production executor is bundled.
+
+### Tag and publish
+
+Create the annotated tag only after the release commit's GitHub Actions `release-gate` is green:
+
+```bash
+git status --short
+git tag -a v0.8.0 -m "Mini-SIEM v0.8.0"
+git push origin feature/blue-team-baseline
+git push origin v0.8.0
+```
+
+The pushed tag must pass the same GitHub Actions workflow before publication is complete. The GitHub Release event then attaches the verified SBOM and checksum.
+
+## Mini-SIEM v0.7.0 Release Checklist
+
+`v0.7.0` adds deterministic detection validation, analyst feedback and tuning controls, versioned event envelopes, observable ingestion failures and metrics, and stale Windows collector detection. Detector evidence remains authoritative, replay remains offline, and tuning never deletes the underlying telemetry.
+
+### Upgrade from v0.6.0
+
+- Back up `data/mini_siem.db`, `data/dashboard_users.json`, and `data/analyst_audit.jsonl` before upgrading.
+- Rebuild the application image once and restart the dashboard and agent. SQLite creates the feedback, exception, suppression, ingestion diagnostic, metric, and heartbeat tables automatically; no manual migration command is required.
+- Copy `INGESTION_FAILURE_RETENTION_DAYS` and `WINDOWS_COLLECTOR_STALE_SECONDS` from `.env.example` when their defaults of 30 days and 60 seconds are unsuitable.
+- Redeploy `tools/windows_event_collector.ps1` to Windows endpoints to enable idle and endpoint-availability heartbeats. Legacy non-empty event batches remain accepted, but they cannot report an idle endpoint between events.
+- Review existing suppression policies and exact-match exceptions after upgrade. Changes are audited and suppressed events remain queryable telemetry.
+- Keep `RESPONSE_MODE=simulation`. This release does not add a production response executor.
+
+### Clean-clone setup
+
+Clone and select the release:
+
+```bash
+git clone https://github.com/zenniskayy2k4/Mini-SIEM.git
+cd Mini-SIEM
+git checkout v0.7.0
+```
+
+Create the local environment file on PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Or on a POSIX shell:
+
+```bash
+cp .env.example .env
+```
+
+Build, train, and start:
+
+```bash
+docker compose build
+docker compose --profile train run --rm train
+docker compose up -d
+docker compose exec dashboard python tools/manage_dashboard_user.py admin admin
+```
+
+The user command prompts securely for a password. Open <http://localhost:5000> and verify:
+
+```bash
+docker compose ps
+curl http://localhost:5000/health
+```
+
+Rules, local ML, storage, dashboards, replay scenarios, reporting, ingestion diagnostics, offline STIX, GeoIP handling, and the AI evaluation corpus work without paid-provider keys.
+
+### Detection validation and tuning
+
+- `python tools/replay_scenario.py tests/scenarios` replays the versioned 18-scenario corpus without starting sensors, calling Ollama, or using external providers.
+- `docs/DETECTION_VALIDATION_COVERAGE.md` and its JSON companion show deterministic scenario coverage separately from runtime hit counts.
+- Analysts can record `TRUE_POSITIVE`, `FALSE_POSITIVE`, or `NEEDS_TUNING` feedback without changing stored evidence.
+- Exact-match exceptions and bounded suppression policies are server-authorized and hash-chain audited. Wildcards and unbounded suppression are rejected.
+- Rule quality reports classified and unclassified sample sizes. It does not claim statistical precision or recall from the curated corpus.
+
+### Ingestion health
+
+Set a dedicated collector secret and calibrate the stale threshold above the endpoint poll interval:
+
+```dotenv
+WINDOWS_COLLECTOR_SECRET=
+WINDOWS_COLLECTOR_STALE_SECONDS=60
+INGESTION_FAILURE_RETENTION_DAYS=30
+```
+
+The collector sends authenticated empty heartbeats while idle and reports whether at least one configured Windows event channel is readable. Admin diagnostics distinguish `healthy`, `idle`, `endpoint_unavailable`, and `offline`; public `/health` exposes only the aggregate ingestion state. Parser previews are secret-redacted, metric labels remain bounded, and stored heartbeat identities are capped at 100 collectors.
+
+### Regression command
+
+Run all executable modules with the current source mounted into the existing image:
+
+```bash
+docker compose run --rm -v "${PWD}:/app" dashboard sh -c \
+  'for test in tests/test_*.py; do module=$(printf "%s" "${test%.py}" | tr "/" "."); python -m "$module" || exit 1; done'
+```
+
+### Release verification record
+
+| Check | Result |
+|---|---|
+| Semantic version | `v0.7.0` selected for Detection Validation and Data Quality |
+| Scenario validation | 18 deterministic Linux, Windows, Sigma, NIDS, and cross-source scenarios passed offline |
+| Regression | 53/53 executable test modules passed on source and the built image |
+| Tuning controls | Feedback, quality metrics, exact exceptions, suppression, authorization, and audit paths passed |
+| Data quality | Event envelope, redacted failure retention, bounded metrics, heartbeat, and gap-state paths passed |
+| GitHub Actions | Pre-release head `ac5f0ec` passed baseline, Docker smoke, security, and release gate in run `32956979463` |
+| Clean clone | Release gate validates artifacts, Compose, syntax, regression, security, and a clean Docker build from each pushed snapshot |
+| Secret review | No active Gitleaks exception; `.env`, `data/`, and `logs/` remain untracked |
+| Runtime | Agent, dashboard, database, and public `/health` are healthy after the release image rollout |
+
+### Known limitations
+
+- This remains an educational single-node lab, not a production SIEM, EDR, firewall, or high-availability service.
+- The curated scenario corpus validates known contracts; it does not measure real-world detection accuracy, precision, recall, or coverage of every attack variation.
+- Feedback quality metrics depend on analyst classification and report unclassified samples explicitly; they are not autonomous rule optimization.
+- Exceptions are exact-match and suppression is process-local/runtime-oriented. Distributed policy evaluation is not included.
+- Windows collection remains polling-based. Heartbeats show collector and configured-channel availability, not full endpoint integrity or guaranteed event delivery.
+- Dashboard identity is local-file based; SSO, MFA, password recovery, multi-tenant isolation, and distributed session revocation are not included.
+- TLS, reverse proxy, network policy, and centralized secret management are not bundled.
+- AI uses one shared worker with bounded primary/fallback attempts and no durable queue. AI output remains advisory.
+- Response actions remain allowlisted workflow simulations; no production executor is bundled.
+
+### Tag and publish
+
+Create the annotated tag only after the release commit's GitHub Actions `release-gate` is green:
+
+```bash
+git status --short
+git tag -a v0.7.0 -m "Mini-SIEM v0.7.0"
+git push origin feature/blue-team-baseline
+git push origin v0.7.0
+```
+
+The pushed tag must pass the same GitHub Actions workflow before publication is complete.
+
+## Mini-SIEM v0.6.0 Release Checklist
+
+`v0.6.0` adds manual external case integrations and role-focused viewer, analyst, and administrator workspaces to the single-node Blue Team lab. Detector evidence remains authoritative, external export remains opt-in, and response execution remains simulation-first.
+
+### Upgrade from v0.5.0
+
+- Back up `data/mini_siem.db`, `data/dashboard_users.json`, and `data/analyst_audit.jsonl` before upgrading.
+- Rebuild the application image once, then restart the stack. Existing alerts, assets, rules, models, users, and audit records remain compatible; no manual database migration is required.
+- Copy the optional `CASE_EXPORT_*`, `THEHIVE_*`, and `JIRA_*` settings from `.env.example`. Case export remains disabled until explicitly enabled and configured.
+- Existing dashboard sessions are invalidated by the password-reset hardening and must sign in again after upgrade.
+- Administrators can create, reset, and delete local dashboard accounts from `/settings`; the active administrator cannot self-demote or self-delete.
+- Keep `RESPONSE_MODE=simulation`. This release does not add a production response executor.
+
+### Clean-clone setup
+
+Clone and select the release:
+
+```bash
+git clone https://github.com/zenniskayy2k4/Mini-SIEM.git
+cd Mini-SIEM
+git checkout v0.6.0
+```
+
+Create the local environment file on PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Or on a POSIX shell:
+
+```bash
+cp .env.example .env
+```
+
+Build, train, and start:
+
+```bash
+docker compose build
+docker compose --profile train run --rm train
+docker compose up -d
+docker compose exec dashboard python tools/manage_dashboard_user.py admin admin
+```
+
+The user command prompts for a password. Open <http://localhost:5000> and verify:
+
+```bash
+docker compose ps
+curl http://localhost:5000/health
+```
+
+Rules, local ML, storage, dashboards, analytics, reporting, offline STIX, GeoIP handling, and the AI evaluation corpus work without paid-provider keys.
+
+### Optional external case export
+
+Case export is manual and disabled by default. Configure exactly one provider with a dedicated least-privilege account:
+
+```dotenv
+CASE_EXPORT_ENABLED=false
+CASE_EXPORT_PROVIDER=
+CASE_EXPORT_TIMEOUT_SECONDS=5
+CASE_EXPORT_MAX_ATTEMPTS=2
+THEHIVE_URL=
+THEHIVE_API_KEY=
+JIRA_URL=
+JIRA_USER_EMAIL=
+JIRA_API_TOKEN=
+JIRA_PROJECT_KEY=
+JIRA_ISSUE_TYPE=
+```
+
+The shared connector sends only an allowlisted incident summary, enforces bounded retries and timeout, stores the external ID, prevents duplicate export, and appends a secret-free audit event. It never exports automatically.
+
+### Role-focused workspaces
+
+| Role | Workspace |
+|---|---|
+| `viewer` | Read-only alerts, incident status, SOC KPIs, graphs, and detection coverage |
+| `analyst` | Viewer access plus investigation queues, assignment, notes, response proposals, and TI/AI context |
+| `admin` | Analyst access plus user, runtime, rule/Sigma, health, integration, audit, and maintenance status |
+
+Authorization is enforced server-side. Mutation controls hidden by the UI are not the security boundary. Password resets revoke existing sessions, user-file changes are serialized in the single dashboard process, and failed audit writes roll back user changes.
+
+### Regression command
+
+Run all executable modules with the current source mounted into the existing image:
+
+```bash
+docker compose run --rm -v "${PWD}:/app" dashboard sh -c \
+  'for test in tests/test_*.py; do module=$(printf "%s" "${test%.py}" | tr "/" "."); python -m "$module" || exit 1; done'
+```
+
+### Release verification record
+
+| Check | Result |
+|---|---|
+| Semantic version | `v0.6.0` selected for SOC Integrations and Role-focused Workspaces |
+| Regression | 43/43 executable test modules passed |
+| External cases | Disabled-by-default shared connector, TheHive, Jira, deduplication, timeout/retry, and audit paths passed |
+| Workspaces | Viewer read-only, analyst investigation, and administrator control/status contracts passed |
+| Security hardening | RBAC/CSRF, secret-safe output, session revocation, bounded input, serialized user changes, and audit rollback passed |
+| GitHub Actions | Pre-release head `e85e640` passed baseline, Docker smoke, security, and release gate in run `32485307261` |
+| Clean clone | GitHub Actions validates Compose, syntax, regression, security, and a clean Docker build from each pushed repository snapshot |
+| Secret review | No active Gitleaks exception; `.env`, `data/`, and `logs/` remain untracked |
+| Runtime | Existing agent/dashboard stack and public `/health` are healthy without a local image rebuild |
+
+### Known limitations
+
+- This remains an educational single-node lab, not a production SIEM, EDR, firewall, or high-availability service.
+- Dashboard identity is local-file based; SSO, MFA, password recovery, multi-tenant isolation, and distributed session revocation are not included.
+- The user store lock and login throttling are process-local because the bundled dashboard runs as one process. Use transactional shared storage before scaling to multiple workers.
+- External case export is manual and supports one selected provider at a time. Provider permissions, TLS, availability, and remote retention remain operator responsibilities.
+- TLS, reverse proxy, network policy, and centralized secret management are not bundled.
+- AI uses one shared worker with bounded primary/fallback attempts and no durable queue. AI output remains advisory.
+- Response actions remain allowlisted workflow simulations; no production executor is bundled.
+- Windows collection remains polling-based and NIDS visibility remains Linux-oriented.
+
+### Tag and publish
+
+The release commit is tagged with annotated tag `v0.6.0`:
+
+```bash
+git push origin feature/blue-team-baseline
+git push origin v0.6.0
+```
 
 ## Mini-SIEM v0.5.0 Release Checklist
 

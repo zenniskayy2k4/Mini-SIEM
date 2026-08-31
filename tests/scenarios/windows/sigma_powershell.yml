@@ -1,0 +1,19 @@
+schema_version: 1
+id: SCN-WIN-SIGMA-001
+title: Sigma-backed encoded PowerShell detection
+source: windows_event
+events: scenarios/fixtures/windows_encoded_powershell.jsonl
+rule_sources:
+  - sigma
+expected:
+  rule_ids:
+    - 7c4f8f2e-1e7b-4d95-9f76-8c731fef60a3
+  alert_count:
+    min: 1
+    max: 1
+  severity: HIGH
+  fields:
+    rule_source:
+      equals: sigma
+    sigma_rule_id:
+      equals: 7c4f8f2e-1e7b-4d95-9f76-8c731fef60a3

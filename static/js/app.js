@@ -7,8 +7,11 @@ const API_GRAPH = "/api/graph";
 const API_SETTINGS = "/api/settings";
 const API_SETTINGS_UPDATE = "/api/settings/update";
 const API_DETECTION_RULES = "/api/detection-rules";
+const API_DETECTION_TUNING = "/api/detection-tuning";
 const API_ADMIN_WORKSPACE = "/api/admin/workspace";
 const API_ADMIN_USERS = "/api/admin/users";
+const API_DETECTION_EXCEPTIONS = "/api/detection-exceptions";
+const API_SUPPRESSION_POLICIES = "/api/alert-suppression-policies";
 const API_ASSETS = "/api/assets";
 const API_ANALYTICS = "/api/analytics/kpis";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
@@ -36,6 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (path === "/") initDashboard();
   else if (path === "/logs") initLogs();
   else if (path === "/analytics") initAnalytics();
+  else if (path === "/detections") initDetectionTuning();
   else if (path === "/settings") initSettings();
   else if (path === "/assets") initAssets();
   else if (path === "/graph") initGraphPage();
@@ -85,6 +89,23 @@ function initAnalytics() {
     chart("topRulesChart", "bar", data.top_rules.map((x) => x.rule_id), data.top_rules.map((x) => x.count), "Alerts", { horizontal: true });
     chart("topMitreChart", "bar", data.top_mitre_techniques.map((x) => x.technique_id), data.top_mitre_techniques.map((x) => x.count), "Alerts", { horizontal: true });
     chart("falsePositiveTrendChart", "line", data.false_positive_trend.map((x) => x.timestamp), data.false_positive_trend.map((x) => x.count), "False positives");
+
+    const qualityBody = document.getElementById("rule-quality-body");
+    if (qualityBody) qualityBody.innerHTML = (data.rule_quality || []).map((rule) => {
+      const rate = rule.false_positive_rate_percent == null
+        ? `Insufficient data (n=${rule.classified_sample_size})`
+        : `${rule.false_positive_rate_percent}% (n=${rule.classified_sample_size})`;
+      return `<tr>
+        <td class="font-mono">${escapeHTML(rule.rule_id)}</td>
+        <td>${escapeHTML(rule.alerts_generated)}</td>
+        <td>${escapeHTML(rule.true_positives)}</td>
+        <td>${escapeHTML(rule.false_positives)}</td>
+        <td>${escapeHTML(rule.benign_expected)}</td>
+        <td>${escapeHTML(rule.unclassified)}</td>
+        <td>${escapeHTML(rate)}</td>
+        <td>${escapeHTML(rule.validation_scenario_count)} scenarios · ${escapeHTML(rule.last_validation_result)}</td>
+      </tr>`;
+    }).join("") || '<tr><td colspan="8">No rule data in this range.</td></tr>';
   }
 
   function load() {
@@ -108,6 +129,12 @@ function initSettings() {
   const userForm = document.getElementById("admin-user-form");
   const userBody = document.getElementById("admin-users-body");
   const userStatus = document.getElementById("admin-user-status");
+  const exceptionForm = document.getElementById("detection-exception-form");
+  const exceptionBody = document.getElementById("detection-exception-body");
+  const exceptionStatus = document.getElementById("detection-exception-status");
+  const suppressionForm = document.getElementById("suppression-policy-form");
+  const suppressionBody = document.getElementById("suppression-policy-body");
+  const suppressionStatus = document.getElementById("suppression-policy-status");
 
   const formatBytes = (value) => {
     const bytes = Number(value || 0);
@@ -125,11 +152,16 @@ function initSettings() {
     const agent = health.agent || {};
     const database = health.database || {};
     const queue = health.queue || {};
+    const ingestion = health.ingestion || {};
+    const collectors = ingestion.collectors || [];
+    const bufferedEvents = collectors.reduce((total, item) => total + Number(item.buffered_events || 0), 0);
+    const deliveryFailures = collectors.reduce((total, item) => total + Number(item.delivery_failures || 0), 0);
     const summaries = {
       "admin-health-platform": health.status || "unknown",
       "admin-health-agent": `${agent.status || "unknown"}${agent.age_seconds == null ? "" : ` · ${agent.age_seconds}s`}`,
       "admin-health-database": `${database.status || "unknown"} · ${database.check || "not checked"}`,
       "admin-health-ai": `${queue.busy ? "busy" : "idle"} · backlog ${queue.backlog || 0}`,
+      "admin-health-ingestion": `${ingestion.status || "unknown"} · ${collectors.length} collectors · ${bufferedEvents} buffered · ${deliveryFailures} delivery failures`,
     };
     Object.entries(summaries).forEach(([id, value]) => {
       const element = document.getElementById(id);
@@ -161,6 +193,26 @@ function initSettings() {
       ["Archives", `${maintenance.archives?.count || 0} · latest ${maintenance.archives?.latest_at || "never"}`],
       ["Log rotation", `${formatBytes(maintenance.log_rotate_max_bytes)} · ${maintenance.log_rotate_backups || 0} copies`],
     ].map(([label, value]) => `<div class="admin-status-row"><strong>${label}</strong><span>${escapeHTML(value)}</span></div>`).join("");
+
+    const failures = data.ingestion_failures || {};
+    const failureCounts = failures.counts || {};
+    const failureSummary = document.getElementById("admin-ingestion-summary");
+    if (failureSummary) failureSummary.innerHTML = [
+      ["Retained", failures.total || 0],
+      ["Parser", failureCounts.parser || 0],
+      ["Schema", failureCounts.schema || 0],
+      ["Unsupported", failureCounts.unsupported || 0],
+      ["Retention", `${failures.retention_days || 0} days`],
+    ].map(([label, value]) => `<div class="admin-status-row"><strong>${label}</strong><span>${escapeHTML(value)}</span></div>`).join("");
+    const failureBody = document.getElementById("admin-ingestion-failures-body");
+    if (failureBody) failureBody.innerHTML = (failures.recent || []).map((failure) => `
+      <tr>
+        <td>${escapeHTML(failure.occurred_at)}</td>
+        <td>${escapeHTML(failure.failure_type)}</td>
+        <td>${escapeHTML(failure.collector_id)}</td>
+        <td>${escapeHTML(failure.reason)}</td>
+        <td class="font-mono">${escapeHTML(failure.payload_preview)}</td>
+      </tr>`).join("") || '<tr><td colspan="5" class="muted">No retained ingestion failures.</td></tr>';
 
     if (userBody) userBody.innerHTML = (data.users || []).map((user) => `
       <tr>
@@ -217,6 +269,142 @@ function initSettings() {
   });
 
   loadAdminWorkspace();
+
+  async function loadDetectionExceptions() {
+    if (!exceptionBody) return;
+    try {
+      const response = await fetch(API_DETECTION_EXCEPTIONS, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Detection exceptions unavailable");
+      const records = data.exceptions || [];
+      exceptionBody.innerHTML = records.length ? records.map((record) => `
+        <tr>
+          <td>${escapeHTML(record.scope_type)}<br><span class="muted">${record.active ? "ACTIVE" : "EXPIRED"}</span></td>
+          <td class="font-mono">${escapeHTML(record.scope_value)}</td>
+          <td>${escapeHTML(record.reason)}</td>
+          <td>${escapeHTML(record.creator)}<br><span class="muted">${escapeHTML(record.created_at)}</span></td>
+          <td>${escapeHTML(record.expires_at || "Never")}</td>
+          <td><button class="btn btn-ghost detection-exception-delete" type="button"
+            data-exception-id="${escapeAttr(record.exception_id)}">Delete</button></td>
+        </tr>`).join("") : '<tr><td colspan="6" class="muted">No detection exceptions.</td></tr>';
+      exceptionStatus.textContent = `${records.length} exception${records.length === 1 ? "" : "s"}`;
+    } catch (error) {
+      exceptionStatus.textContent = error.message;
+    }
+  }
+
+  exceptionForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    exceptionStatus.textContent = "Saving exception...";
+    const expiry = document.getElementById("exception-expires-at").value;
+    const body = {
+      scope_type: document.getElementById("exception-scope-type").value,
+      scope_value: document.getElementById("exception-scope-value").value,
+      reason: document.getElementById("exception-reason").value,
+      expires_at: expiry ? new Date(expiry).toISOString() : null,
+    };
+    try {
+      const response = await fetch(API_DETECTION_EXCEPTIONS, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Detection exception creation failed");
+      exceptionForm.reset();
+      await loadDetectionExceptions();
+    } catch (error) {
+      exceptionStatus.textContent = error.message;
+    }
+  });
+
+  exceptionBody?.addEventListener("click", async (event) => {
+    const button = event.target.closest(".detection-exception-delete");
+    if (!button || !window.confirm("Delete this detection exception?")) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(
+        `${API_DETECTION_EXCEPTIONS}/${encodeURIComponent(button.dataset.exceptionId)}`,
+        { method: "DELETE", headers: { "X-CSRF-Token": CSRF_TOKEN } },
+      );
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Detection exception deletion failed");
+      }
+      await loadDetectionExceptions();
+    } catch (error) {
+      exceptionStatus.textContent = error.message;
+      button.disabled = false;
+    }
+  });
+  loadDetectionExceptions();
+
+  async function loadSuppressionPolicies() {
+    if (!suppressionBody) return;
+    try {
+      const response = await fetch(API_SUPPRESSION_POLICIES, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Suppression policies unavailable");
+      const policies = data.policies || [];
+      suppressionBody.innerHTML = policies.length ? policies.map((policy) => `
+        <tr>
+          <td class="font-mono">${escapeHTML(policy.rule_id)}</td>
+          <td class="font-mono">${escapeHTML(policy.correlation_key)}</td>
+          <td>${escapeHTML(policy.window_seconds)} seconds</td>
+          <td>${escapeHTML(policy.creator)}<br><span class="muted">${escapeHTML(policy.created_at)}</span></td>
+          <td><button class="btn btn-ghost suppression-policy-delete" type="button"
+            data-policy-id="${escapeAttr(policy.policy_id)}">Delete</button></td>
+        </tr>`).join("") : '<tr><td colspan="5" class="muted">No alert suppression policies.</td></tr>';
+      suppressionStatus.textContent = `${policies.length} polic${policies.length === 1 ? "y" : "ies"}`;
+    } catch (error) {
+      suppressionStatus.textContent = error.message;
+    }
+  }
+
+  suppressionForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    suppressionStatus.textContent = "Saving policy...";
+    const body = {
+      rule_id: document.getElementById("suppression-rule-id").value,
+      correlation_key: document.getElementById("suppression-correlation-key").value,
+      window_seconds: Number(document.getElementById("suppression-window-seconds").value),
+    };
+    try {
+      const response = await fetch(API_SUPPRESSION_POLICIES, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Suppression policy creation failed");
+      suppressionForm.reset();
+      document.getElementById("suppression-window-seconds").value = "300";
+      await loadSuppressionPolicies();
+    } catch (error) {
+      suppressionStatus.textContent = error.message;
+    }
+  });
+
+  suppressionBody?.addEventListener("click", async (event) => {
+    const button = event.target.closest(".suppression-policy-delete");
+    if (!button || !window.confirm("Delete this alert suppression policy?")) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(
+        `${API_SUPPRESSION_POLICIES}/${encodeURIComponent(button.dataset.policyId)}`,
+        { method: "DELETE", headers: { "X-CSRF-Token": CSRF_TOKEN } },
+      );
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Suppression policy deletion failed");
+      }
+      await loadSuppressionPolicies();
+    } catch (error) {
+      suppressionStatus.textContent = error.message;
+      button.disabled = false;
+    }
+  });
+  loadSuppressionPolicies();
 
   const elNids = document.getElementById("set-nids-enabled");
   const elHp = document.getElementById("set-honeypot-enabled");
@@ -288,48 +476,94 @@ function initSettings() {
     })
     .catch(() => setStatus("Failed to load settings."));
 
-  const ruleStatus = document.getElementById("rule-lifecycle-status");
-  const ruleBody = document.getElementById("rule-lifecycle-body");
+}
 
-  function loadRules() {
-    fetch(API_DETECTION_RULES, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => {
-        const rules = data.rules || [];
-        ruleStatus.textContent = `${rules.length} rules loaded`;
-        ruleBody.innerHTML = rules.map((rule) => `
-          <tr title="${escapeAttr(rule.skip_reason || "")}">
-            <td><span class="font-mono">${escapeHTML(rule.rule_id)}</span><br>${escapeHTML(rule.title)}</td>
-            <td>${escapeHTML(rule.rule_source.toUpperCase())}</td>
-            <td>${escapeHTML(rule.validation_status)}</td>
-            <td>${escapeHTML(rule.last_loaded_at || "-")}</td>
-            <td>${rule.hit_count} · ${rule.never_hit ? "NEVER HIT" : "HIT"}</td>
-            <td>${rule.enabled ? "ENABLED" : "DISABLED"}</td>
-            <td>${rule.rule_source === "sigma" && rule.supported
-              ? `<button class="btn btn-ghost sigma-rule-toggle" data-rule-id="${escapeAttr(rule.rule_id)}" data-enabled="${!rule.enabled}">${rule.enabled ? "Disable" : "Enable"}</button>`
-              : "-"}</td>
-          </tr>`).join("");
-      })
-      .catch(() => { ruleStatus.textContent = "Failed to load rules."; });
+function initDetectionTuning() {
+  const body = document.getElementById("detection-tuning-body");
+  const exceptionBody = document.getElementById("detection-tuning-exceptions");
+  const status = document.getElementById("detection-tuning-status");
+  const filter = document.getElementById("detection-tuning-filter");
+  if (!body || !exceptionBody || !status) return;
+  let rules = [];
+
+  function details(items, render) {
+    return items.length ? items.map(render).join("") : '<span class="muted">None</span>';
   }
 
-  ruleBody?.addEventListener("click", (event) => {
-    const button = event.target.closest(".sigma-rule-toggle");
+  function renderRules() {
+    const query = (filter?.value || "").trim().toLowerCase();
+    const visible = rules.filter((rule) => [
+      rule.rule_id, rule.title, rule.mitre_tactic, rule.mitre_technique,
+    ].some((value) => String(value || "").toLowerCase().includes(query)));
+    body.innerHTML = visible.length ? visible.map((rule) => {
+      const feedback = rule.feedback || {};
+      const ruleExceptions = rule.exceptions || [];
+      const policies = rule.suppression_policies || [];
+      const toggle = CURRENT_ROLE === "admin" && rule.rule_source === "sigma" && rule.supported
+        ? `<button class="btn btn-ghost tuning-rule-toggle" type="button" data-rule-id="${escapeAttr(rule.rule_id)}" data-enabled="${!rule.enabled}">${rule.enabled ? "Disable" : "Enable"}</button>`
+        : "";
+      return `<tr title="${escapeAttr(rule.skip_reason || "")}">
+        <td><span class="font-mono">${escapeHTML(rule.rule_id)}</span><br>${escapeHTML(rule.title)}<br><span class="muted">${escapeHTML(rule.hit_count)} hits</span></td>
+        <td>${rule.enabled ? "ENABLED" : "DISABLED"}<br><span class="muted">${escapeHTML(String(rule.rule_source || "").toUpperCase())}${rule.supported ? "" : " · UNSUPPORTED"}</span></td>
+        <td>${escapeHTML(feedback.last_validation_result || "UNAVAILABLE")}<br><span class="muted">${escapeHTML(feedback.validation_scenario_count || 0)} scenarios · ${escapeHTML(rule.validation_status)}</span></td>
+        <td>TP ${escapeHTML(feedback.true_positives || 0)} · FP ${escapeHTML(feedback.false_positives || 0)}<br><span class="muted">Benign ${escapeHTML(feedback.benign_expected || 0)} · Unclassified ${escapeHTML(feedback.unclassified || 0)}</span></td>
+        <td>${details(ruleExceptions, (record) => `<div>${escapeHTML(record.scope_value)}<br><span class="muted">Expires ${escapeHTML(record.expires_at || "Never")}</span></div>`)}</td>
+        <td>${details(policies, (policy) => `<div>${escapeHTML(policy.correlation_key)}<br><span class="muted">${escapeHTML(policy.window_seconds)} seconds</span></div>`)}</td>
+        <td>${escapeHTML(rule.mitre_tactic)}<br><span class="font-mono">${escapeHTML(rule.mitre_technique)}</span></td>
+        <td class="detection-tuning-actions"><a class="btn btn-ghost" href="/logs?q=${encodeURIComponent(rule.rule_id)}">Review alerts</a>${toggle}</td>
+      </tr>`;
+    }).join("") : '<tr><td colspan="8" class="muted">No matching detection rules.</td></tr>';
+    status.textContent = `${visible.length} of ${rules.length} rules shown`;
+  }
+
+  function renderExceptions(records) {
+    exceptionBody.innerHTML = records.length ? records.map((record) => `<tr>
+      <td>${escapeHTML(record.scope_type)}</td>
+      <td class="font-mono">${escapeHTML(record.scope_value)}</td>
+      <td>${escapeHTML(record.reason)}</td>
+      <td>${escapeHTML(record.creator)}</td>
+      <td>${escapeHTML(record.expires_at || "Never")}</td>
+    </tr>`).join("") : '<tr><td colspan="5" class="muted">No active detection exceptions.</td></tr>';
+  }
+
+  async function loadTuning() {
+    try {
+      const response = await fetch(API_DETECTION_TUNING, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Detection tuning data unavailable");
+      rules = data.rules || [];
+      const exceptions = data.active_exceptions || [];
+      document.getElementById("tuning-rule-count").textContent = rules.length;
+      document.getElementById("tuning-enabled-count").textContent = rules.filter((rule) => rule.enabled).length;
+      document.getElementById("tuning-validated-count").textContent = rules.filter((rule) => rule.feedback?.last_validation_result === "PASS").length;
+      document.getElementById("tuning-exception-count").textContent = exceptions.length;
+      renderRules();
+      renderExceptions(exceptions);
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  }
+
+  filter?.addEventListener("input", renderRules);
+  body.addEventListener("click", async (event) => {
+    const button = event.target.closest(".tuning-rule-toggle");
     if (!button) return;
     button.disabled = true;
-    fetch(`${API_DETECTION_RULES}/${encodeURIComponent(button.dataset.ruleId)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
-      body: JSON.stringify({ enabled: button.dataset.enabled === "true" }),
-    })
-      .then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || "Update failed");
-        loadRules();
-      })
-      .catch((error) => { ruleStatus.textContent = error.message; button.disabled = false; });
+    try {
+      const response = await fetch(`${API_DETECTION_RULES}/${encodeURIComponent(button.dataset.ruleId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify({ enabled: button.dataset.enabled === "true" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Rule update failed");
+      await loadTuning();
+    } catch (error) {
+      status.textContent = error.message;
+      button.disabled = false;
+    }
   });
-  loadRules();
+  loadTuning();
 }
 
 // --- ASSET INVENTORY ---
@@ -1135,6 +1369,7 @@ function initLogs() {
 
   tableBody.addEventListener("focusin", () => setLive(false));
 
+  if (inpQ) inpQ.value = new URLSearchParams(window.location.search).get("q")?.slice(0, 200) || "";
   readFiltersFromUI();
   setLive(true);
 }
@@ -1166,6 +1401,11 @@ function createRow(alert) {
   }
   if (alert.asset_id) {
     detailsHTML += `<div class="muted" style="margin-top:4px; font-size:11px;">Asset: ${renderAssetReference(alert.asset_id)}</div>`;
+  }
+  if (alert.suppression_policy) {
+    detailsHTML += `<div class="suppression-summary"><strong>${escapeHTML(alert.suppressed_count || 0)} suppressed</strong> Â· ` +
+      `${escapeHTML(alert.suppression_policy.window_seconds)}s window Â· ` +
+      `${escapeHTML(alert.first_seen)} â†’ ${escapeHTML(alert.last_seen)}</div>`;
   }
 
   if (alert.ml_anomaly_score) {
@@ -1267,9 +1507,50 @@ function renderThreatIntelProvider(entry, alert) {
   </article>`;
 }
 
+function renderDetectionFeedback(feedback) {
+  if (!feedback) return "";
+  const reason = feedback.reason ? ` · ${escapeHTML(feedback.reason)}` : "";
+  return `<div class="incident-history incident-feedback-current">
+    <strong>Detection feedback</strong>
+    <div>${escapeHTML(feedback.classification)} · ${escapeHTML(feedback.actor)} · ` +
+      `${escapeHTML(feedback.created_at)}${reason}</div>
+  </div>`;
+}
+
+function renderDetectionFeedbackForm(alert, canMutate) {
+  if (!canMutate || !alert.rule_id) return "";
+  const options = ["TRUE_POSITIVE", "FALSE_POSITIVE", "BENIGN_EXPECTED"]
+    .map((value) => `<option value="${value}">${value}</option>`).join("");
+  return `<div class="incident-form-row">
+    <select class="styled-input incident-feedback-classification" aria-label="Detection classification">
+      ${options}
+    </select>
+    <textarea class="styled-input incident-feedback-reason" maxlength="2000"
+      aria-label="Detection feedback reason" placeholder="Reason (required for false positive)"></textarea>
+    <button class="btn btn-primary incident-feedback-btn" type="button">Classify</button>
+  </div>`;
+}
+
+function renderDetectionExceptionMatch(match) {
+  if (!match) return "";
+  return `<div class="incident-history detection-exception-match">
+    <strong>Detection exception matched</strong>
+    <div>${escapeHTML(match.scope_type)} = ${escapeHTML(match.scope_value)} Â· ` +
+      `${escapeHTML(match.reason)} Â· ${escapeHTML(match.matched_at)}</div>
+  </div>`;
+}
+
 function renderIncidentPanel(alert) {
-  if (!alert.incident_id) return "";
   const canMutate = ["analyst", "admin"].includes(CURRENT_ROLE);
+  const feedbackForm = renderDetectionFeedbackForm(alert, canMutate);
+  const feedback = renderDetectionFeedback(alert.detection_feedback);
+  const exceptionMatch = renderDetectionExceptionMatch(alert.detection_exception_match);
+  if (!alert.incident_id) {
+    if (!feedbackForm && !feedback && !exceptionMatch) return "";
+    return `<section class="incident-panel" aria-label="Detection context">
+      ${exceptionMatch}${feedbackForm}${feedback}<div class="incident-error" role="alert"></div>
+    </section>`;
+  }
   const externalCases = Object.entries(alert.external_cases || {})
     .filter(([, record]) => record?.external_id)
     .map(([provider, record]) => `<span class="incident-status">` +
@@ -1320,6 +1601,7 @@ function renderIncidentPanel(alert) {
         </div>
       </div>
       ${canMutate ? `<div class="incident-actions">${statusButtons}</div>
+      ${feedbackForm}
       <div class="incident-form-row">
         <input class="styled-input incident-assignee" maxlength="100" aria-label="Assignee"
           value="${escapeAttr(alert.assigned_to || "")}" placeholder="Assignee">
@@ -1337,6 +1619,8 @@ function renderIncidentPanel(alert) {
         <button class="btn btn-primary incident-response-btn" type="button">Request action</button>
       </div>` : ""}
       ${responseWorkflow ? `<div class="incident-actions">${responseWorkflow}</div>` : ""}
+      ${exceptionMatch}
+      ${feedback}
       ${notes ? `<div class="incident-history"><strong>Notes</strong><ul>${notes}</ul></div>` : ""}
       ${timeline ? `<div class="incident-history"><strong>Timeline</strong><ul>${timeline}</ul></div>` : ""}
       <div class="incident-error" role="alert"></div>
@@ -1344,8 +1628,13 @@ function renderIncidentPanel(alert) {
 }
 
 function bindIncidentActions(row, alert) {
-  if (!alert.incident_id) return;
   const url = `/api/alerts/${encodeURIComponent(alert.alert_id)}`;
+  row.querySelector(".incident-feedback-btn")?.addEventListener("click", (event) => {
+    const classification = row.querySelector(".incident-feedback-classification").value;
+    const reason = row.querySelector(".incident-feedback-reason").value;
+    submitDetectionFeedback(row, event.currentTarget, url, alert, classification, reason);
+  });
+  if (!alert.incident_id) return;
   row.querySelectorAll(".incident-status-btn").forEach((button) => {
     button.addEventListener("click", () => mutateIncident(
       row, button, `${url}/status`, "PATCH", { status: button.dataset.status },
@@ -1407,6 +1696,25 @@ function bindIncidentActions(row, alert) {
     "POST",
     { analyst: "analyst" },
   ));
+}
+
+async function submitDetectionFeedback(row, button, url, alert, classification, reason) {
+  const error = row.querySelector(".incident-error");
+  error.textContent = "";
+  button.disabled = true;
+  try {
+    const response = await fetch(`${url}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify({ classification, reason }),
+    });
+    const feedback = await response.json();
+    if (!response.ok) throw new Error(feedback.error || `Request failed (${response.status})`);
+    row.replaceWith(createRow({ ...alert, detection_feedback: feedback }));
+  } catch (requestError) {
+    error.textContent = requestError.message || "Detection feedback failed";
+    button.disabled = false;
+  }
 }
 
 async function mutateIncident(row, button, url, method, body) {

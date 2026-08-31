@@ -53,6 +53,9 @@ def test_viewer_workspace():
                         "action_type": "BLOCK_IP", "target": "203.0.113.9",
                     }),
                     ("post", f"/api/alerts/{alert['alert_id']}/external-case", {}),
+                    ("post", f"/api/alerts/{alert['alert_id']}/feedback", {
+                        "classification": "TRUE_POSITIVE", "reason": "",
+                    }),
                     ("post", "/api/settings/update", {"GRAPH_AUTO_REFRESH": False}),
                 )
                 for method, endpoint, body in mutations:

@@ -1,0 +1,2 @@
+{"relative_seconds":0,"alert":{"alert_name":"SSH Brute Force Attempt","severity":"HIGH","source_type":"HIDS_LOG","mitre_attck_id":"T1110.001","ip_address":"198.51.100.42","event_count":5}}
+{"relative_seconds":1,"alert":{"alert_name":"Honeypot Connection","severity":"CRITICAL","source_type":"HONEYPOT","mitre_attck_id":"T1046","ip_address":"198.51.100.42","event_count":1}}

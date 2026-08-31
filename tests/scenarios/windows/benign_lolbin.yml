@@ -1,0 +1,15 @@
+schema_version: 1
+id: SCN-WIN-LOLBIN-NEGATIVE-001
+title: Benign Certutil hash operation
+source: windows_event
+events: scenarios/fixtures/windows_benign_lolbin.jsonl
+expected:
+  rule_ids: []
+  alert_count:
+    min: 0
+    max: 0
+  severity: HIGH
+  fields: {}
+negative_expectations:
+  rule_ids:
+    - DET-WIN-002

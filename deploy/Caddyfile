@@ -1,0 +1,11 @@
+http://localhost {
+	redir https://localhost{uri} 308
+}
+
+https://localhost {
+	tls internal
+	request_body {
+		max_size 2MB
+	}
+	reverse_proxy dashboard:5000
+}

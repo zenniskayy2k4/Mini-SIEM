@@ -1,0 +1,1 @@
+{"relative_seconds":0,"record":{"event_id":4698,"event_uid":"WINEVT-scenario-task-001","timestamp":"2026-08-23T04:03:00Z","computer":"win-scenario","process":{},"parent_process":{},"target_process":{},"network":{},"task":{"name":"InventoryRefresh","content":"cmd.exe /c inventory.cmd"},"defender":{}}}

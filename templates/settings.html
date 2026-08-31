@@ -20,6 +20,9 @@
     <article class="settings-card admin-overview-card">
         <span>AI queue</span><strong id="admin-health-ai">Loading...</strong>
     </article>
+    <article class="settings-card admin-overview-card">
+        <span>Ingestion</span><strong id="admin-health-ingestion">Loading...</strong>
+    </article>
 </div>
 
 <div class="settings-container admin-settings-container">
@@ -54,6 +57,71 @@
         </div>
     </div>
 
+    <div class="settings-card admin-wide-card">
+        <h3><i class="fa-solid fa-filter-circle-xmark"></i> Detection Exceptions</h3>
+        <p class="muted">Exact, narrow matches are retained as non-notifying telemetry. Wildcards are rejected.</p>
+        <form id="detection-exception-form" class="detection-exception-form">
+            <div>
+                <label class="input-label" for="exception-scope-type">Scope</label>
+                <select id="exception-scope-type" class="styled-input">
+                    <option value="hostname">Hostname</option>
+                    <option value="source_ip">Source IP</option>
+                    <option value="user">User</option>
+                    <option value="process_path">Process path</option>
+                    <option value="rule_id">Rule ID</option>
+                    <option value="asset_id">Asset ID</option>
+                </select>
+            </div>
+            <div>
+                <label class="input-label" for="exception-scope-value">Exact value</label>
+                <input id="exception-scope-value" class="styled-input" maxlength="500" required autocomplete="off">
+            </div>
+            <div>
+                <label class="input-label" for="exception-reason">Reason</label>
+                <input id="exception-reason" class="styled-input" maxlength="2000" required autocomplete="off">
+            </div>
+            <div>
+                <label class="input-label" for="exception-expires-at">Expires (optional)</label>
+                <input id="exception-expires-at" class="styled-input" type="datetime-local">
+            </div>
+            <button class="btn btn-primary" type="submit">Add exception</button>
+        </form>
+        <p class="admin-action-status muted" id="detection-exception-status" role="status"></p>
+        <div class="table-responsive">
+            <table class="mini-table detection-exception-table">
+                <thead><tr><th>Scope</th><th>Value</th><th>Reason</th><th>Creator</th><th>Expiry</th><th>Action</th></tr></thead>
+                <tbody id="detection-exception-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="settings-card admin-wide-card">
+        <h3><i class="fa-solid fa-layer-group"></i> Alert Suppression Policies</h3>
+        <p class="muted">Group repeated alerts only when both the rule and correlation key match exactly.</p>
+        <form id="suppression-policy-form" class="suppression-policy-form">
+            <div>
+                <label class="input-label" for="suppression-rule-id">Rule ID</label>
+                <input id="suppression-rule-id" class="styled-input" maxlength="200" required autocomplete="off">
+            </div>
+            <div>
+                <label class="input-label" for="suppression-correlation-key">Correlation key</label>
+                <input id="suppression-correlation-key" class="styled-input" maxlength="500" required autocomplete="off">
+            </div>
+            <div>
+                <label class="input-label" for="suppression-window-seconds">Window (seconds)</label>
+                <input id="suppression-window-seconds" class="styled-input" type="number" min="1" max="86400" value="300" required>
+            </div>
+            <button class="btn btn-primary" type="submit">Add policy</button>
+        </form>
+        <p class="admin-action-status muted" id="suppression-policy-status" role="status"></p>
+        <div class="table-responsive">
+            <table class="mini-table suppression-policy-table">
+                <thead><tr><th>Rule</th><th>Correlation key</th><th>Window</th><th>Creator</th><th>Action</th></tr></thead>
+                <tbody id="suppression-policy-body"></tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="settings-card">
         <h3><i class="fa-solid fa-plug-circle-check"></i> Integrations</h3>
         <div id="admin-integrations" class="admin-status-list">Loading integrations...</div>
@@ -72,6 +140,17 @@
     <div class="settings-card">
         <h3><i class="fa-solid fa-box-archive"></i> Retention & Backup</h3>
         <div id="admin-maintenance" class="admin-status-list">Loading maintenance status...</div>
+    </div>
+
+    <div class="settings-card admin-wide-card">
+        <h3><i class="fa-solid fa-triangle-exclamation"></i> Ingestion Failures</h3>
+        <div id="admin-ingestion-summary" class="admin-status-list">Loading ingestion diagnostics...</div>
+        <div class="table-responsive">
+            <table class="mini-table">
+                <thead><tr><th>Time</th><th>Type</th><th>Collector</th><th>Reason</th><th>Redacted preview</th></tr></thead>
+                <tbody id="admin-ingestion-failures-body"></tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Card 1: Sensors -->
@@ -161,27 +240,6 @@
                 <p>Alerts: <span class="font-mono" style="color:var(--accent-purple)">{{ alerts_path }}</span></p>
             </div>
             <span class="badge-live" style="position:static">ACTIVE</span>
-        </div>
-    </div>
-
-    <div class="settings-card admin-wide-card">
-        <h3><i class="fa-solid fa-shield-halved"></i> Detection Rules</h3>
-        <div class="muted" id="rule-lifecycle-status">Loading rules...</div>
-        <div class="table-responsive" style="margin-top:10px;">
-          <table class="mini-table">
-            <thead>
-                <tr>
-                    <th>Rule</th>
-                    <th>Source</th>
-                    <th>Validation</th>
-                    <th>Last loaded</th>
-                    <th>Hits</th>
-                    <th>State</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="rule-lifecycle-body"></tbody>
-          </table>
         </div>
     </div>
 

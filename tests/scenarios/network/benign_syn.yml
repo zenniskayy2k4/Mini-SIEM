@@ -1,0 +1,15 @@
+schema_version: 1
+id: SCN-NET-BENIGN-001
+title: Benign low-volume TCP SYN traffic
+source: network
+events: scenarios/fixtures/network_benign_syn.jsonl
+expected:
+  rule_ids: []
+  alert_count:
+    min: 0
+    max: 0
+  severity: HIGH
+  fields: {}
+negative_expectations:
+  rule_ids:
+    - DET-NET-001

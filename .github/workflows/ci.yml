@@ -3,6 +3,8 @@ name: CI
 on:
   push:
   pull_request:
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -23,13 +25,21 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
           cache: pip
+
+      - name: Validate dependency lock
+        shell: bash
+        run: |
+          if grep -Ev '^($|#.*|--index-url https://pypi\.org/simple|--extra-index-url https://download\.pytorch\.org/whl/cpu|[A-Za-z0-9_.-]+==[A-Za-z0-9_.+!-]+)$' requirements.txt; then
+            echo "Every production dependency must use an exact version pin." >&2
+            exit 1
+          fi
 
       - name: Install dependencies
         run: |
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
+          python -m pip check
 
       - name: Check Python syntax
         run: python -m compileall -q config src tools tests dashboard.py main.py
@@ -49,6 +59,42 @@ jobs:
             test_module="${test_file%.py}"
             python -m "${test_module//\//.}"
           done
+
+      - name: Gate detection scenarios
+        id: scenario-gate
+        shell: bash
+        env:
+          AI_PROVIDER: ""
+          OLLAMA_API_KEY: ""
+          GEOIP_ENABLED: "false"
+          ABUSEIPDB_API_KEY: ""
+          VIRUSTOTAL_API_KEY: ""
+          STIX_BUNDLE_FILE: ""
+          TAXII_COLLECTION_URL: ""
+          TAXII_BEARER_TOKEN: ""
+          NOTIFICATION_WEBHOOK_URL: ""
+          CASE_EXPORT_ENABLED: "false"
+          THEHIVE_URL: ""
+          THEHIVE_API_KEY: ""
+          JIRA_URL: ""
+          JIRA_API_TOKEN: ""
+          RESPONSE_MODE: simulation
+        run: |
+          set -o pipefail
+          mkdir -p ci-artifacts
+          python tools/replay_scenario.py tests/scenarios \
+            --json-output ci-artifacts/scenario-replay.json \
+            | tee ci-artifacts/scenario-replay.txt
+          python tools/generate_validation_coverage.py --check
+
+      - name: Upload detection scenario failure
+        if: failure() && steps.scenario-gate.outcome == 'failure'
+        uses: actions/upload-artifact@v6
+        with:
+          name: detection-scenario-failure
+          path: ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 7
 
   docker-smoke:
     needs: baseline
@@ -97,6 +143,77 @@ jobs:
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:5000/login)" = "200"
           docker compose exec -T dashboard python -c "import sqlite3; c=sqlite3.connect('/app/data/mini_siem.db'); assert c.execute('PRAGMA quick_check(1)').fetchone()[0] == 'ok'; assert c.execute('SELECT name FROM sqlite_master WHERE name=?', ('alerts',)).fetchone()"
 
+      - name: Verify HTTPS reverse-proxy profile
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+          healthy=false
+          for attempt in {1..30}; do
+            if curl --fail --silent --insecure https://localhost/health; then
+              healthy=true
+              break
+            fi
+            sleep 2
+          done
+          test "$healthy" = "true"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/health)" = "308"
+          test "$(curl --insecure --silent --output /dev/null --write-out '%{http_code}' -H 'X-Forwarded-Host: evil.example' https://localhost/health)" = "200"
+          test "$(head -c 2097153 /dev/zero | curl --insecure --silent --output /dev/null --write-out '%{http_code}' --data-binary @- https://localhost/login)" = "413"
+          ! curl --fail --silent http://localhost:5000/health
+          docker compose -f docker-compose.yml -f docker-compose.https.yml exec -T dashboard python -c "import dashboard; assert dashboard.app.config['SESSION_COOKIE_SECURE']; assert dashboard.app.config['TRUSTED_HOSTS'] == ['localhost']"
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0.24.0
+        with:
+          image: mini-siem:latest
+          format: spdx-json
+          output-file: mini-siem-sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Verify SBOM contents
+        shell: bash
+        run: |
+          jq -e '.spdxVersion | startswith("SPDX-2.")' mini-siem-sbom.spdx.json
+          jq -e '[.packages[]?.externalRefs[]?.referenceLocator | select(type == "string" and startswith("pkg:pypi/"))] | length > 0' mini-siem-sbom.spdx.json
+          jq -e '[.packages[]?.externalRefs[]?.referenceLocator | select(type == "string" and startswith("pkg:deb/debian/"))] | length > 0' mini-siem-sbom.spdx.json
+
+      - name: Generate and verify release checksums
+        shell: bash
+        run: |
+          sha256sum mini-siem-sbom.spdx.json > mini-siem-sbom.spdx.json.sha256
+          sha256sum --check mini-siem-sbom.spdx.json.sha256
+
+      - name: Upload SPDX SBOM
+        uses: actions/upload-artifact@v6
+        with:
+          name: mini-siem-sbom
+          path: |
+            mini-siem-sbom.spdx.json
+            mini-siem-sbom.spdx.json.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Scan container vulnerabilities
+        id: vulnerability-scan
+        uses: anchore/scan-action@v7.4.0
+        with:
+          sbom: mini-siem-sbom.spdx.json
+          config: .grype.yaml
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+          output-format: json
+          output-file: container-vulnerability-report.json
+
+      - name: Upload vulnerability scan failure
+        if: failure() && steps.vulnerability-scan.outcome == 'failure'
+        uses: actions/upload-artifact@v6
+        with:
+          name: mini-siem-vulnerability-report
+          path: container-vulnerability-report.json
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Collect Docker logs on failure
         if: failure()
         run: |
@@ -115,7 +232,7 @@ jobs:
 
       - name: Stop Docker services
         if: always()
-        run: docker compose down --volumes --remove-orphans
+        run: docker compose -f docker-compose.yml -f docker-compose.https.yml down --volumes --remove-orphans
 
   security:
     runs-on: ubuntu-latest
@@ -161,10 +278,15 @@ jobs:
       - name: Verify release artifacts
         shell: bash
         run: |
+          release_heading=$(grep -Em1 '^## \[[0-9]+\.[0-9]+\.[0-9]+\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$' CHANGELOG.md)
+          [[ "$release_heading" =~ ^##\ \[([0-9]+\.[0-9]+\.[0-9]+)\] ]]
+          release_version=${BASH_REMATCH[1]}
           test -s README.md
           test -s CHANGELOG.md
           test -s docs/RELEASE_CHECKLIST.md
-          grep -Eq '^## \[[0-9]+\.[0-9]+\.[0-9]+\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$' CHANGELOG.md
+          test -s "docs/RELEASE_v${release_version}.md"
+          test "$(find docs -maxdepth 1 -name 'RELEASE_v*.md' | wc -l)" -eq 1
+          grep -Fq "Current release: **v${release_version}**" README.md
 
       - name: Verify clean-clone Compose path
         shell: bash
@@ -173,3 +295,24 @@ jobs:
           docker compose --profile train config --quiet
           test -z "$(git ls-files -- .env 'data/**' 'logs/**')"
           git diff --exit-code
+
+  release-sbom:
+    if: github.event_name == 'release'
+    needs: release-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Attach verified SBOM and checksum to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mkdir -p release-artifacts
+          gh run download "$GITHUB_RUN_ID" --name mini-siem-sbom --dir release-artifacts
+          cd release-artifacts
+          sha256sum --check mini-siem-sbom.spdx.json.sha256
+          gh release upload "$RELEASE_TAG" mini-siem-sbom.spdx.json mini-siem-sbom.spdx.json.sha256 --clobber

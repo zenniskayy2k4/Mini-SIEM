@@ -3,6 +3,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+from config import config
+from src.event_envelope import validate_event_envelope
 from src.windows_events import import_windows_events
 
 
@@ -58,13 +60,22 @@ def _event(event_id, record_id):
 def test_windows_event_import():
     with tempfile.TemporaryDirectory() as directory:
         directory = Path(directory)
+        original_db = config.SQLITE_ALERT_DB
+        config.SQLITE_ALERT_DB = str(directory / "mini-siem.db")
         source = directory / "events.json"
         output = directory / "normalized.jsonl"
         source.write_text(json.dumps([_event(event_id, index) for index, event_id in enumerate(EVENT_IDS, 1)]), encoding="utf-8")
 
         summary = import_windows_events(source, output)
         assert summary == {"read": 12, "imported": 12, "duplicates": 0, "unsupported": 0, "errors": 0}
-        events = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+        envelopes = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+        assert all(validate_event_envelope(item, "WINDOWS_EVENT") for item in envelopes)
+        assert all(item["event_schema_version"] == 1 for item in envelopes)
+        assert all(item["event_id"].startswith("EVT-") for item in envelopes)
+        assert all(item["collector_id"] == "events.json" for item in envelopes)
+        assert all(item["received_at"].endswith("Z") for item in envelopes)
+        assert all(item["observed_at"] == item["payload"]["timestamp"] for item in envelopes)
+        events = [item["payload"] for item in envelopes]
         assert {event["event_id"] for event in events} == set(EVENT_IDS)
         process = events[0]
         assert process["process"]["image"].endswith("powershell.exe")
@@ -83,7 +94,7 @@ def test_windows_event_import():
         xml_source = directory / "security.xml"
         xml_source.write_text("""<Events><Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Security-Auditing"/><EventID>4625</EventID><TimeCreated SystemTime="2026-08-13T08:01:00Z"/><EventRecordID>99</EventRecordID><Channel>Security</Channel><Computer>win-lab</Computer></System><EventData><Data Name="TargetUserName">blocked-user</Data><Data Name="TargetDomainName">LAB</Data><Data Name="IpAddress">203.0.113.9</Data><Data Name="LogonType">10</Data><Data Name="Status">0xC000006D</Data></EventData></Event></Events>""", encoding="utf-8")
         assert import_windows_events(xml_source, output)["imported"] == 1
-        xml_event = json.loads(output.read_text(encoding="utf-8").splitlines()[-1])
+        xml_event = json.loads(output.read_text(encoding="utf-8").splitlines()[-1])["payload"]
         assert xml_event["user"] == "LAB\\blocked-user"
         assert xml_event["network"]["source_ip"] == "203.0.113.9"
 
@@ -110,7 +121,10 @@ def test_windows_event_import():
         evtx_output = directory / "evtx.jsonl"
         with patch("Evtx.Evtx.Evtx", FakeEvtx):
             assert import_windows_events(evtx_source, evtx_output)["imported"] == 1
-        assert json.loads(evtx_output.read_text(encoding="utf-8"))["event_id"] == 4625
+        evtx_event = json.loads(evtx_output.read_text(encoding="utf-8"))
+        assert evtx_event["event_id"].startswith("EVT-")
+        assert evtx_event["payload"]["event_id"] == 4625
+        config.SQLITE_ALERT_DB = original_db
 
 
 if __name__ == "__main__":

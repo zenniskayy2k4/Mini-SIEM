@@ -1,0 +1,15 @@
+schema_version: 1
+id: SCN-SSH-SINGLE-001
+title: Single failed SSH login does not form a campaign
+source: linux_auth
+events: scenarios/fixtures/ssh_single_failure.jsonl
+expected:
+  rule_ids: []
+  alert_count:
+    min: 0
+    max: 0
+  severity: HIGH
+  fields: {}
+negative_expectations:
+  rule_ids:
+    - DET-SSH-001

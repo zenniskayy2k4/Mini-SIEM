@@ -11,8 +11,8 @@ def _label(value):
     return str(value).replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
 
 
-def _family(lines, name, description, samples):
-    lines.extend((f"# HELP {name} {description}", f"# TYPE {name} gauge"))
+def _family(lines, name, description, samples, metric_type="gauge"):
+    lines.extend((f"# HELP {name} {description}", f"# TYPE {name} {metric_type}"))
     for labels, value in samples:
         suffix = "{" + ",".join(f'{key}="{_label(item)}"' for key, item in labels.items()) + "}" if labels else ""
         lines.append(f"{name}{suffix} {value}")
@@ -34,7 +34,10 @@ def _notification_counts(path):
     return counts
 
 
-def render_prometheus_metrics(alerts, rules, system_status, notification_log):
+def render_prometheus_metrics(
+    alerts, rules, system_status, notification_log, ingestion_failures=None,
+    ingestion_health=None,
+):
     # ponytail: one retained-alert scan fits the lab; use SQL aggregates if scrape latency grows.
     severities = Counter()
     incidents = Counter()
@@ -72,6 +75,7 @@ def render_prometheus_metrics(alerts, rules, system_status, notification_log):
 
     notifications = _notification_counts(notification_log)
     queue = system_status.get("queue") or {}
+    ingestion_queue = system_status.get("ingestion_queue") or {}
     heartbeat_age = (system_status.get("agent") or {}).get("age_seconds")
     lines = []
     _family(lines, "mini_siem_metrics_up", "Whether metric collection succeeded.", [({}, 1)])
@@ -106,6 +110,43 @@ def render_prometheus_metrics(alerts, rules, system_status, notification_log):
     ])
     _family(lines, "mini_siem_ai_queue_backlog", "Current AI queue backlog.", [
         ({}, max(0, int(queue.get("backlog") or 0)))
+    ])
+    for name, description, metric_type in (
+        ("depth", "Current bounded ingestion queue depth.", "gauge"),
+        ("capacity", "Bounded ingestion queue capacity.", "gauge"),
+        ("backpressure_total", "Ingestion submissions delayed by a full queue.", "counter"),
+        ("rejected_total", "Ingestion submissions explicitly rejected.", "counter"),
+        ("dropped_total", "Ingestion events dropped without processing.", "counter"),
+    ):
+        _family(lines, f"mini_siem_ingestion_queue_{name}", description, [
+            ({}, max(0, int(ingestion_queue.get(name) or 0)))
+        ], metric_type)
+    failures = ingestion_failures or {}
+    _family(lines, "mini_siem_ingestion_failures", "Retained ingestion failures by bounded type.", [
+        ({"type": failure_type}, max(0, int(failures.get(failure_type) or 0)))
+        for failure_type in ("parser", "schema", "unsupported")
+    ])
+    health = ingestion_health or {}
+    counter_metrics = (
+        ("events_received_total", "Accepted events before normalization."),
+        ("events_normalized_total", "Events successfully normalized."),
+        ("events_rejected_total", "Events rejected during ingestion."),
+        ("events_deduplicated_total", "Normalized duplicate events discarded."),
+    )
+    for name, description in counter_metrics:
+        _family(lines, f"mini_siem_{name}", description, [
+            ({"source": source}, max(0, int(values.get(name) or 0)))
+            for source, values in sorted(health.items())
+        ], "counter")
+    _family(lines, "mini_siem_event_processing_seconds", "Cumulative ingestion processing time.", [
+        ({"source": source}, max(0.0, float(values.get("event_processing_seconds") or 0)))
+        for source, values in sorted(health.items())
+    ])
+    _family(lines, "mini_siem_collector_last_seen_seconds", "Age of the latest accepted collector batch.", [
+        ({"source": source}, "NaN" if values.get("collector_last_seen_seconds") is None else max(
+            0.0, float(values["collector_last_seen_seconds"])
+        ))
+        for source, values in sorted(health.items())
     ])
     return "\n".join(lines) + "\n"
 

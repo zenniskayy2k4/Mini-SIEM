@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -89,7 +90,8 @@ def test_sigma_mapping():
                 yaml.safe_dump(fixture, sort_keys=False), encoding="utf-8",
             )
 
-        translated, failures = load_sigma_rules(directory)
+        with patch("logging.warning"):
+            translated, failures = load_sigma_rules(directory)
         assert not failures
         active = {rule["title"]: rule for rule in translated if rule["enabled"]}
         skipped = {rule["title"]: rule for rule in translated if not rule["enabled"]}

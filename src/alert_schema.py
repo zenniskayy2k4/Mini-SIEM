@@ -25,7 +25,11 @@ def ensure_lifecycle(alert: dict) -> dict:
     alert["created_at"] = utc_iso(alert.get("created_at") or alert.get("timestamp"))
     alert["updated_at"] = utc_iso(alert.get("updated_at") or alert["created_at"])
 
-    if alert.get("severity") in {"HIGH", "CRITICAL"} and not alert.get("incident_id"):
+    if (
+        alert.get("status") != "EXCEPTED"
+        and alert.get("severity") in {"HIGH", "CRITICAL"}
+        and not alert.get("incident_id")
+    ):
         alert["incident_id"] = f"INC-{uuid4()}"
     alert.setdefault("incident_id", None)
 

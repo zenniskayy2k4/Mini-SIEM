@@ -1,8 +1,10 @@
+import hashlib
 import json
 import os
 import sqlite3
 import threading
 from datetime import datetime, timedelta
+from uuid import uuid4
 
 from config import config
 from src.alert_schema import utc_iso
@@ -10,7 +12,7 @@ from src.assets import normalize_ip_address, validate_asset
 from src.audit import append_audit_event
 
 
-SCHEMA = """
+CORE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS alerts (
     alert_id TEXT PRIMARY KEY,
     timestamp TEXT NOT NULL,
@@ -54,6 +56,48 @@ CREATE TABLE IF NOT EXISTS analyst_notes (
     timestamp TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS detection_feedback (
+    feedback_id TEXT PRIMARY KEY,
+    alert_id TEXT NOT NULL REFERENCES alerts(alert_id) ON DELETE CASCADE,
+    rule_id TEXT NOT NULL,
+    classification TEXT NOT NULL CHECK(
+        classification IN ('TRUE_POSITIVE', 'FALSE_POSITIVE', 'BENIGN_EXPECTED')
+    ),
+    reason TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_detection_feedback_alert
+ON detection_feedback(alert_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_detection_feedback_rule
+ON detection_feedback(rule_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS detection_exceptions (
+    exception_id TEXT PRIMARY KEY,
+    scope_type TEXT NOT NULL CHECK(scope_type IN (
+        'hostname', 'source_ip', 'user', 'process_path', 'rule_id', 'asset_id'
+    )),
+    scope_value TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    creator TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_detection_exceptions_active
+ON detection_exceptions(scope_type, scope_value, expires_at);
+
+CREATE TABLE IF NOT EXISTS alert_suppression_policies (
+    policy_id TEXT PRIMARY KEY,
+    rule_id TEXT NOT NULL,
+    correlation_key TEXT NOT NULL,
+    window_seconds INTEGER NOT NULL CHECK(window_seconds BETWEEN 1 AND 86400),
+    creator TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(rule_id, correlation_key)
+);
+CREATE INDEX IF NOT EXISTS idx_alert_suppression_policy_scope
+ON alert_suppression_policies(rule_id, correlation_key);
+
 CREATE TABLE IF NOT EXISTS response_actions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     incident_id TEXT NOT NULL REFERENCES incidents(incident_id) ON DELETE CASCADE,
@@ -86,6 +130,152 @@ CREATE TABLE IF NOT EXISTS asset_ip_addresses (
 CREATE INDEX IF NOT EXISTS idx_asset_ip_address ON asset_ip_addresses(ip_address);
 """
 
+INGESTION_SCHEMA = """
+CREATE TABLE IF NOT EXISTS ingestion_failures (
+    failure_id TEXT PRIMARY KEY,
+    occurred_at TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    collector_id TEXT NOT NULL,
+    failure_type TEXT NOT NULL CHECK(failure_type IN ('parser', 'schema', 'unsupported')),
+    reason TEXT NOT NULL,
+    payload_preview TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ingestion_failures_occurred_at
+ON ingestion_failures(occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ingestion_failures_type
+ON ingestion_failures(failure_type, occurred_at DESC);
+
+CREATE TABLE IF NOT EXISTS ingestion_health (
+    source_type TEXT PRIMARY KEY,
+    events_received INTEGER NOT NULL DEFAULT 0,
+    events_normalized INTEGER NOT NULL DEFAULT 0,
+    events_rejected INTEGER NOT NULL DEFAULT 0,
+    events_deduplicated INTEGER NOT NULL DEFAULT 0,
+    processing_seconds REAL NOT NULL DEFAULT 0,
+    collector_last_seen_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS collector_heartbeats (
+    source_type TEXT NOT NULL,
+    collector_id TEXT NOT NULL,
+    last_heartbeat_at TEXT NOT NULL,
+    last_event_at TEXT,
+    last_batch_events INTEGER NOT NULL DEFAULT 0,
+    endpoint_available INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (source_type, collector_id)
+);
+"""
+
+BASELINE_SCHEMA = CORE_SCHEMA + INGESTION_SCHEMA
+
+SCHEMA_MIGRATIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY CHECK(version > 0),
+    name TEXT NOT NULL UNIQUE,
+    applied_at TEXT NOT NULL,
+    checksum TEXT NOT NULL CHECK(length(checksum) = 64)
+);
+"""
+BASELINE_VERSION = 1
+BASELINE_NAME = "baseline_v0.7.0"
+BASELINE_CHECKSUM = hashlib.sha256(BASELINE_SCHEMA.encode("utf-8")).hexdigest()
+QUERY_INDEX_SCHEMA = """
+DROP INDEX IF EXISTS idx_alerts_timestamp;
+DROP INDEX IF EXISTS idx_alerts_severity;
+CREATE INDEX IF NOT EXISTS idx_alerts_timestamp_id
+ON alerts(timestamp DESC, alert_id DESC);
+CREATE INDEX IF NOT EXISTS idx_alerts_severity_timestamp_id
+ON alerts(severity, timestamp DESC, alert_id DESC);
+CREATE INDEX IF NOT EXISTS idx_incident_events_type_timestamp
+ON incident_events(event_type, timestamp);
+"""
+QUERY_INDEX_VERSION = 2
+QUERY_INDEX_NAME = "query_indexes_v0.9.0"
+QUERY_INDEX_CHECKSUM = hashlib.sha256(QUERY_INDEX_SCHEMA.encode("utf-8")).hexdigest()
+COLLECTOR_IDENTITY_SCHEMA = """
+ALTER TABLE collector_heartbeats
+ADD COLUMN collector_version TEXT NOT NULL DEFAULT 'legacy';
+ALTER TABLE collector_heartbeats
+ADD COLUMN hostname TEXT NOT NULL DEFAULT 'unknown';
+ALTER TABLE collector_heartbeats
+ADD COLUMN duplicate_id_warning INTEGER NOT NULL DEFAULT 0
+CHECK(duplicate_id_warning IN (0, 1));
+"""
+COLLECTOR_IDENTITY_VERSION = 3
+COLLECTOR_IDENTITY_NAME = "collector_identity_v0.9.0"
+COLLECTOR_IDENTITY_CHECKSUM = hashlib.sha256(
+    COLLECTOR_IDENTITY_SCHEMA.encode("utf-8")
+).hexdigest()
+COLLECTOR_BUFFER_SCHEMA = """
+ALTER TABLE collector_heartbeats
+ADD COLUMN buffered_events INTEGER NOT NULL DEFAULT 0 CHECK(buffered_events >= 0);
+ALTER TABLE collector_heartbeats
+ADD COLUMN buffer_oldest_age REAL CHECK(buffer_oldest_age IS NULL OR buffer_oldest_age >= 0);
+ALTER TABLE collector_heartbeats
+ADD COLUMN retry_attempts INTEGER NOT NULL DEFAULT 0 CHECK(retry_attempts >= 0);
+ALTER TABLE collector_heartbeats
+ADD COLUMN delivery_failures INTEGER NOT NULL DEFAULT 0 CHECK(delivery_failures >= 0);
+ALTER TABLE collector_heartbeats
+ADD COLUMN last_successful_delivery TEXT;
+"""
+COLLECTOR_BUFFER_VERSION = 4
+COLLECTOR_BUFFER_NAME = "collector_buffer_diagnostics_v0.9.0"
+COLLECTOR_BUFFER_CHECKSUM = hashlib.sha256(
+    COLLECTOR_BUFFER_SCHEMA.encode("utf-8")
+).hexdigest()
+MIGRATIONS = (
+    (BASELINE_VERSION, BASELINE_NAME, BASELINE_CHECKSUM, BASELINE_SCHEMA),
+    (QUERY_INDEX_VERSION, QUERY_INDEX_NAME, QUERY_INDEX_CHECKSUM, QUERY_INDEX_SCHEMA),
+    (
+        COLLECTOR_IDENTITY_VERSION,
+        COLLECTOR_IDENTITY_NAME,
+        COLLECTOR_IDENTITY_CHECKSUM,
+        COLLECTOR_IDENTITY_SCHEMA,
+    ),
+    (
+        COLLECTOR_BUFFER_VERSION,
+        COLLECTOR_BUFFER_NAME,
+        COLLECTOR_BUFFER_CHECKSUM,
+        COLLECTOR_BUFFER_SCHEMA,
+    ),
+)
+
+
+def ensure_database_schema(connection):
+    try:
+        has_history = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'"
+        ).fetchone()
+        if has_history:
+            expected = {version: (name, checksum) for version, name, checksum, _ in MIGRATIONS}
+            recorded = connection.execute(
+                "SELECT version, name, checksum FROM schema_migrations ORDER BY version"
+            ).fetchall()
+            if not recorded or any(expected.get(row[0]) != row[1:] for row in recorded):
+                raise RuntimeError("Database migration history does not match this build")
+            return
+        connection.executescript(
+            "BEGIN IMMEDIATE;\n" + BASELINE_SCHEMA + SCHEMA_MIGRATIONS_TABLE
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO schema_migrations (
+                version, name, applied_at, checksum
+            ) VALUES (?, ?, ?, ?)
+            """,
+            (BASELINE_VERSION, BASELINE_NAME, utc_iso(), BASELINE_CHECKSUM),
+        )
+        recorded = connection.execute(
+            "SELECT name, checksum FROM schema_migrations WHERE version = ?",
+            (BASELINE_VERSION,),
+        ).fetchone()
+        if recorded != (BASELINE_NAME, BASELINE_CHECKSUM):
+            raise RuntimeError("Database baseline migration does not match this build")
+    except Exception:
+        connection.rollback()
+        raise
+    connection.commit()
+
 
 class _SQLiteRepository:
     def __init__(self, path=None):
@@ -112,39 +302,63 @@ class _SQLiteRepository:
             if self._schema_path == self.path and os.path.exists(self.path):
                 return
             with self._connect() as connection:
-                connection.executescript(SCHEMA)
+                ensure_database_schema(connection)
             self._schema_path = self.path
 
 
 class SQLiteAlertRepository(_SQLiteRepository):
 
-    def create_alert(self, alert: dict) -> dict:
-        self.ensure_schema()
+    FEEDBACK_CLASSIFICATIONS = {
+        "TRUE_POSITIVE", "FALSE_POSITIVE", "BENIGN_EXPECTED",
+    }
+    MAX_FEEDBACK_REASON_LENGTH = 2000
+    EXCEPTION_SCOPES = {
+        "hostname", "source_ip", "user", "process_path", "rule_id", "asset_id",
+    }
+    MAX_EXCEPTION_REASON_LENGTH = 2000
+    MAX_EXCEPTION_VALUE_LENGTH = 500
+    MAX_SUPPRESSION_RULE_ID_LENGTH = 200
+    MAX_SUPPRESSION_KEY_LENGTH = 500
+
+    @staticmethod
+    def _write_alert(connection, alert):
         payload = json.dumps(alert, ensure_ascii=False)
+        connection.execute(
+            """
+            INSERT INTO alerts (
+                alert_id, timestamp, alert_name, severity, source_type,
+                incident_id, payload_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(alert_id) DO UPDATE SET
+                timestamp=excluded.timestamp,
+                alert_name=excluded.alert_name,
+                severity=excluded.severity,
+                source_type=excluded.source_type,
+                incident_id=excluded.incident_id,
+                payload_json=excluded.payload_json,
+                created_at=excluded.created_at,
+                updated_at=excluded.updated_at
+            """,
+            (
+                alert["alert_id"], alert["timestamp"], alert["alert_name"],
+                alert["severity"], alert["source_type"], alert.get("incident_id"),
+                payload, alert.get("created_at"), alert["updated_at"],
+            ),
+        )
+        SQLiteAlertRepository._sync_incident(connection, alert)
+
+    def create_alerts(self, alerts) -> list[dict]:
+        alerts = list(alerts)
+        if not alerts:
+            return alerts
+        self.ensure_schema()
         with self._connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO alerts (
-                    alert_id, timestamp, alert_name, severity, source_type,
-                    incident_id, payload_json, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(alert_id) DO UPDATE SET
-                    timestamp=excluded.timestamp,
-                    alert_name=excluded.alert_name,
-                    severity=excluded.severity,
-                    source_type=excluded.source_type,
-                    incident_id=excluded.incident_id,
-                    payload_json=excluded.payload_json,
-                    created_at=excluded.created_at,
-                    updated_at=excluded.updated_at
-                """,
-                (
-                    alert["alert_id"], alert["timestamp"], alert["alert_name"],
-                    alert["severity"], alert["source_type"], alert.get("incident_id"),
-                    payload, alert.get("created_at"), alert["updated_at"],
-                ),
-            )
-            self._sync_incident(connection, alert)
+            for alert in alerts:
+                self._write_alert(connection, alert)
+        return alerts
+
+    def create_alert(self, alert: dict) -> dict:
+        self.create_alerts((alert,))
         return alert
 
     @staticmethod
@@ -256,7 +470,7 @@ class SQLiteAlertRepository(_SQLiteRepository):
                 clauses.append(sql)
                 values.append(f"%{escaped}%")
 
-        exact("UPPER(a.severity) = UPPER(?)", filters.get("severity"))
+        exact("a.severity = UPPER(?)", filters.get("severity"))
         exact(
             "UPPER(COALESCE(i.status, json_extract(a.payload_json, '$.incident_status'), '')) = UPPER(?)",
             filters.get("incident_status"),
@@ -288,10 +502,10 @@ class SQLiteAlertRepository(_SQLiteRepository):
             filters.get("mitre"),
         )
         if filters.get("from"):
-            clauses.append("datetime(a.timestamp) >= datetime(?)")
+            clauses.append("a.timestamp >= ?")
             values.append(filters["from"])
         if filters.get("to"):
-            clauses.append("datetime(a.timestamp) <= datetime(?)")
+            clauses.append("a.timestamp <= ?")
             values.append(filters["to"])
         if filters.get("q"):
             escaped = str(filters["q"]).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -318,13 +532,34 @@ class SQLiteAlertRepository(_SQLiteRepository):
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT a.payload_json" + source + where
-                + " ORDER BY a.timestamp DESC, a.rowid DESC" + page,
+                + " ORDER BY a.timestamp DESC, a.alert_id DESC" + page,
                 values + page_values,
             ).fetchall()
             total = connection.execute(
                 "SELECT COUNT(*)" + source + where, values,
             ).fetchone()[0]
-        return {"items": [json.loads(row[0]) for row in rows], "total": total}
+            items = [json.loads(row[0]) for row in rows]
+            if items:
+                placeholders = ", ".join("?" for _ in items)
+                feedback_rows = connection.execute(
+                    f"""
+                    SELECT feedback_id, alert_id, rule_id, classification, reason, actor, created_at
+                    FROM detection_feedback
+                    WHERE rowid IN (
+                        SELECT MAX(rowid) FROM detection_feedback
+                        WHERE alert_id IN ({placeholders}) GROUP BY alert_id
+                    )
+                    """,
+                    [item["alert_id"] for item in items],
+                ).fetchall()
+                feedback = {row[1]: dict(zip(
+                    ("feedback_id", "alert_id", "rule_id", "classification", "reason", "actor", "created_at"),
+                    row,
+                )) for row in feedback_rows}
+                for item in items:
+                    if item["alert_id"] in feedback:
+                        item["detection_feedback"] = feedback[item["alert_id"]]
+        return {"items": items, "total": total}
 
     def count_alerts(self, filters: dict | None = None) -> int:
         return self.search_alerts(filters, limit=0)["total"]
@@ -345,6 +580,475 @@ class SQLiteAlertRepository(_SQLiteRepository):
                 rule_ids,
             ).fetchall()
         return {rule_id: int(count) for rule_id, count in rows}
+
+    def create_detection_feedback(
+        self, alert_id: str, classification: str, reason: str, actor: str, role=None,
+    ) -> dict | None:
+        if not isinstance(classification, str):
+            raise ValueError("Invalid feedback classification")
+        classification = classification.strip().upper()
+        if classification not in self.FEEDBACK_CLASSIFICATIONS:
+            raise ValueError("Invalid feedback classification")
+        if not isinstance(reason, str):
+            raise ValueError("Feedback reason must be text")
+        reason = reason.strip()
+        if classification == "FALSE_POSITIVE" and not reason:
+            raise ValueError("Reason is required for false positive feedback")
+        if len(reason) > self.MAX_FEEDBACK_REASON_LENGTH:
+            raise ValueError(
+                f"Feedback reason exceeds {self.MAX_FEEDBACK_REASON_LENGTH} characters"
+            )
+        if not isinstance(actor, str) or not actor.strip() or len(actor.strip()) > 100:
+            raise ValueError("Invalid feedback actor")
+
+        self.ensure_schema()
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM alerts WHERE alert_id = ?", (alert_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            rule_id = json.loads(row[0]).get("rule_id")
+            if not isinstance(rule_id, str) or not rule_id.strip() or len(rule_id.strip()) > 200:
+                raise ValueError("Alert has no valid detection rule")
+            feedback = {
+                "feedback_id": f"FB-{uuid4()}",
+                "alert_id": alert_id,
+                "rule_id": rule_id.strip(),
+                "classification": classification,
+                "reason": reason,
+                "actor": actor.strip(),
+                "created_at": utc_iso(),
+            }
+            connection.execute(
+                """
+                INSERT INTO detection_feedback (
+                    feedback_id, alert_id, rule_id, classification, reason, actor, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                tuple(feedback.values()),
+            )
+            append_audit_event(
+                "DETECTION_FEEDBACK_CREATED", feedback["actor"], role=role,
+                target_type="detection_feedback", target_id=feedback["feedback_id"],
+                details={
+                    "alert_id": alert_id,
+                    "rule_id": feedback["rule_id"],
+                    "classification": classification,
+                    "reason_length": len(reason),
+                },
+            )
+        return feedback
+
+    def rule_quality(self, from_timestamp: str, to_timestamp: str) -> list[dict]:
+        self.ensure_schema()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                WITH scoped_alerts AS (
+                    SELECT alert_id, json_extract(payload_json, '$.rule_id') AS rule_id
+                    FROM alerts
+                    WHERE created_at >= ? AND created_at < ?
+                        AND json_extract(payload_json, '$.rule_id') IS NOT NULL
+                )
+                SELECT
+                    scoped.rule_id,
+                    COUNT(*),
+                    COUNT(CASE WHEN feedback.classification = 'TRUE_POSITIVE' THEN 1 END),
+                    COUNT(CASE WHEN feedback.classification = 'FALSE_POSITIVE' THEN 1 END),
+                    COUNT(CASE WHEN feedback.classification = 'BENIGN_EXPECTED' THEN 1 END),
+                    COUNT(CASE WHEN feedback.alert_id IS NULL THEN 1 END)
+                FROM scoped_alerts scoped
+                LEFT JOIN detection_feedback feedback ON feedback.rowid = (
+                    SELECT MAX(rowid) FROM detection_feedback
+                    WHERE alert_id = scoped.alert_id
+                )
+                GROUP BY scoped.rule_id
+                ORDER BY COUNT(*) DESC, scoped.rule_id
+                """,
+                (from_timestamp, to_timestamp),
+            ).fetchall()
+        quality = []
+        for rule_id, alerts, true_positive, false_positive, benign, unclassified in rows:
+            classified = true_positive + false_positive + benign
+            quality.append({
+                "rule_id": str(rule_id),
+                "alerts_generated": int(alerts),
+                "true_positives": int(true_positive),
+                "false_positives": int(false_positive),
+                "benign_expected": int(benign),
+                "unclassified": int(unclassified),
+                "classified_sample_size": int(classified),
+                "false_positive_rate_percent": (
+                    round(100 * false_positive / classified, 2) if classified else None
+                ),
+            })
+        return quality
+
+    @classmethod
+    def _exception_scope(cls, scope_type, scope_value) -> tuple[str, str]:
+        if not isinstance(scope_type, str) or scope_type.strip().lower() not in cls.EXCEPTION_SCOPES:
+            raise ValueError("Invalid detection exception scope")
+        scope_type = scope_type.strip().lower()
+        if not isinstance(scope_value, str):
+            raise ValueError("Detection exception value must be text")
+        scope_value = scope_value.strip()
+        if not scope_value or len(scope_value) > cls.MAX_EXCEPTION_VALUE_LENGTH:
+            raise ValueError("Invalid detection exception value")
+        if any(character in scope_value for character in "*?[]"):
+            raise ValueError("Broad wildcard detection exceptions are not allowed")
+        if scope_type == "source_ip":
+            try:
+                scope_value = normalize_ip_address(scope_value)
+            except ValueError as exc:
+                raise ValueError("Detection exception source_ip must be one IP address") from exc
+        if scope_type == "process_path" and not (
+            scope_value.startswith("/")
+            or (len(scope_value) > 2 and scope_value[1] == ":" and scope_value[2] in "\\/")
+        ):
+            raise ValueError("Detection exception process_path must be absolute")
+        return scope_type, scope_value
+
+    @staticmethod
+    def _exception_expiry(expires_at) -> str | None:
+        if expires_at is None or expires_at == "":
+            return None
+        if not isinstance(expires_at, str):
+            raise ValueError("Detection exception expiry must be an ISO-8601 timestamp")
+        try:
+            normalized = utc_iso(expires_at.strip())
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Detection exception expiry must be an ISO-8601 timestamp") from exc
+        if normalized <= utc_iso():
+            raise ValueError("Detection exception expiry must be in the future")
+        return normalized
+
+    def create_detection_exception(
+        self, scope_type, scope_value, reason, creator, role=None, expires_at=None,
+    ) -> dict:
+        scope_type, scope_value = self._exception_scope(scope_type, scope_value)
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("Detection exception reason is required")
+        reason = reason.strip()
+        if len(reason) > self.MAX_EXCEPTION_REASON_LENGTH:
+            raise ValueError(
+                f"Detection exception reason exceeds {self.MAX_EXCEPTION_REASON_LENGTH} characters"
+            )
+        if not isinstance(creator, str) or not creator.strip() or len(creator.strip()) > 100:
+            raise ValueError("Invalid detection exception creator")
+        record = {
+            "exception_id": f"DEX-{uuid4()}",
+            "scope_type": scope_type,
+            "scope_value": scope_value,
+            "reason": reason,
+            "creator": creator.strip(),
+            "created_at": utc_iso(),
+            "expires_at": self._exception_expiry(expires_at),
+        }
+        self.ensure_schema()
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO detection_exceptions (
+                    exception_id, scope_type, scope_value, reason, creator, created_at, expires_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                tuple(record.values()),
+            )
+            append_audit_event(
+                "DETECTION_EXCEPTION_CREATED", record["creator"], role=role,
+                target_type="detection_exception", target_id=record["exception_id"],
+                details={
+                    "scope_type": scope_type,
+                    "scope_value": scope_value,
+                    "expires_at": record["expires_at"],
+                    "reason_length": len(reason),
+                },
+            )
+        return {**record, "active": True}
+
+    def list_detection_exceptions(self) -> list[dict]:
+        self.ensure_schema()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT exception_id, scope_type, scope_value, reason, creator, created_at, expires_at
+                FROM detection_exceptions ORDER BY created_at DESC, rowid DESC
+                """
+            ).fetchall()
+        now = utc_iso()
+        columns = (
+            "exception_id", "scope_type", "scope_value", "reason", "creator",
+            "created_at", "expires_at",
+        )
+        return [
+            {**dict(zip(columns, row)), "active": row[6] is None or row[6] > now}
+            for row in rows
+        ]
+
+    def delete_detection_exception(self, exception_id, actor, role=None) -> bool:
+        if not isinstance(exception_id, str) or not exception_id.startswith("DEX-"):
+            raise ValueError("Invalid detection exception ID")
+        if not isinstance(actor, str) or not actor.strip() or len(actor.strip()) > 100:
+            raise ValueError("Invalid detection exception actor")
+        self.ensure_schema()
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT scope_type, scope_value FROM detection_exceptions WHERE exception_id = ?",
+                (exception_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            connection.execute(
+                "DELETE FROM detection_exceptions WHERE exception_id = ?", (exception_id,),
+            )
+            append_audit_event(
+                "DETECTION_EXCEPTION_DELETED", actor.strip(), role=role,
+                target_type="detection_exception", target_id=exception_id,
+                details={"scope_type": row[0], "scope_value": row[1]},
+            )
+        return True
+
+    @staticmethod
+    def _exception_candidates(alert: dict, scope_type: str) -> list[str]:
+        if scope_type == "hostname":
+            values = [alert.get("hostname"), alert.get("computer")]
+        elif scope_type == "source_ip":
+            values = [alert.get("ip_address")]
+        elif scope_type == "user":
+            values = [alert.get("user"), alert.get("username")]
+            target_users = alert.get("target_users")
+            if isinstance(target_users, (list, tuple, set)):
+                values.extend(target_users)
+        elif scope_type == "process_path":
+            process = alert.get("process") if isinstance(alert.get("process"), dict) else {}
+            target = alert.get("target_process") if isinstance(alert.get("target_process"), dict) else {}
+            values = [alert.get("process_path"), process.get("image"), target.get("image")]
+        elif scope_type == "rule_id":
+            values = [alert.get("rule_id")]
+        else:
+            values = [alert.get("asset_id")]
+        return [str(value).strip() for value in values if value is not None and str(value).strip()]
+
+    def match_detection_exception(self, alert: dict) -> dict | None:
+        if not isinstance(alert, dict):
+            raise ValueError("Detection exception matching requires an alert object")
+        now = utc_iso()
+        self.ensure_schema()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT exception_id, scope_type, scope_value, reason, creator, created_at, expires_at
+                FROM detection_exceptions
+                WHERE expires_at IS NULL OR expires_at > ?
+                ORDER BY created_at, rowid
+                """,
+                (now,),
+            ).fetchall()
+        columns = (
+            "exception_id", "scope_type", "scope_value", "reason", "creator",
+            "created_at", "expires_at",
+        )
+        for row in rows:
+            record = dict(zip(columns, row))
+            expected = record["scope_value"]
+            candidates = self._exception_candidates(alert, record["scope_type"])
+            if record["scope_type"] == "source_ip":
+                normalized = []
+                for candidate in candidates:
+                    try:
+                        normalized.append(normalize_ip_address(candidate))
+                    except ValueError:
+                        continue
+                matched = expected in normalized
+            else:
+                matched = expected.casefold() in {candidate.casefold() for candidate in candidates}
+            if matched:
+                return {**record, "active": True, "matched_at": now}
+        return None
+
+    @classmethod
+    def _suppression_scope(cls, rule_id, correlation_key) -> tuple[str, str]:
+        if not isinstance(rule_id, str) or not rule_id.strip():
+            raise ValueError("Suppression policy rule_id is required")
+        if not isinstance(correlation_key, str) or not correlation_key.strip():
+            raise ValueError("Suppression policy correlation_key is required")
+        rule_id, correlation_key = rule_id.strip(), correlation_key.strip()
+        if len(rule_id) > cls.MAX_SUPPRESSION_RULE_ID_LENGTH:
+            raise ValueError("Suppression policy rule_id is too long")
+        if len(correlation_key) > cls.MAX_SUPPRESSION_KEY_LENGTH:
+            raise ValueError("Suppression policy correlation_key is too long")
+        if any(character in rule_id + correlation_key for character in "*?[]"):
+            raise ValueError("Suppression policy wildcards are not allowed")
+        return rule_id, correlation_key
+
+    def create_alert_suppression_policy(
+        self, rule_id, correlation_key, window_seconds, creator, role=None,
+    ) -> dict:
+        rule_id, correlation_key = self._suppression_scope(rule_id, correlation_key)
+        if isinstance(window_seconds, bool) or not isinstance(window_seconds, int):
+            raise ValueError("Suppression window_seconds must be an integer")
+        if not 1 <= window_seconds <= 86400:
+            raise ValueError("Suppression window_seconds must be between 1 and 86400")
+        if not isinstance(creator, str) or not creator.strip() or len(creator.strip()) > 100:
+            raise ValueError("Invalid suppression policy creator")
+        policy = {
+            "policy_id": f"SUP-{uuid4()}",
+            "rule_id": rule_id,
+            "correlation_key": correlation_key,
+            "window_seconds": window_seconds,
+            "creator": creator.strip(),
+            "created_at": utc_iso(),
+        }
+        self.ensure_schema()
+        try:
+            with self._connect() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO alert_suppression_policies (
+                        policy_id, rule_id, correlation_key, window_seconds, creator, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    tuple(policy.values()),
+                )
+                append_audit_event(
+                    "ALERT_SUPPRESSION_POLICY_CREATED", policy["creator"], role=role,
+                    target_type="alert_suppression_policy", target_id=policy["policy_id"],
+                    details={
+                        "rule_id": rule_id,
+                        "correlation_key": correlation_key,
+                        "window_seconds": window_seconds,
+                    },
+                )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("A suppression policy already exists for this exact scope") from exc
+        return policy
+
+    def list_alert_suppression_policies(self) -> list[dict]:
+        self.ensure_schema()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT policy_id, rule_id, correlation_key, window_seconds, creator, created_at
+                FROM alert_suppression_policies ORDER BY created_at DESC, rowid DESC
+                """
+            ).fetchall()
+        columns = (
+            "policy_id", "rule_id", "correlation_key", "window_seconds", "creator",
+            "created_at",
+        )
+        return [dict(zip(columns, row)) for row in rows]
+
+    def delete_alert_suppression_policy(self, policy_id, actor, role=None) -> bool:
+        if not isinstance(policy_id, str) or not policy_id.startswith("SUP-"):
+            raise ValueError("Invalid alert suppression policy ID")
+        if not isinstance(actor, str) or not actor.strip() or len(actor.strip()) > 100:
+            raise ValueError("Invalid suppression policy actor")
+        self.ensure_schema()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT rule_id, correlation_key, window_seconds
+                FROM alert_suppression_policies WHERE policy_id = ?
+                """,
+                (policy_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            connection.execute(
+                "DELETE FROM alert_suppression_policies WHERE policy_id = ?", (policy_id,),
+            )
+            append_audit_event(
+                "ALERT_SUPPRESSION_POLICY_DELETED", actor.strip(), role=role,
+                target_type="alert_suppression_policy", target_id=policy_id,
+                details={
+                    "rule_id": row[0], "correlation_key": row[1],
+                    "window_seconds": row[2],
+                },
+            )
+        return True
+
+    @staticmethod
+    def _suppression_time(value) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(utc_iso(value).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return None
+
+    def apply_alert_suppression(self, alert: dict) -> dict:
+        if not isinstance(alert, dict):
+            raise ValueError("Alert suppression requires an alert object")
+        rule_id, correlation_key = alert.get("rule_id"), alert.get("correlation_key")
+        if not isinstance(rule_id, str) or not isinstance(correlation_key, str):
+            return {"alert": alert, "suppressed": False, "policy": None}
+        self.ensure_schema()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT policy_id, rule_id, correlation_key, window_seconds, creator, created_at
+                FROM alert_suppression_policies
+                WHERE rule_id = ? AND correlation_key = ?
+                """,
+                (rule_id, correlation_key),
+            ).fetchone()
+            if row is None:
+                return {"alert": alert, "suppressed": False, "policy": None}
+            columns = (
+                "policy_id", "rule_id", "correlation_key", "window_seconds", "creator",
+                "created_at",
+            )
+            policy = dict(zip(columns, row))
+            candidate = connection.execute(
+                """
+                SELECT payload_json FROM alerts
+                WHERE alert_id != ?
+                    AND json_extract(payload_json, '$.rule_id') = ?
+                    AND json_extract(payload_json, '$.correlation_key') = ?
+                    AND json_extract(payload_json, '$.suppression_policy.policy_id') = ?
+                ORDER BY datetime(json_extract(payload_json, '$.last_seen')) DESC, rowid DESC
+                LIMIT 1
+                """,
+                (alert.get("alert_id"), rule_id, correlation_key, policy["policy_id"]),
+            ).fetchone()
+
+        summary = {
+            key: policy[key]
+            for key in ("policy_id", "rule_id", "correlation_key", "window_seconds")
+        }
+        alert["suppression_policy"] = summary
+        if int(alert.get("suppressed_count") or 0) > 0:
+            return {"alert": alert, "suppressed": True, "policy": policy}
+        if candidate is None:
+            alert.setdefault("suppressed_count", 0)
+            return {"alert": alert, "suppressed": False, "policy": policy}
+
+        previous = json.loads(candidate[0])
+        previous_seen = self._suppression_time(previous.get("last_seen") or previous.get("timestamp"))
+        observed = self._suppression_time(alert.get("last_seen") or alert.get("timestamp"))
+        if previous_seen is None or observed is None:
+            return {"alert": alert, "suppressed": False, "policy": policy}
+        elapsed = (observed - previous_seen).total_seconds()
+        if elapsed < 0 or elapsed > policy["window_seconds"]:
+            alert.setdefault("suppressed_count", 0)
+            return {"alert": alert, "suppressed": False, "policy": policy}
+
+        previous["suppression_policy"] = summary
+        previous["suppressed_count"] = int(previous.get("suppressed_count") or 0) + 1
+        previous["event_count"] = max(1, int(previous.get("event_count") or 1)) + max(
+            1, int(alert.get("event_count") or 1),
+        )
+        previous["first_seen"] = min(
+            previous.get("first_seen") or previous["timestamp"],
+            alert.get("first_seen") or alert["timestamp"],
+        )
+        previous["last_seen"] = max(
+            previous.get("last_seen") or previous["timestamp"],
+            alert.get("last_seen") or alert["timestamp"],
+        )
+        previous["updated_at"] = utc_iso()
+        return {"alert": previous, "suppressed": True, "policy": policy}
 
     def stats(self) -> dict:
         self.ensure_schema()

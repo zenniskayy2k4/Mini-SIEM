@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from config import config
 from src.rules import load_rules
@@ -43,10 +44,12 @@ def test_rule_loader():
 """,
             encoding="utf-8",
         )
-        assert [rule["id"] for rule in load_rules(directory, config.SIGNATURES)] == ["DET-TEST-001"]
+        with patch("logging.warning"):
+            assert [rule["id"] for rule in load_rules(directory, config.SIGNATURES)] == ["DET-TEST-001"]
 
     with tempfile.TemporaryDirectory() as directory:
-        assert load_rules(directory, config.SIGNATURES) == config.SIGNATURES
+        with patch("logging.warning"):
+            assert load_rules(directory, config.SIGNATURES) == config.SIGNATURES
 
 
 if __name__ == "__main__":

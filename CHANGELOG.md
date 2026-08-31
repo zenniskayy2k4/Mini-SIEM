@@ -4,6 +4,97 @@ All notable changes to Mini-SIEM are documented here. The project follows semant
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-31
+
+Performance and Operational Resilience release.
+
+### Added
+
+- A deterministic synthetic telemetry load generator with `steady`, `burst`, `mixed-source`, `windows-heavy`, and `authentication-heavy` modes that produces local-only versioned envelopes with no exploit traffic, AI, or provider calls.
+- A single-node throughput benchmark measuring events/sec, normalization/detection/SQLite latency, dashboard API latency, CPU, memory, queue depth, and dropped/rejected events at 10/50/100/250 events/s and burst profiles.
+- A bounded stdlib ingestion queue with explicit overload policy: backpressure on a full queue, worker-failure counting, explicit rejection when stopped, and saturation surfaced in agent heartbeat, system status, and public health.
+- Graceful degradation across `healthy`, `degraded`, and `saturated` states that keeps core detection and persistence active while AI/external TI skip new work and notifications become serialized or audit `SKIPPED_OVERLOAD` without network calls.
+- Justified SQLite query indexes with an `EXPLAIN QUERY PLAN` audit and bounded batched writes (batch size 10, maximum 50 ms flush) for the durable JSON dual-write profile.
+- Stable collector identity with atomic ID persistence, server-side version/hostname/source/last-seen tracking, and duplicate-ID warning on host change.
+- Bounded per-channel collector buffer diagnostics (500-event cap, oldest-first replay, delete-only-after-acknowledgement, corrupt-buffer quarantine) and a versioned collector ingest protocol that keeps legacy payloads accepted.
+- An offline deterministic outage recovery regression covering buffering, replay, deduplication, cursor advance, and no silent loss.
+
+### Changed
+
+- SQLite telemetry/incident transaction time reduced by 88.9%/87.8% and end-to-end dual-write time by 44.4%/36.7% at the measured batch/flush settings.
+- Collector payloads now send `protocol_version: 1`; missing fields negotiate to legacy `0` and future versions are rejected with HTTP 400.
+- The 100k alert API/search paths remain below 50 ms while the analytics ceiling is recorded in the large-history benchmark.
+
+### Security
+
+- Overload-degradation evidence is explicit and audited: AI/TI skip new work under load, notifications write `SKIPPED_OVERLOAD` without network calls, and core detection/persistence always have priority.
+- Collector buffer metrics and heartbeat diagnostics are bounded and surfaced only through authenticated admin diagnostics; protocol and buffer fields are strictly validated at the collector API trust boundary.
+
+### Verification
+
+- All 70 executable regression modules pass locally in the existing image without Ollama, paid-provider, or network-dependent test calls.
+- Python, PowerShell, Compose, runtime health, and migration regressions pass; the deterministic outage recovery, throughput, large-history, and query-plan modules are covered.
+- GitHub Actions must pass baseline, Docker smoke, security, container scan, and release gate on this release commit before `v0.9.0` is tagged.
+
+See the [v0.9.0 release checklist](docs/RELEASE_v0.9.0.md) for setup, upgrade notes, verification details, and known limitations.
+
+## [0.8.0] - 2026-08-29
+
+Platform and Supply-chain Hardening release.
+
+### Added
+
+- Deployment configuration validation, an optional Caddy HTTPS reverse-proxy profile, secure-cookie/trusted-proxy handling, request limits, and generic file-backed application secrets.
+- A focused security regression pack covering authentication, authorization, CSRF, session revocation, throttling, XSS escaping, oversized requests, collector authentication, and HTTPS cookies.
+- CI-generated SPDX container SBOMs, SHA-256 manifests, and HIGH/CRITICAL Grype gating with reviewable, expiring exception policy.
+- Versioned SQLite schema history, a backup-first migration runner with dry-run inspection, an isolated restore drill, and historical v0.6.0/v0.7.0/v0.8.0 upgrade fixtures.
+
+### Changed
+
+- Production dependencies and transitive packages are exactly pinned and checked consistently by Docker and CI.
+- Release publication verifies the SBOM checksum before attaching both artifacts to the GitHub Release.
+
+### Security
+
+- Production validation fails closed on missing or weak secrets, unsafe TLS/cookie combinations, conflicting secret sources, invalid response modes, and unsafe public bindings.
+- Secret files reject missing, empty, multi-line, non-UTF-8, and oversized values without logging their contents or paths.
+- Container vulnerability exceptions are deny-by-default, narrowly scoped, owned, justified, linked, and limited to 30 days.
+
+### Verification
+
+- All 61 executable regression modules pass locally in the existing image without Ollama, paid-provider, or network-dependent test calls.
+- Base and HTTPS Compose profiles, configuration validation, schema upgrades, backup/restore integrity, and release-artifact consistency pass locally.
+- GitHub Actions must pass baseline, Docker smoke, security, container scan, and release gate on this release commit before `v0.8.0` is tagged.
+
+See the [v0.8.0 release history](docs/RELEASE_HISTORY.md#mini-siem-v080-release-checklist) for setup, upgrade notes, verification details, and known limitations.
+
+## [0.7.0] - 2026-08-26
+
+Detection Validation and Data Quality release.
+
+### Added
+
+- Time-filtered per-rule quality metrics from the latest analyst feedback per alert, including explicit classified/unclassified sample sizes and deterministic validation scenario context without precision/recall claims.
+- Analyst detection feedback with SQLite-backed rule/alert linkage, session-derived actor identity, false-positive reason enforcement, read-only viewer visibility, and hash-chained audit records without altering alert evidence.
+- Versioned offline detection scenarios with an 18-case Linux, Windows, Sigma, NIDS, and cross-source corpus, deterministic replay through existing detection paths, isolated temporary state, normalized CI output, generated Markdown/JSON rule-validation coverage separate from runtime hit counts, and a required provider-disabled CI gate with failure artifacts.
+- Audited, exact-match detection exceptions; deterministic time-window suppression policies; and an analyst tuning workspace that preserves suppressed telemetry without notifying.
+- A versioned normalized event envelope with stable event and collector identities plus backward-compatible unwrap validation.
+- Retained, secret-redacted parser/schema/unsupported ingestion diagnostics and bounded Prometheus ingestion-health metrics.
+- Authenticated Windows collector heartbeats with a configurable stale threshold and offline, idle, endpoint-unavailable, and healthy diagnostic states.
+
+### Security
+
+- Detection feedback, exceptions, suppression changes, and collector health remain server-authorized; untrusted diagnostics are redacted before storage and escaped before rendering.
+- Ingestion metrics use bounded labels, heartbeat identities are admin-only, and persisted collector state is capped to prevent unbounded cardinality.
+
+### Verification
+
+- All 53 executable regression modules pass on source and the built image, including the deterministic 18-scenario replay corpus.
+- GitHub Actions pre-release head `ac5f0ec` passed baseline, Docker smoke, security, and release gate in run `32956979463`.
+- Python, JavaScript, PowerShell, Compose, runtime health, tracked-file, and secret checks pass without an Ollama/network-dependent test.
+
+See the [v0.7.0 release history](docs/RELEASE_HISTORY.md#mini-siem-v070-release-checklist) for setup, upgrade notes, verification details, and known limitations.
+
 ## [0.6.0] - 2026-08-23
 
 SOC Integrations and Role-focused Workspaces release.

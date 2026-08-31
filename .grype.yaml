@@ -1,0 +1,4 @@
+# No active vulnerability exceptions.
+# Future entries must pin one vulnerability and package, with owner, reason,
+# tracking issue, and an expiry no later than 30 days documented in this file.
+ignore: []

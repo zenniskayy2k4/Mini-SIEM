@@ -70,6 +70,16 @@ CAMPAIGN_THRESHOLDS: dict[str, int] = {
 # Cross-source bonus: if IP seen in N distinct sources → multiply severity
 # ---------------------------------------------------------------------------
 SOURCE_PRIORITY = {"HONEYPOT": 3, "NIDS": 2, "WINDOWS_EVENT": 2, "HIDS_LOG": 1}
+CORRELATION_RULES = {
+    "DET-CORR-001": {
+        "id": "DET-CORR-001",
+        "title": "Cross-Sensor Correlated Threat",
+        "severity": "CRITICAL",
+        "source_type": "CORRELATION",
+        "rule_source": "native",
+        "mitre": {"tactic": "Multiple", "technique": "T1078"},
+    },
+}
 
 
 def _classify_alert(alert_name: str) -> str:
@@ -184,7 +194,7 @@ class AlertCorrelator:
             return active
 
         chain_str = " → ".join(matched_stages)
-        logger.warning(f"[Correlator] Kill chain detected: {ip}  {chain_str}")
+        logger.info(f"[Correlator] Kill chain detected: {ip}  {chain_str}")
 
         result = build_alert(
             alert_name="Multi-Stage Attack Chain Detected",
@@ -230,13 +240,17 @@ class AlertCorrelator:
             active["sources"] = sorted(sources)
             return active
 
-        logger.warning(f"[Correlator] Cross-source alert: {ip}  sources={sources}")
+        logger.info(
+            "[Correlator] Cross-source alert: %s  sources=%s", ip, sorted(sources)
+        )
 
+        rule = CORRELATION_RULES["DET-CORR-001"]
         result = build_alert(
-            alert_name="Cross-Sensor Correlated Threat",
-            severity="CRITICAL",
-            source_type="CORRELATION",
-            mitre_attck_id="T1078 (Multi-vector)",
+            rule_id=rule["id"],
+            alert_name=rule["title"],
+            severity=rule["severity"],
+            source_type=rule["source_type"],
+            mitre_attck_id=f"{rule['mitre']['technique']} (Multi-vector)",
             description=(
                 f"IP {ip} detected across multiple sensors: {', '.join(sorted(sources))}. "
                 f"High-fidelity indicator of targeted attack."
@@ -302,7 +316,7 @@ class AlertCorrelator:
 
         severity = "CRITICAL" if category in ("INITIAL_ACCESS", "PRIV_ESC") else "HIGH"
 
-        logger.warning(f"[Correlator] Campaign: {campaign_name}  ip={ip}  events={len(same_cat)}")
+        logger.info(f"[Correlator] Campaign: {campaign_name}  ip={ip}  events={len(same_cat)}")
 
         result = build_alert(
             alert_name=campaign_name,

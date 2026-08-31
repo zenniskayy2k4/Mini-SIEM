@@ -1,0 +1,287 @@
+{
+  "rules": [
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Execution",
+      "mitre_technique": "T1059.001",
+      "negative_scenarios": [],
+      "positive_scenarios": [
+        "SCN-WIN-SIGMA-001"
+      ],
+      "rule_id": "7c4f8f2e-1e7b-4d95-9f76-8c731fef60a3",
+      "rule_source": "sigma",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 1,
+      "severity": "HIGH",
+      "source_type": "WINDOWS_EVENT",
+      "title": "Suspicious PowerShell Execution"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Multiple",
+      "mitre_technique": "T1078",
+      "negative_scenarios": [],
+      "positive_scenarios": [
+        "SCN-CROSS-SOURCE-001"
+      ],
+      "rule_id": "DET-CORR-001",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 1,
+      "severity": "CRITICAL",
+      "source_type": "CORRELATION",
+      "title": "Cross-Sensor Correlated Threat"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Privilege Escalation",
+      "mitre_technique": "T1548.003",
+      "negative_scenarios": [
+        "SCN-LNX-ACCOUNT-001",
+        "SCN-LNX-BENIGN-001"
+      ],
+      "positive_scenarios": [
+        "SCN-LNX-SUDO-001"
+      ],
+      "rule_id": "DET-LNX-001",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 3,
+      "severity": "MEDIUM",
+      "source_type": "HIDS_LOG",
+      "title": "Sudo Privilege Escalation"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Persistence",
+      "mitre_technique": "T1136.001",
+      "negative_scenarios": [
+        "SCN-LNX-BENIGN-001",
+        "SCN-LNX-SUDO-001",
+        "SCN-SSH-BRUTE-001"
+      ],
+      "positive_scenarios": [
+        "SCN-LNX-ACCOUNT-001"
+      ],
+      "rule_id": "DET-LNX-002",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 4,
+      "severity": "LOW",
+      "source_type": "HIDS_LOG",
+      "title": "New User Creation"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Reconnaissance",
+      "mitre_technique": "T1046",
+      "negative_scenarios": [
+        "SCN-NET-ARP-001",
+        "SCN-NET-BENIGN-001"
+      ],
+      "positive_scenarios": [
+        "SCN-NET-SYN-001"
+      ],
+      "rule_id": "DET-NET-001",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 3,
+      "severity": "HIGH",
+      "source_type": "NIDS",
+      "title": "Network Port Scanning (SYN flood heuristic)"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Credential Access",
+      "mitre_technique": "T1557.002",
+      "negative_scenarios": [
+        "SCN-NET-SYN-001"
+      ],
+      "positive_scenarios": [
+        "SCN-NET-ARP-001"
+      ],
+      "rule_id": "DET-NET-002",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 2,
+      "severity": "CRITICAL",
+      "source_type": "NIDS",
+      "title": "ARP Spoofing Suspected (MAC flapping)"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Credential Access",
+      "mitre_technique": "T1110.001",
+      "negative_scenarios": [
+        "SCN-LNX-BENIGN-001",
+        "SCN-SSH-SINGLE-001"
+      ],
+      "positive_scenarios": [
+        "SCN-SSH-BRUTE-001"
+      ],
+      "rule_id": "DET-SSH-001",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 3,
+      "severity": "HIGH",
+      "source_type": "HIDS_LOG",
+      "title": "SSH Brute Force Attempt"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Execution",
+      "mitre_technique": "T1059.001",
+      "negative_scenarios": [
+        "SCN-WIN-LOLBIN-001"
+      ],
+      "positive_scenarios": [
+        "SCN-WIN-POWERSHELL-001"
+      ],
+      "rule_id": "DET-WIN-001",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 2,
+      "severity": "HIGH",
+      "source_type": "WINDOWS_EVENT",
+      "title": "Encoded PowerShell Execution"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Defense Evasion",
+      "mitre_technique": "T1218",
+      "negative_scenarios": [
+        "SCN-WIN-LOLBIN-NEGATIVE-001",
+        "SCN-WIN-POWERSHELL-001"
+      ],
+      "positive_scenarios": [
+        "SCN-WIN-LOLBIN-001"
+      ],
+      "rule_id": "DET-WIN-002",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 3,
+      "severity": "HIGH",
+      "source_type": "WINDOWS_EVENT",
+      "title": "Suspicious Windows LOLBin Execution"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Persistence",
+      "mitre_technique": "T1136.001",
+      "negative_scenarios": [],
+      "positive_scenarios": [
+        "SCN-WIN-ACCOUNT-001"
+      ],
+      "rule_id": "DET-WIN-003",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 1,
+      "severity": "MEDIUM",
+      "source_type": "WINDOWS_EVENT",
+      "title": "Windows Account Creation"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Persistence",
+      "mitre_technique": "T1053.005",
+      "negative_scenarios": [],
+      "positive_scenarios": [
+        "SCN-WIN-TASK-001"
+      ],
+      "rule_id": "DET-WIN-004",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 1,
+      "severity": "HIGH",
+      "source_type": "WINDOWS_EVENT",
+      "title": "Scheduled Task Creation"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Defense Evasion",
+      "mitre_technique": "T1562.001",
+      "negative_scenarios": [],
+      "positive_scenarios": [
+        "SCN-WIN-DEFENDER-001"
+      ],
+      "rule_id": "DET-WIN-005",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 1,
+      "severity": "HIGH",
+      "source_type": "WINDOWS_EVENT",
+      "title": "Microsoft Defender Tampering"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Credential Access",
+      "mitre_technique": "T1003.001",
+      "negative_scenarios": [],
+      "positive_scenarios": [
+        "SCN-WIN-LSASS-001"
+      ],
+      "rule_id": "DET-WIN-006",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 1,
+      "severity": "CRITICAL",
+      "source_type": "WINDOWS_EVENT",
+      "title": "Suspicious LSASS Process Access"
+    },
+    {
+      "enabled": true,
+      "last_validation_result": "PASS",
+      "mitre_tactic": "Execution",
+      "mitre_technique": "T1204.002",
+      "negative_scenarios": [],
+      "positive_scenarios": [
+        "SCN-WIN-OFFICE-001"
+      ],
+      "rule_id": "DET-WIN-007",
+      "rule_source": "native",
+      "runtime_hit_count": null,
+      "runtime_hit_state": "NOT_EVALUATED",
+      "scenario_count": 1,
+      "severity": "HIGH",
+      "source_type": "WINDOWS_EVENT",
+      "title": "Suspicious Office Child Process"
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "rules_failed": 0,
+    "rules_total": 14,
+    "rules_unvalidated": 0,
+    "rules_validated": 14,
+    "runtime_hits_evaluated": false,
+    "scenarios_failed": 0,
+    "scenarios_passed": 18,
+    "scenarios_total": 18
+  }
+}

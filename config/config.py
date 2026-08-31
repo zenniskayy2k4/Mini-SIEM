@@ -1,8 +1,10 @@
 import os
 
+from config.secrets import read_secret
+
 AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama_cloud").strip().lower()
 AI_FALLBACK_PROVIDER = os.getenv("AI_FALLBACK_PROVIDER", "").strip().lower()
-OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "").strip()
+OLLAMA_API_KEY = read_secret("OLLAMA_API_KEY", os.environ)
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "https://ollama.com/api").strip()
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:cloud").strip()
 OLLAMA_LOCAL_BASE_URL = os.getenv(
@@ -28,11 +30,18 @@ AGENT_HEARTBEAT_FILE = os.path.join(BASE_DIR, 'data', 'agent_heartbeat.json')
 ALERT_ARCHIVE_DIR = os.path.join(BASE_DIR, 'data', 'archive')
 SQLITE_BACKUP_DIR = os.path.join(BASE_DIR, 'data', 'backups')
 ALERT_RETENTION_DAYS = max(1, int(os.getenv("ALERT_RETENTION_DAYS", "90")))
+INGESTION_FAILURE_RETENTION_DAYS = max(
+    1, int(os.getenv("INGESTION_FAILURE_RETENTION_DAYS", "30"))
+)
 LOG_ROTATE_MAX_BYTES = max(1024, int(os.getenv("LOG_ROTATE_MAX_BYTES", str(10 * 1024 * 1024))))
 LOG_ROTATE_BACKUPS = max(1, int(os.getenv("LOG_ROTATE_BACKUPS", "5")))
 SQLITE_READ_ENABLED = os.getenv("SQLITE_READ_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_READ_FALLBACK_ENABLED = os.getenv("JSON_READ_FALLBACK_ENABLED", "true").lower() in {"1", "true", "yes"}
 JSON_DUAL_WRITE_ENABLED = os.getenv("JSON_DUAL_WRITE_ENABLED", "true").lower() in {"1", "true", "yes"}
+SQLITE_WRITE_BATCH_SIZE = min(100, max(1, int(os.getenv("SQLITE_WRITE_BATCH_SIZE", "10"))))
+SQLITE_WRITE_FLUSH_SECONDS = min(
+    1.0, max(0.001, float(os.getenv("SQLITE_WRITE_FLUSH_SECONDS", "0.05")))
+)
 RISK_WEIGHTS = {
     "detection_severity": max(0, int(os.getenv("RISK_WEIGHT_SEVERITY", "40"))),
     "asset_criticality": max(0, int(os.getenv("RISK_WEIGHT_ASSET", "20"))),
@@ -62,10 +71,10 @@ CASE_EXPORT_PROVIDER = os.getenv("CASE_EXPORT_PROVIDER", "thehive").strip().lowe
 CASE_EXPORT_TIMEOUT_SECONDS = min(30, max(1, int(os.getenv("CASE_EXPORT_TIMEOUT_SECONDS", "5"))))
 CASE_EXPORT_MAX_ATTEMPTS = min(3, max(1, int(os.getenv("CASE_EXPORT_MAX_ATTEMPTS", "2"))))
 THEHIVE_URL = os.getenv("THEHIVE_URL", "").strip()
-THEHIVE_API_KEY = os.getenv("THEHIVE_API_KEY", "").strip()
+THEHIVE_API_KEY = read_secret("THEHIVE_API_KEY", os.environ)
 JIRA_URL = os.getenv("JIRA_URL", "").strip()
 JIRA_USER_EMAIL = os.getenv("JIRA_USER_EMAIL", "").strip()
-JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN", "").strip()
+JIRA_API_TOKEN = read_secret("JIRA_API_TOKEN", os.environ)
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "").strip()
 JIRA_ISSUE_TYPE = os.getenv("JIRA_ISSUE_TYPE", "Task").strip()
 GEOIP_ENABLED = os.getenv("GEOIP_ENABLED", "true").lower() in {"1", "true", "yes"}
@@ -74,22 +83,26 @@ GEOIP_CACHE_TTL_SECONDS = max(60, int(os.getenv("GEOIP_CACHE_TTL_SECONDS", "8640
 GEOIP_RATE_LIMIT_PER_SECOND = max(0.01, float(os.getenv("GEOIP_RATE_LIMIT_PER_SECOND", "1")))
 GEOIP_TIMEOUT_SECONDS = max(0.1, float(os.getenv("GEOIP_TIMEOUT_SECONDS", "3")))
 GEOIP_MAX_ATTEMPTS = min(3, max(1, int(os.getenv("GEOIP_MAX_ATTEMPTS", "2"))))
-ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "").strip()
-VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "").strip()
+ABUSEIPDB_API_KEY = read_secret("ABUSEIPDB_API_KEY", os.environ)
+VIRUSTOTAL_API_KEY = read_secret("VIRUSTOTAL_API_KEY", os.environ)
 STIX_INDICATOR_FILE = os.path.join(BASE_DIR, "data", "stix_indicators.json")
 STIX_BUNDLE_FILE = os.getenv("STIX_BUNDLE_FILE", "").strip()
 TAXII_COLLECTION_URL = os.getenv("TAXII_COLLECTION_URL", "").strip()
-TAXII_BEARER_TOKEN = os.getenv("TAXII_BEARER_TOKEN", "").strip()
+TAXII_BEARER_TOKEN = read_secret("TAXII_BEARER_TOKEN", os.environ)
 TAXII_FEED_SOURCE = os.getenv("TAXII_FEED_SOURCE", "taxii").strip() or "taxii"
 TAXII_PULL_INTERVAL_SECONDS = max(60, int(os.getenv("TAXII_PULL_INTERVAL_SECONDS", "3600")))
 WINDOWS_EVENT_FILE = os.getenv(
     "WINDOWS_EVENT_FILE", os.path.join(BASE_DIR, "data", "windows_events.jsonl")
 )
-WINDOWS_COLLECTOR_SECRET = os.getenv("WINDOWS_COLLECTOR_SECRET", "").strip()
+WINDOWS_COLLECTOR_SECRET = read_secret("WINDOWS_COLLECTOR_SECRET", os.environ)
+WINDOWS_COLLECTOR_STALE_SECONDS = max(
+    10, int(os.getenv("WINDOWS_COLLECTOR_STALE_SECONDS", "60"))
+)
+INGESTION_QUEUE_CAPACITY = max(1, int(os.getenv("INGESTION_QUEUE_CAPACITY", "1024")))
 DASHBOARD_USERS_FILE = os.path.join(BASE_DIR, "data", "dashboard_users.json")
 DASHBOARD_SESSION_KEY_FILE = os.path.join(BASE_DIR, "data", "dashboard_session.key")
 DASHBOARD_COOKIE_SECURE = os.getenv("DASHBOARD_COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
-METRICS_BEARER_TOKEN = os.getenv("METRICS_BEARER_TOKEN", "").strip()
+METRICS_BEARER_TOKEN = read_secret("METRICS_BEARER_TOKEN", os.environ)
 
 # --- ENGINE SETTINGS ---
 CORRELATION_WINDOW_MINUTES = 5
@@ -99,7 +112,7 @@ SSH_BRUTE_FORCE_THRESHOLD = 5
 SSH_BRUTE_FORCE_WINDOW_SECONDS = 60
 
 # --- DASHBOARD SETTINGS ---
-DASHBOARD_HOST = "0.0.0.0"
+DASHBOARD_HOST = os.getenv("DASHBOARD_HOST", "0.0.0.0").strip()
 DASHBOARD_PORT = 5000
 
 # ML Model Paths

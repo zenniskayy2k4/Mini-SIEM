@@ -9,6 +9,7 @@ def test_responsive_dashboard_contract():
     layout = (ROOT / "templates/layout.html").read_text(encoding="utf-8")
     dashboard = (ROOT / "templates/dashboard.html").read_text(encoding="utf-8")
     settings = (ROOT / "templates/settings.html").read_text(encoding="utf-8")
+    detections = (ROOT / "templates/detections.html").read_text(encoding="utf-8")
     assets = (ROOT / "templates/assets.html").read_text(encoding="utf-8")
     logs = (ROOT / "templates/logs.html").read_text(encoding="utf-8")
     login = (ROOT / "templates/login.html").read_text(encoding="utf-8")
@@ -21,15 +22,17 @@ def test_responsive_dashboard_contract():
     assert "100dvh" in css
 
     assert 'class="logo-label"' in layout
-    assert layout.count('class="nav-label"') == 6
+    assert layout.count('class="nav-label"') == 7
     assert 'class="logout-label"' in layout
 
     assert dashboard.count('class="table-responsive') == 2
-    assert settings.count('class="table-responsive') == 2
+    assert settings.count('class="table-responsive') == 4
+    assert detections.count('class="table-responsive') == 2
     assert assets.count('class="table-responsive') == 1
     assert 'class="asset-dialog"' in assets
     assert 'class="table-scroll-area"' in logs
     assert ".table-responsive .mini-table" in css
+    assert ".detection-tuning-table" in css
     assert "min-width: 1080px" in css
     assert "overflow: auto" in css
 

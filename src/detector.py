@@ -27,6 +27,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from config import config
 from src.alert_schema import build_alert
+from src.event_envelope import unwrap_event_envelope
 from src.rules import match_rule, validate_rules
 from src.windows_events import windows_event_text
 
@@ -173,9 +174,10 @@ class ThreatDetector:
 
     FEATURE_DIM = 15
 
-    def __init__(self, signatures: list, ai_analyst=None):
+    def __init__(self, signatures: list, ai_analyst=None, *, load_models=True, clock=None):
         self.signatures  = validate_rules(signatures)
         self.ai_analyst  = ai_analyst   # optional async LLM analyst
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
 
         self.vectorizer  = None
         self.nlp_model   = None
@@ -186,7 +188,8 @@ class ThreatDetector:
         self._ssh_alerts = {}
         self._ssh_lock = threading.Lock()
 
-        self._load_all_models()
+        if load_models:
+            self._load_all_models()
 
     # ------------------------------------------------------------------
     # Model loading
@@ -340,6 +343,7 @@ class ThreatDetector:
 
     def analyze_windows_event(self, event: dict) -> dict | None:
         """Apply lightweight YAML rules; AI enrichment stays on the shared agent worker."""
+        event, envelope = unwrap_event_envelope(event, "WINDOWS_EVENT")
         raw_event = windows_event_text(event)
         alert = self._rule_based_detect(raw_event, "WINDOWS_EVENT")
         if not alert:
@@ -350,9 +354,16 @@ class ThreatDetector:
             "last_seen": event["timestamp"],
             "windows_event_id": event["event_id"],
             "windows_event_uid": event["event_uid"],
+            "event_schema_version": envelope["event_schema_version"],
+            "event_envelope_id": envelope["event_id"],
+            "collector_id": envelope["collector_id"],
+            "event_received_at": envelope["received_at"],
+            "event_observed_at": envelope["observed_at"],
             "computer": event.get("computer"),
+            "user": event.get("user"),
             "process": event.get("process"),
             "parent_process": event.get("parent_process"),
+            "target_process": event.get("target_process"),
             "hashes": event.get("hashes"),
             "ip_address": (
                 event.get("network", {}).get("source_ip")
@@ -374,7 +385,7 @@ class ThreatDetector:
         if rule is None:
             return False, None
 
-        now = datetime.now(timezone.utc)
+        now = self._clock()
         window = int(getattr(config, rule["threshold"]["window_seconds"]))
         threshold = int(getattr(config, rule["threshold"]["count"]))
         ip = match.group("ip")

@@ -28,6 +28,7 @@ docker compose --profile train config --quiet
 - [ ] `security` passes Gitleaks, dependency audit, and runtime-file tracking checks.
 - [ ] `release-gate` passes release-artifact and clean-clone checks.
 - [ ] No real Ollama key, webhook, collector secret, or response action is used by CI.
+- [ ] The downloaded SBOM matches its published checksum: `sha256sum --check mini-siem-sbom.spdx.json.sha256`.
 
 ## Tag and publish
 
@@ -44,5 +45,6 @@ git push origin vX.Y.Z
 - [ ] The annotated tag points to the green release commit.
 - [ ] The pushed tag's GitHub Actions run is green.
 - [ ] The published changelog and release notes match the tag.
+- [ ] The GitHub Release contains both `mini-siem-sbom.spdx.json` and `mini-siem-sbom.spdx.json.sha256`.
 
 Tag creation and push remain explicit repository-owner actions; CI validates readiness but does not publish a release automatically.

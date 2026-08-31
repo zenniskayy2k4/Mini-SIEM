@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from config import config
 from src.detector import ThreatDetector
@@ -33,7 +34,8 @@ def test_sigma_loader():
             encoding="utf-8",
         )
         Path(directory, "invalid.yml").write_text("title: Missing required fields\n", encoding="utf-8")
-        loaded, failures = load_sigma_rules(directory)
+        with patch("logging.warning"):
+            loaded, failures = load_sigma_rules(directory)
         assert len(loaded) == 1
         assert len(failures) == 1
         assert failures[0]["source_filename"] == "invalid.yml"
@@ -42,7 +44,8 @@ def test_sigma_loader():
         sample = Path(config.SIGMA_RULES_DIR, "suspicious_powershell.yml").read_text(encoding="utf-8")
         Path(directory, "first.yml").write_text(sample, encoding="utf-8")
         Path(directory, "second.yaml").write_text(sample, encoding="utf-8")
-        loaded, failures = load_sigma_rules(directory)
+        with patch("logging.warning"):
+            loaded, failures = load_sigma_rules(directory)
         assert len(loaded) == 1
         assert len(failures) == 1
         assert "Duplicate Sigma id" in failures[0]["reason"]

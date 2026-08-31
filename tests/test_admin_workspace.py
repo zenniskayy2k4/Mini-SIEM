@@ -8,6 +8,7 @@ import dashboard
 from config import config
 from src.audit import verify_audit_log
 from src.dashboard_auth import authenticate, get_user, load_users, save_user, user_auth_version
+from src.ingestion_failures import record_ingestion_failure
 from tests.auth_helpers import login_as
 
 
@@ -25,7 +26,10 @@ def test_admin_workspace():
         config.SQLITE_ALERT_DB = str(directory / "mini_siem.db")
         config.SQLITE_BACKUP_DIR = str(directory / "backups")
         config.ALERT_ARCHIVE_DIR = str(directory / "archive")
-        Path(config.SQLITE_ALERT_DB).write_bytes(b"fixture database")
+        record_ingestion_failure(
+            "schema", "Missing event field", {"api_" + "key": "admin-secret"},
+            collector_id="win-lab",
+        )
         Path(config.SQLITE_BACKUP_DIR).mkdir()
         Path(config.SQLITE_BACKUP_DIR, "mini_siem.backup-fixture.db").write_bytes(b"backup")
         Path(config.ALERT_ARCHIVE_DIR).mkdir()
@@ -36,6 +40,7 @@ def test_admin_workspace():
             "database": {"status": "healthy", "check": "ok"},
             "queue": {"busy": False, "backlog": 0},
             "ai": {"enabled": True, "available": True, "provider": "fixture"},
+            "ingestion": {"status": "idle", "collectors": [{"collector_id": "win-lab"}]},
         }
         try:
             admin = dashboard.app.test_client()
@@ -47,9 +52,14 @@ def test_admin_workspace():
                 html = page.get_data(as_text=True)
                 for marker in (
                     "Admin workspace", "User Management", "Integrations", "Audit Integrity",
-                    "Retention & Backup", "Detection Rules", 'id="set-nids-enabled"',
+                    "Retention & Backup", "Ingestion Failures", 'id="set-nids-enabled"',
+                    'id="admin-health-ingestion"',
                 ):
                     assert marker in html
+                tuning = admin.get("/detections")
+                assert tuning.status_code == 200
+                assert b"Detection tuning" in tuning.data
+                assert b'detection-tuning-body' in tuning.data
 
                 workspace = admin.get("/api/admin/workspace")
                 assert workspace.status_code == 200
@@ -59,6 +69,9 @@ def test_admin_workspace():
                 assert payload["maintenance"]["retention_days"] == config.ALERT_RETENTION_DAYS
                 assert payload["maintenance"]["backups"]["count"] == 1
                 assert payload["maintenance"]["archives"]["count"] == 1
+                assert payload["ingestion_failures"]["counts"]["schema"] == 1
+                assert payload["ingestion_failures"]["recent"][0]["collector_id"] == "win-lab"
+                assert "admin-secret" not in json.dumps(payload)
                 assert payload["users"] == [{"role": "admin", "username": "soc-admin"}]
                 assert {item["name"] for item in payload["integrations"]} == {
                     "External case", "AI analyst", "Threat intelligence",

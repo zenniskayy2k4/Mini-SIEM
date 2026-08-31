@@ -5,14 +5,14 @@
 ![Ollama](https://img.shields.io/badge/Ollama-Cloud_AI-white?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=flat-square)
-![Release](https://img.shields.io/badge/release-v0.5.0-2ea44f?style=flat-square)
+![Release](https://img.shields.io/badge/release-v0.9.0-2ea44f?style=flat-square)
 [![CI](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml/badge.svg)](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml)
 
 A compact, explainable SIEM lab for learning blue-team workflows. It combines YAML signatures, local anomaly models, event correlation, an optional Ollama Cloud analyst, an authenticated incident dashboard, and safe response simulation.
 
 > **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
 
-Current release: **v0.6.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.6.0.md).
+Current release: **v0.9.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.9.0.md).
 
 ## What is implemented
 
@@ -29,6 +29,10 @@ Current release: **v0.6.0** — see the [changelog](CHANGELOG.md) and [release c
 - Proposed response actions, approvals, simulation, rollback metadata, and optional webhook notifications.
 - Normalized GeoIP, optional AbuseIPDB/VirusTotal metadata, and offline STIX/TAXII indicator matching.
 - Health/status diagnostics, retention, SQLite backup, and log rotation tooling.
+- Deterministic detection scenarios, analyst feedback, audited tuning controls, versioned event envelopes, ingestion diagnostics, and stale-collector detection.
+- Validated deployment configuration, an optional HTTPS reverse-proxy profile, file-backed secrets, reproducible dependencies, release SBOM/checksums, and tested database migration/recovery.
+- Measured single-node load and backpressure, a bounded ingestion queue with explicit overload policy, optimized SQLite query/write performance, and a large-history benchmark.
+- Collector reliability: stable identity, bounded buffering with diagnostics, a versioned ingest protocol, and an end-to-end offline outage recovery path.
 
 ## Architecture
 
@@ -122,7 +126,7 @@ Copy `.env.example` to `.env` and set:
 ```dotenv
 AI_PROVIDER=ollama_cloud
 AI_FALLBACK_PROVIDER=
-OLLAMA_API_KEY=your_ollama_cloud_key
+OLLAMA_API_KEY=
 OLLAMA_BASE_URL=https://ollama.com/api
 OLLAMA_MODEL=gemma4:cloud
 ```
@@ -207,6 +211,10 @@ Levels are `LOW` below 25, `MEDIUM` from 25, `HIGH` from 50, and `CRITICAL` from
 
 Sessions use HTTP-only cookies, server-side role checks, CSRF protection for mutations, and an append-only analyst audit log. Set `DASHBOARD_SESSION_SECRET` explicitly for stable deployments and enable `DASHBOARD_COOKIE_SECURE=true` only behind HTTPS.
 
+Validate `.env` before deployment with `python -m tools.validate_config`. The command checks conditional secrets, app-owned token lengths, cookie/TLS compatibility, AI provider selection, retention, response mode, webhook scheme, bind exposure, and production debug mode without printing secret values. Keep `DEPLOYMENT_ENV=development` for the local lab; production additionally requires explicit session/metrics secrets and HTTPS.
+
+Secrets may instead use the matching `*_FILE` variable for Docker/secret-store mounts; direct and file forms are mutually exclusive. See [File-based secrets](docs/FILE_SECRETS.md).
+
 Viewer accounts land on a read-only overview that reuses the same bounded alert, KPI, and coverage APIs as the other workspaces. Mutation controls are omitted in the browser and analyst/admin authorization remains enforced on every mutation endpoint, so hiding controls is not the security boundary.
 
 ## Response safety
@@ -226,8 +234,8 @@ CASE_EXPORT_ENABLED=false
 CASE_EXPORT_PROVIDER=thehive
 CASE_EXPORT_TIMEOUT_SECONDS=5
 CASE_EXPORT_MAX_ATTEMPTS=2
-THEHIVE_URL=https://thehive.example
-THEHIVE_API_KEY=replace-with-a-dedicated-api-key
+THEHIVE_URL=
+THEHIVE_API_KEY=
 ```
 
 For Jira Cloud, select `jira` and configure its project and dedicated account:
@@ -251,7 +259,7 @@ Offline exports (`.json`, `.jsonl`, `.ndjson`, `.xml`, or `.evtx`) can be normal
 python tools/import_windows_events.py evidence.evtx --output data/windows_events.jsonl
 ```
 
-For continuous collection, run `tools/windows_event_collector.ps1` on the Windows host and configure the same random `WINDOWS_COLLECTOR_SECRET` on the collector and dashboard. The current mappings focus on selected Sysmon process, network, image-load, access, file, and registry events plus selected Security/Defender events.
+For continuous collection, run `tools/windows_event_collector.ps1` on the Windows host and configure the same random `WINDOWS_COLLECTOR_SECRET` on the collector and dashboard. Normalized records use the [versioned event envelope](docs/EVENT_ENVELOPE.md), including stable event/collector identity and separate received/observed timestamps. Collector payloads follow the [versioned collector protocol](docs/COLLECTOR_PROTOCOL.md), which keeps legacy collectors accepted while rejecting unsupported future versions. The current mappings focus on selected Sysmon process, network, image-load, access, file, and registry events plus selected Security/Defender events.
 
 Limitations:
 
@@ -268,13 +276,14 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 ## Operations and testing
 
 - `GET /health` provides an unauthenticated liveness/readiness summary; authenticated admins can use `/api/system/status` for richer diagnostics.
+- The opt-in [local HTTPS profile](docs/HTTPS_DEPLOYMENT.md) terminates TLS with Caddy, closes the direct dashboard port, validates one forwarded-header hop, and documents the development CA certificate path.
 - Retention, backup, restore verification, and log rotation are documented in [Retention and backup](docs/RETENTION_BACKUP.md).
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
-- Detection coverage and manual checks are tracked in [Detection checklist](DETECTION_CHECKLIST.md).
+- Runtime hit coverage and manual checks are tracked in the [Detection checklist](docs/DETECTION_CHECKLIST.md); deterministic scenario coverage is published in the [validation coverage matrix](docs/DETECTION_VALIDATION_COVERAGE.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
-- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.6.0 checklist](docs/RELEASE_v0.6.0.md).
+- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.9.0 checklist](docs/RELEASE_v0.9.0.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
-- The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.4–v0.6 roadmap](docs/MINI_SIEM_CONTINUATION_ROADMAP_v0.4_to_v0.6.md).
+- The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.7–v1.0 roadmap](docs/MINI_SIEM_ROADMAP_v0.7_to_v1.0.md).
 
 Useful commands:
 
@@ -286,9 +295,27 @@ docker compose run --rm -v "${PWD}:/app" dashboard sh -c \
 # Generate authorized lab traffic/events
 docker compose exec agent python tools/attack_sim.py
 
+# Generate deterministic local-only telemetry JSONL (no ingest, packets, AI, or TI)
+docker compose run --rm -v "${PWD}:/app" dashboard python \
+  tools/generate_telemetry_load.py --mode mixed-source --count 1000 \
+  --output data/synthetic-telemetry.jsonl
+
+# Benchmark bounded single-node processing against temporary SQLite
+docker compose run --rm -v "${PWD}:/app" dashboard python \
+  tools/benchmark_throughput.py --api-url http://dashboard:5000/health \
+  --json-output data/throughput-report.json
+
+# Verify collector outage recovery offline
+docker compose run --rm -v "${PWD}:/app" dashboard python \
+  -m tests.test_outage_recovery
+
 # Back up SQLite or apply retention offline
 docker compose run --rm dashboard python -m tools.maintenance backup
 docker compose run --rm dashboard python -m tools.maintenance retention --days 90
+
+# Preview, then apply pending SQLite schema migrations
+docker compose run --rm dashboard python -m tools.migrate_db --dry-run
+docker compose run --rm dashboard python -m tools.migrate_db
 ```
 
 ## Project layout
@@ -314,8 +341,27 @@ Mini-SIEM/
 
 ## Near-term roadmap
 
-- Stabilize the v0.6 single-node release and its documented upgrade path.
-- Add TLS/reverse-proxy deployment guidance and stronger secret management when the lab is exposed beyond localhost.
+- Version the REST API surface and alert schema before v1.0.
+- Add operator diagnostics, an accessibility pass, and production-style runbooks.
 - Keep multi-tenant architecture and production response integrations deferred until a concrete isolation or execution requirement exists.
+
+## Dependency policy
+
+- Production runs on Python 3.12 with every direct and transitive package exactly pinned in `requirements.txt`.
+- Packages come only from PyPI and the official PyTorch CPU index; Docker and CI install the lock once and run `python -m pip check`.
+- Dependabot proposes grouped weekly updates. Merge a pin change only after dependency audit, full regression, and Docker smoke gates pass.
+- Add a direct dependency only when runtime code uses it, and remove unused packages in the same change.
+
+CI scans the smoke-tested container image into `mini-siem-sbom.spdx.json`, verifies both Python and Debian package inventories, and retains the artifact for 14 days. Publishing a GitHub Release reruns the gates, verifies `mini-siem-sbom.spdx.json.sha256`, and attaches both files to that release. After downloading them into the same directory, verify the SBOM with:
+
+```bash
+sha256sum --check mini-siem-sbom.spdx.json.sha256
+```
+
+## Container vulnerability policy
+
+- CI fails when the built-image SBOM contains a HIGH or CRITICAL vulnerability, whether or not a fix is currently available.
+- `.grype.yaml` contains no active exception. A future exception must match one vulnerability and package, record its owner, reason, tracking issue, and an expiry of at most 30 days, then be removed when fixed or expired.
+- Updating the base image or dependency lock is preferred to adding an exception. A failed scan retains its JSON report for 7 days.
 
 Contributions should keep detections explainable, failure modes observable, and response actions safe by default.

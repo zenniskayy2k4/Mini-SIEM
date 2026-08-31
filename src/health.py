@@ -6,13 +6,17 @@ from pathlib import Path
 
 from config import config
 from src.alert_schema import utc_iso
+from src.ingestion_failures import get_collector_gap_diagnostics
 from src.storage import alert_repository
 
 
 HEARTBEAT_STALE_SECONDS = 15
 
 
-def write_agent_heartbeat(ai: dict, nids_enabled: bool, honeypot_enabled: bool) -> None:
+def write_agent_heartbeat(
+    ai: dict, nids_enabled: bool, honeypot_enabled: bool,
+    ingestion_queue: dict | None = None,
+) -> None:
     path = Path(config.AGENT_HEARTBEAT_FILE)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -23,6 +27,7 @@ def write_agent_heartbeat(ai: dict, nids_enabled: bool, honeypot_enabled: bool) 
             "honeypot_enabled": bool(honeypot_enabled),
         },
         "ai": ai,
+        "ingestion_queue": ingestion_queue or {},
     }
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -79,6 +84,19 @@ def build_system_status(settings: dict | None = None) -> dict:
     ai.setdefault("available", None)
     ai.setdefault("enabled", False)
     queue = {"busy": bool(ai.pop("busy", False)), "backlog": int(ai.pop("backlog", 0))}
+    ingestion_queue = agent.get("ingestion_queue") or {
+        "status": "unknown", "depth": 0, "capacity": 0,
+        "backpressure_total": 0, "rejected_total": 0, "dropped_total": 0,
+    }
+    ingestion = (
+        get_collector_gap_diagnostics()
+        if config.WINDOWS_COLLECTOR_SECRET
+        else {
+            "status": "disabled",
+            "stale_after_seconds": config.WINDOWS_COLLECTOR_STALE_SECONDS,
+            "collectors": [],
+        }
+    )
     sensors = {
         "nids": {
             "configured": bool(settings.get("NIDS_ENABLED", False)),
@@ -92,7 +110,14 @@ def build_system_status(settings: dict | None = None) -> dict:
     status = "healthy"
     if database["status"] != "healthy" or alert_store["status"] != "healthy":
         status = "unhealthy"
-    elif agent["status"] != "healthy" or ai.get("enabled") and ai.get("available") is False:
+    elif ingestion_queue.get("status") == "saturated":
+        status = "saturated"
+    elif (
+        agent["status"] != "healthy"
+        or ai.get("enabled") and ai.get("available") is False
+        or ingestion["status"] in {"offline", "endpoint_unavailable"}
+        or ingestion_queue.get("status") == "degraded"
+    ):
         status = "degraded"
     return {
         "status": status,
@@ -103,5 +128,7 @@ def build_system_status(settings: dict | None = None) -> dict:
         "database": database,
         "ai": ai,
         "queue": queue,
+        "ingestion_queue": ingestion_queue,
+        "ingestion": ingestion,
         "sensors": sensors,
     }

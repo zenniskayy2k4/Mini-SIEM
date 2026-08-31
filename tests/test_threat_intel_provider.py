@@ -94,6 +94,9 @@ def test_threat_intel_provider():
     async_service = ThreatIntelService(async_provider, rate_limit_per_second=1000)
     future = async_service.lookup_async("md5", "c" * 32)
     assert async_provider.started.wait(0.5) and not future.done()
+    busy = async_service.lookup_async("md5", "d" * 32).result(timeout=0.1)
+    assert busy.status == "error" and busy.error["code"] == "busy" and busy.attempts == 0
+    assert len(async_provider.calls) == 1
     persisted_alerts = [{"alert_id": "ALT-persisted-before-ti"}]
     gate.set()
     assert persisted_alerts and future.result(timeout=1).status == "ok"

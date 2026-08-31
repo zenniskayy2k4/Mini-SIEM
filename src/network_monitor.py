@@ -1,15 +1,38 @@
 import time
 import threading
 from collections import defaultdict, deque
+from datetime import datetime, timezone
 
 from config import config
 from src.elk_forwarder import ELKForwarder
-from src.alert_pipeline import persist_and_enrich
+from src.alert_pipeline import (
+    handle_alert_suppression, handle_detection_exception, persist_and_enrich,
+)
 from src.alert_schema import build_alert
 
 # Import scapy lazily to avoid import-time issues when not enabled
 from scapy.layers.inet import IP, TCP
 from scapy.layers.l2 import ARP
+
+NIDS_RULES = {
+    "DET-NET-001": {
+        "id": "DET-NET-001",
+        "title": "Network Port Scanning (SYN flood heuristic)",
+        "severity": "HIGH",
+        "source_type": "NIDS",
+        "rule_source": "native",
+        "mitre": {"tactic": "Reconnaissance", "technique": "T1046"},
+    },
+    "DET-NET-002": {
+        "id": "DET-NET-002",
+        "title": "ARP Spoofing Suspected (MAC flapping)",
+        "severity": "CRITICAL",
+        "source_type": "NIDS",
+        "rule_source": "native",
+        "mitre": {"tactic": "Credential Access", "technique": "T1557.002"},
+    },
+}
+
 
 class NetworkMonitor:
     """
@@ -21,6 +44,7 @@ class NetworkMonitor:
     def __init__(
         self, correlator=None, responder=None, ai_analyst=None,
         geoip_service=None, abuseipdb_service=None, virustotal_service=None,
+        emitter=None, clock=None, overload_state=None,
     ):
         self.correlator = correlator
         self.responder = responder
@@ -28,7 +52,10 @@ class NetworkMonitor:
         self.geoip_service = geoip_service
         self.abuseipdb_service = abuseipdb_service
         self.virustotal_service = virustotal_service
-        self.elk = ELKForwarder()
+        self._emitter = emitter
+        self._clock = clock or time.time
+        self._overload_state = overload_state or (lambda: "healthy")
+        self.elk = None if emitter else ELKForwarder()
 
         self._lock = threading.Lock()
 
@@ -45,22 +72,34 @@ class NetworkMonitor:
         self._stop.set()
 
     def _emit(self, alert: dict) -> None:
+        if self._emitter is not None:
+            self._emitter(alert)
+            return
+        if handle_detection_exception(alert):
+            return
+        if handle_alert_suppression(alert):
+            return
         # Optional: reuse responder/correlator pipeline if injected from main
         if self.correlator:
             alert = self.correlator.correlate(alert)
+            if handle_detection_exception(alert):
+                return
+            if handle_alert_suppression(alert):
+                return
         if self.responder:
             alert = self.responder.handle_incident(alert)
 
-        self.elk.send_alert(alert)
         persist_and_enrich(
             alert, self.ai_analyst, self.geoip_service, self.abuseipdb_service,
             self.virustotal_service,
+            overload_state=self._overload_state(),
         )
+        self.elk.send_alert(alert)
 
         print(f"\n[!] NETWORK ALERT: {alert['alert_name']} [{alert['severity']}] src={alert.get('ip_address')}")
 
     def _process_syn(self, src_ip: str, dst_port: int | None):
-        now = time.time()
+        now = self._clock()
         window = getattr(config, "NIDS_WINDOW_SECONDS", 5)
         threshold = getattr(config, "NIDS_SYN_THRESHOLD", 20)
 
@@ -74,17 +113,20 @@ class NetworkMonitor:
             count = len(dq)
 
         if count >= threshold:
+            rule = NIDS_RULES["DET-NET-001"]
             alert = build_alert(
-                alert_name="Network Port Scanning (SYN flood heuristic)",
-                severity="HIGH",
-                source_type="NIDS",
-                mitre_attck_id="T1046",
+                rule_id=rule["id"],
+                alert_name=rule["title"],
+                severity=rule["severity"],
+                source_type=rule["source_type"],
+                mitre_attck_id=rule["mitre"]["technique"],
                 description=f"High volume of TCP SYNs detected: {count}/{window}s (possible port scan).",
                 raw_log=f"NETWORK_TRAFFIC src={src_ip} proto=TCP flags=SYN dport={dst_port} count={count}/{window}s",
                 ip_address=src_ip,
                 event_count=count,
                 window_seconds=window,
                 correlation_key=f"Network Port Scanning|{src_ip}",
+                timestamp=datetime.fromtimestamp(now, timezone.utc),
             )
             # Reset to reduce alert spam
             with self._lock:
@@ -92,7 +134,7 @@ class NetworkMonitor:
             self._emit(alert)
 
     def _process_arp_reply(self, psrc_ip: str, hwsrc: str):
-        now = time.time()
+        now = self._clock()
         window = getattr(config, "NIDS_ARP_WINDOW_SECONDS", 30)
         changes_threshold = getattr(config, "NIDS_ARP_CHANGES_THRESHOLD", 3)
 
@@ -112,17 +154,20 @@ class NetworkMonitor:
                     dq.popleft()
 
                 if len(dq) >= changes_threshold:
+                    rule = NIDS_RULES["DET-NET-002"]
                     alert = build_alert(
-                        alert_name="ARP Spoofing Suspected (MAC flapping)",
-                        severity="CRITICAL",
-                        source_type="NIDS",
-                        mitre_attck_id="T1557.002",
+                        rule_id=rule["id"],
+                        alert_name=rule["title"],
+                        severity=rule["severity"],
+                        source_type=rule["source_type"],
+                        mitre_attck_id=rule["mitre"]["technique"],
                         description=f"Multiple MAC changes for IP {psrc_ip} within {window}s. Possible ARP cache poisoning.",
                         raw_log=f"NETWORK_TRAFFIC proto=ARP op=reply psrc={psrc_ip} hwsrc={hwsrc}",
                         ip_address=psrc_ip,
                         event_count=len(dq),
                         window_seconds=window,
                         correlation_key=f"ARP Spoofing Suspected|{psrc_ip}",
+                        timestamp=datetime.fromtimestamp(now, timezone.utc),
                     )
                     dq.clear()
                     self._emit(alert)

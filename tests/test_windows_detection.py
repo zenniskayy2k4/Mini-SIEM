@@ -2,6 +2,7 @@ import json
 import tempfile
 from config import config
 from src.detector import ThreatDetector
+from src.event_envelope import build_event_envelope
 from src.handler import WindowsEventHandler
 from src.rules import load_rules
 from pathlib import Path
@@ -56,6 +57,8 @@ def test_windows_detection():
         assert alert["source_type"] == "WINDOWS_EVENT"
         assert alert["windows_event_uid"] == event["event_uid"]
         assert alert["computer"] == "win-lab"
+        assert alert["event_schema_version"] == 0
+        assert alert["event_envelope_id"].startswith("EVT-")
 
     benign = _event(1,
         process__image=r"C:\Windows\System32\notepad.exe",
@@ -72,11 +75,19 @@ def test_windows_detection():
         handler = WindowsEventHandler(str(telemetry), detector)
         handled = []
         handler._process_alert = handled.append
+        envelope = build_event_envelope(
+            cases[0][1], source_type="WINDOWS_EVENT", collector_id="win-lab",
+            received_at="2026-08-13T11:00:05Z",
+        )
         with telemetry.open("a", encoding="utf-8") as output:
-            output.write(json.dumps(cases[0][1]) + "\n")
+            output.write(json.dumps(envelope) + "\n")
         handler.on_modified(SimpleNamespace(src_path=str(telemetry)))
         handler.file_handle.close()
         assert [alert["rule_id"] for alert in handled] == ["DET-WIN-001"]
+        assert handled[0]["event_schema_version"] == 1
+        assert handled[0]["collector_id"] == "win-lab"
+        assert handled[0]["event_received_at"] == "2026-08-13T11:00:05Z"
+        assert handled[0]["event_observed_at"] == "2026-08-13T11:00:00Z"
 
 
 if __name__ == "__main__":

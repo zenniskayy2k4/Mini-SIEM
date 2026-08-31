@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from src.ai_analyst import AIAnalyst
 from src.ai_provider import OllamaLocalProvider, build_ai_provider
@@ -76,7 +77,8 @@ def test_local_ollama_provider():
         health_opener=lambda *_args, **_kwargs: Response({"models": []}),
     )
     assert missing.available() is False
-    unavailable_analyst = AIAnalyst(missing)
+    with patch("src.ai_analyst.logger.warning"):
+        unavailable_analyst = AIAnalyst(missing)
     untouched = build_alert(
         alert_name="Unavailable local", severity="HIGH", source_type="HIDS_LOG",
         description="No local model",
