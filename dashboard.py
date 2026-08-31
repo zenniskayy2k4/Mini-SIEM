@@ -19,7 +19,7 @@ from src.health import build_system_status
 from src.incident_report import generate_incident_pdf
 from src.ingestion_failures import (
     get_ingestion_failure_diagnostics, get_ingestion_health_metrics,
-    record_collector_heartbeat,
+    record_collector_heartbeat, validate_collector_protocol,
 )
 from src.jira import JiraConnector
 from src.metrics import metrics_unavailable, render_prometheus_metrics
@@ -841,6 +841,7 @@ def api_windows_events():
         hostname = collector_id
     source_type = body.get("source_type", "WINDOWS_EVENT")
     try:
+        protocol_version = validate_collector_protocol(body)
         if not isinstance(source_type, str) or source_type.strip().upper() != "WINDOWS_EVENT":
             raise ValueError("source_type must be WINDOWS_EVENT")
         summary = (
@@ -868,6 +869,7 @@ def api_windows_events():
     )
     return jsonify({
         "ok": True,
+        "protocol_version": protocol_version,
         "collector_status": collector_status,
         "collector": collector,
         **summary,

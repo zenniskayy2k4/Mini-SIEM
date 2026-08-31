@@ -1856,12 +1856,35 @@ feat: add collector buffer diagnostics
 
 ## M27.3 — Collector Protocol Version
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] Collector reports protocol/schema version.
-- [ ] Unsupported future version rejected clearly.
-- [ ] Supported legacy version accepted.
-- [ ] Compatibility matrix documented.
+- [x] Collector reports protocol/schema version.
+- [x] Unsupported future version rejected clearly.
+- [x] Supported legacy version accepted.
+- [x] Compatibility matrix documented.
+
+The collector payload now carries `protocol_version` (`tools/windows_event_collector.ps1`
+sends `1`). The server treats a missing field as legacy version `0`, accepts versions
+`0` and `1`, and rejects future versions with HTTP 400 and an explicit error. The
+successful response echoes the negotiated version. The compatibility matrix lives in
+[Collector Ingestion Protocol](COLLECTOR_PROTOCOL.md).
+
+### Local verification — 2026-08-31
+
+| Check | Result |
+|---|:---:|
+| Missing `protocol_version` negotiated as legacy `0` and accepted | PASS |
+| Version `1` accepted with negotiated version echoed in the response | PASS |
+| Future version `2` rejected with HTTP 400 and explicit unsupported-version error | PASS |
+| Non-integer, boolean, float, negative, and null versions rejected with HTTP 400 | PASS |
+| Versioned batch ingests, deduplicates, and heartbeats unchanged for v0/v1 payloads | PASS |
+| Windows collector sends `protocol_version = 1` in every batch | PASS |
+| Protocol gate placed before ingestion/heartbeat side effects | PASS |
+| [docs/COLLECTOR_PROTOCOL.md](COLLECTOR_PROTOCOL.md) compatibility matrix | PASS |
+| 69 executable regression modules on source and built image | PASS |
+| Python syntax, PowerShell parse, and Docker Compose validation | PASS |
+| Dashboard/agent rollout and health smoke test (HTTP 200) | PASS |
+| No schema migration, new dependency, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2401,7 +2424,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M27.3 — Collector Protocol Version
+M27.4 — Outage Recovery Scenario
 ```
 
 M21 is complete in release v0.7.0:
@@ -2412,7 +2435,9 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M27.1 and M27.2 now provide stable collector identity plus observable, bounded offline buffering. Next, version the collector ingestion protocol in M27.3.
+M27.1 through M27.3 now provide stable collector identity, observable bounded
+buffering, and an explicitly versioned collector protocol. Next, prove the
+offline-buffer outage recovery path end to end in M27.4.
 
 ---
 
@@ -2600,14 +2625,17 @@ This roadmap is complete when:
 
 ```text
 START:
-M27.3 — Collector Protocol Version
+M27.4 — Outage Recovery Scenario
 ```
 
-M27.2 now provides bounded replay and visible buffer health. Success for the next batch is:
+M27.3 now makes the collector protocol explicit: legacy collectors stay accepted,
+current collectors negotiate version `1`, and future versions fail clearly. Success
+for the next batch is:
 
 ```text
-report collector protocol and schema versions
-+ reject unsupported future versions clearly
-+ continue accepting the documented legacy version
-= explicit compatibility without breaking deployed collectors
+collector running → server unavailable → events buffered → server returns
+→ replay → no duplicates → cursor advances
 ```
+
+with no silent loss, a drained buffer, correct deduplication, and a fully
+offline/deterministic regression.

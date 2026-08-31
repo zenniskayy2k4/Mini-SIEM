@@ -48,6 +48,7 @@ $BufferFile = Join-Path $StateDirectory "collector-buffer.json"
 $DiagnosticsFile = Join-Path $StateDirectory "collector-diagnostics.json"
 $CollectorIdFile = Join-Path $StateDirectory "collector-id.txt"
 $CollectorVersion = "0.9.0"
+$ProtocolVersion = 1
 
 function Get-StableCollectorId {
     if (Test-Path -LiteralPath $CollectorIdFile) {
@@ -190,6 +191,7 @@ function Send-Batch([object[]]$Items, [bool]$EndpointAvailable, [bool]$FromBuffe
         $payload = @{
             collector_id = $CollectorId
             collector_version = $CollectorVersion
+            protocol_version = $ProtocolVersion
             hostname = $hostname
             source_type = "WINDOWS_EVENT"
             heartbeat = $true

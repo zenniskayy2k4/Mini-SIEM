@@ -122,7 +122,8 @@ def test_windows_collector():
                 "/api/windows-events", headers=headers, json=[EVENT_XML],
             ).status_code == 400
             collector_script = Path("tools/windows_event_collector.ps1").read_text(encoding="utf-8")
-            for field in ("collector_id", "collector_version", "hostname", "source_type"):
+            for field in ("collector_id", "collector_version", "protocol_version",
+                          "hostname", "source_type"):
                 assert f"{field} =" in collector_script
             assert 'collector-id.txt' in collector_script
             for marker in (

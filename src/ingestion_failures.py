@@ -17,6 +17,8 @@ INGESTION_HEALTH_SOURCES = ("WINDOWS_EVENT",)
 MAX_PREVIEW_CHARS = 512
 MAX_REASON_CHARS = 500
 MAX_COLLECTOR_HEARTBEATS = 100
+COLLECTOR_PROTOCOL_VERSION = 1
+COLLECTOR_PROTOCOL_LEGACY_VERSION = 0
 BUFFER_DIAGNOSTIC_FIELDS = {
     "buffered_events", "buffer_oldest_age", "retry_attempts", "delivery_failures",
 }
@@ -84,6 +86,20 @@ def _collector_text(value, field, max_length) -> str:
     value = value.strip()
     if not value or len(value) > max_length or any(not character.isprintable() for character in value):
         raise ValueError(f"{field} must contain 1 to {max_length} printable characters")
+    return value
+
+
+def validate_collector_protocol(body) -> int:
+    value = body.get("protocol_version", COLLECTOR_PROTOCOL_LEGACY_VERSION)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("protocol_version must be an integer")
+    if value < COLLECTOR_PROTOCOL_LEGACY_VERSION:
+        raise ValueError("protocol_version must not be negative")
+    if value > COLLECTOR_PROTOCOL_VERSION:
+        raise ValueError(
+            f"unsupported collector protocol_version {value}; "
+            f"this server supports up to {COLLECTOR_PROTOCOL_VERSION}"
+        )
     return value
 
 

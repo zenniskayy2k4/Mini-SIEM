@@ -257,7 +257,7 @@ Offline exports (`.json`, `.jsonl`, `.ndjson`, `.xml`, or `.evtx`) can be normal
 python tools/import_windows_events.py evidence.evtx --output data/windows_events.jsonl
 ```
 
-For continuous collection, run `tools/windows_event_collector.ps1` on the Windows host and configure the same random `WINDOWS_COLLECTOR_SECRET` on the collector and dashboard. Normalized records use the [versioned event envelope](docs/EVENT_ENVELOPE.md), including stable event/collector identity and separate received/observed timestamps. The current mappings focus on selected Sysmon process, network, image-load, access, file, and registry events plus selected Security/Defender events.
+For continuous collection, run `tools/windows_event_collector.ps1` on the Windows host and configure the same random `WINDOWS_COLLECTOR_SECRET` on the collector and dashboard. Normalized records use the [versioned event envelope](docs/EVENT_ENVELOPE.md), including stable event/collector identity and separate received/observed timestamps. Collector payloads follow the [versioned collector protocol](docs/COLLECTOR_PROTOCOL.md), which keeps legacy collectors accepted while rejecting unsupported future versions. The current mappings focus on selected Sysmon process, network, image-load, access, file, and registry events plus selected Security/Defender events.
 
 Limitations:
 
