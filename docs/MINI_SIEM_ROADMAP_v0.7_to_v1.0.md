@@ -139,7 +139,7 @@ M31 — Multi-tenancy Discovery
 | M23 | Software Supply-chain Security | v0.8.0 | ✅ Complete |
 | M24 | Database Migration & Disaster Recovery | v0.8.0 | ✅ Complete |
 | M25 | Load Testing & Backpressure | v0.9.0 | ✅ Complete |
-| M26 | Storage & Query Performance | v0.9.0 | 🟠 In Progress |
+| M26 | Storage & Query Performance | v0.9.0 | ✅ Complete |
 | M27 | Collector Reliability & Offline Recovery | v0.9.0 | ⬜ |
 | M28 | API & Schema Versioning | v1.0.0 | ⬜ |
 | M29 | Operator Experience & Accessibility | v1.0.0 | ⬜ |
@@ -1712,7 +1712,7 @@ perf: add bounded telemetry write batching
 
 ## M26.3 — Large-history Benchmark
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Dataset sizes
 
@@ -1724,13 +1724,30 @@ perf: add bounded telemetry write batching
 
 ### Verify
 
-- [ ] alert API
-- [ ] search
-- [ ] analytics
-- [ ] rule coverage
-- [ ] incident workspace
-- [ ] report generation
-- [ ] retention
+- [x] alert API
+- [x] search
+- [x] analytics
+- [x] rule coverage
+- [x] incident workspace
+- [x] report generation
+- [x] retention
+
+Detailed method, timings, and the measured analytics ceiling are recorded in
+[Large-history Benchmark](LARGE_HISTORY_BENCHMARK.md).
+
+### Local verification — 2026-08-31
+
+| Check | Result |
+|---|:---:|
+| Incremental isolated 10k, 50k, and 100k alert corpora | PASS |
+| Alert API storage/serialization, filtered search, and rule coverage | PASS |
+| SOC KPI/analytics and open-incident workspace | PASS |
+| Deterministic incident PDF generation | PASS |
+| Retention on disposable copies archives eligible alerts and preserves open incidents | PASS |
+| 100k API/search paths remain below 50 ms; analytics ceiling measured at 2.73 s | PASS |
+| Input bounds and exclusive JSON report output | PASS |
+| 68 executable regression modules | PASS |
+| No live data, provider/network call, new dependency, or retained benchmark corpus | PASS |
 
 ### Suggested commit
 
@@ -2346,7 +2363,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M26.3 — Large-history Benchmark
+M27.1 — Collector Identity
 ```
 
 M21 is complete in release v0.7.0:
@@ -2357,7 +2374,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M26.2 now provides measured, bounded SQLite batching with the JSON mirror as its durability boundary. Next, validate query behavior across large retained histories in M26.3.
+M26 is complete with measured query plans, bounded writes, and disposable 100k-history validation. Next, establish stable collector identity in M27.1.
 
 ---
 
@@ -2545,14 +2562,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M26.3 — Large-history Benchmark
+M27.1 — Collector Identity
 ```
 
-M26.2 now reduces measured write overhead while preserving FIFO order, bounded memory, and shutdown draining. Success for the next batch is:
+M26 now has evidence for both write throughput and 100k retained-history behavior. Success for the next batch is:
 
 ```text
-benchmark 10k, 50k, and 100k retained alerts
-+ verify alert API, search, analytics, rule coverage, incidents, reports, and retention
-+ keep all generated history isolated and disposable
-= evidence-backed large-history readiness
+assign a stable collector ID and version
++ track hostname, source type, and last seen
++ warn on duplicate collector identity
+= visible collector inventory without weakening ingestion validation
 ```
