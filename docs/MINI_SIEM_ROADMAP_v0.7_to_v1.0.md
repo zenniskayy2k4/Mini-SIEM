@@ -1806,7 +1806,7 @@ feat: add collector identity and version tracking
 
 ## M27.2 — Buffer Diagnostics
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ### Metrics
 
@@ -1820,11 +1820,31 @@ last_successful_delivery
 
 ### Tasks
 
-- [ ] Bound buffer size.
-- [ ] Oldest-first replay.
-- [ ] Delete only after acknowledgement.
-- [ ] Corrupt entry handled safely.
-- [ ] Admin diagnostics.
+- [x] Bound buffer size.
+- [x] Oldest-first replay.
+- [x] Delete only after acknowledgement.
+- [x] Corrupt entry handled safely.
+- [x] Admin diagnostics.
+
+The collector caps each cross-channel buffer at the configured batch size (maximum 500),
+orders events by observation time, and preserves corrupt buffers for inspection. Heartbeats
+report current buffer age plus cumulative retry and delivery-failure counters; the server
+records successful delivery time and exposes all metrics through admin health diagnostics.
+
+### Local verification — 2026-08-31
+
+| Check | Result |
+|---|:---:|
+| Buffer bounded to 500 events and ordered oldest-first across channels | PASS |
+| Buffered file retained on failure and deleted only after `response.ok` | PASS |
+| Corrupt buffer quarantined without deletion or network dependency | PASS |
+| Retry, delivery-failure, buffer count/age, and last-success metrics | PASS |
+| Strict metric bounds at the collector API trust boundary | PASS |
+| Admin health API and workspace summary expose buffer diagnostics | PASS |
+| Backup-first migration v4 and historical upgrade matrix | PASS |
+| Windows PowerShell 5.1 behavioral mock and syntax checks | PASS |
+| 68 executable regression modules | PASS |
+| No temporary `check_m*.py`, new dependency, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2381,7 +2401,7 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M27.2 — Buffer Diagnostics
+M27.3 — Collector Protocol Version
 ```
 
 M21 is complete in release v0.7.0:
@@ -2392,7 +2412,7 @@ deterministic validation + audited tuning
 → CI-gated Detection Validation & Data Quality release
 ```
 
-M26 is complete with measured query plans, bounded writes, and disposable 100k-history validation. M27.1 adds stable collector identity; next, expose bounded buffer diagnostics in M27.2.
+M27.1 and M27.2 now provide stable collector identity plus observable, bounded offline buffering. Next, version the collector ingestion protocol in M27.3.
 
 ---
 
@@ -2580,14 +2600,14 @@ This roadmap is complete when:
 
 ```text
 START:
-M27.2 — Buffer Diagnostics
+M27.3 — Collector Protocol Version
 ```
 
-M27.1 now provides stable collector identity and duplicate-ID visibility. Success for the next batch is:
+M27.2 now provides bounded replay and visible buffer health. Success for the next batch is:
 
 ```text
-bound the offline buffer and preserve oldest-first replay
-+ report retry, delivery failure, age, and last-success metrics
-+ delete buffered data only after server acknowledgement
-= observable outage recovery without silent event loss
+report collector protocol and schema versions
++ reject unsupported future versions clearly
++ continue accepting the documented legacy version
+= explicit compatibility without breaking deployed collectors
 ```

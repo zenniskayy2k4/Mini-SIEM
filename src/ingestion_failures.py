@@ -1,4 +1,5 @@
 import json
+import math
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,9 @@ INGESTION_HEALTH_SOURCES = ("WINDOWS_EVENT",)
 MAX_PREVIEW_CHARS = 512
 MAX_REASON_CHARS = 500
 MAX_COLLECTOR_HEARTBEATS = 100
+BUFFER_DIAGNOSTIC_FIELDS = {
+    "buffered_events", "buffer_oldest_age", "retry_attempts", "delivery_failures",
+}
 _SECRET_NAME = r"password|passwd|pwd|secret|token|api[_-]?key|authorization|cookie"
 _SECRET_KEY = re.compile(_SECRET_NAME, re.IGNORECASE)
 _BEARER = re.compile(r"(?i)\bBearer\s+[^\s,;]+")
@@ -81,6 +85,37 @@ def _collector_text(value, field, max_length) -> str:
     if not value or len(value) > max_length or any(not character.isprintable() for character in value):
         raise ValueError(f"{field} must contain 1 to {max_length} printable characters")
     return value
+
+
+def _buffer_diagnostics(value) -> tuple[bool, dict]:
+    if value is None:
+        return False, {
+            "buffered_events": 0,
+            "buffer_oldest_age": None,
+            "retry_attempts": 0,
+            "delivery_failures": 0,
+        }
+    if not isinstance(value, dict) or set(value) != BUFFER_DIAGNOSTIC_FIELDS:
+        raise ValueError("buffer_diagnostics must contain all supported metrics")
+    counts = {}
+    for field, maximum in (
+        ("buffered_events", 500),
+        ("retry_attempts", 2**63 - 1),
+        ("delivery_failures", 2**63 - 1),
+    ):
+        item = value[field]
+        if isinstance(item, bool) or not isinstance(item, int) or not 0 <= item <= maximum:
+            raise ValueError(f"{field} is outside its supported range")
+        counts[field] = item
+    age = value["buffer_oldest_age"]
+    if age is not None and (
+        isinstance(age, bool) or not isinstance(age, (int, float))
+        or not math.isfinite(age) or not 0 <= age <= 315_360_000
+    ):
+        raise ValueError("buffer_oldest_age is outside its supported range")
+    if (counts["buffered_events"] == 0) != (age is None):
+        raise ValueError("buffer_oldest_age must be set only when events are buffered")
+    return True, {**counts, "buffer_oldest_age": float(age) if age is not None else None}
 
 
 def record_ingestion_failure(
@@ -228,7 +263,7 @@ def get_ingestion_health_metrics(now=None) -> dict:
 def record_collector_heartbeat(
     collector_id, *, events_received=0, endpoint_available=True,
     source_type="WINDOWS_EVENT", collector_version="legacy", hostname=None,
-    now=None,
+    buffer_diagnostics=None, now=None,
 ) -> dict:
     collector_id = normalize_collector_id(collector_id)
     collector_version = _collector_text(collector_version, "collector_version", 64)
@@ -241,6 +276,9 @@ def record_collector_heartbeat(
     if not isinstance(endpoint_available, bool):
         raise ValueError("endpoint_available must be boolean")
     events_received = max(0, int(events_received))
+    metrics_reported, buffer = _buffer_diagnostics(buffer_diagnostics)
+    buffered_events = max(0, buffer["buffered_events"] - events_received)
+    buffer_oldest_age = buffer["buffer_oldest_age"] if buffered_events else None
     heartbeat_at = utc_iso(now)
     event_at = heartbeat_at if events_received else None
     with _connect() as connection:
@@ -249,9 +287,11 @@ def record_collector_heartbeat(
             INSERT INTO collector_heartbeats (
                 source_type, collector_id, last_heartbeat_at, last_event_at,
                 last_batch_events, endpoint_available, collector_version,
-                hostname, duplicate_id_warning
+                hostname, duplicate_id_warning, buffered_events,
+                buffer_oldest_age, retry_attempts, delivery_failures,
+                last_successful_delivery
             )
-            SELECT ?, ?, ?, ?, ?, ?, ?, ?, 0
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?
             WHERE EXISTS (
                 SELECT 1 FROM collector_heartbeats
                 WHERE source_type = ? AND collector_id = ?
@@ -278,12 +318,30 @@ def record_collector_heartbeat(
                     WHEN lower(collector_heartbeats.hostname) NOT IN ('unknown', lower(excluded.hostname))
                         THEN 1
                     ELSE collector_heartbeats.duplicate_id_warning
-                END
+                END,
+                buffered_events=CASE WHEN ? THEN excluded.buffered_events
+                    ELSE collector_heartbeats.buffered_events END,
+                buffer_oldest_age=CASE WHEN ? THEN excluded.buffer_oldest_age
+                    WHEN collector_heartbeats.buffered_events > 0
+                        AND collector_heartbeats.buffer_oldest_age IS NOT NULL
+                        THEN collector_heartbeats.buffer_oldest_age + max(
+                            0, (julianday(excluded.last_heartbeat_at)
+                                - julianday(collector_heartbeats.last_heartbeat_at)) * 86400.0
+                        )
+                    ELSE collector_heartbeats.buffer_oldest_age END,
+                retry_attempts=CASE WHEN ? THEN excluded.retry_attempts
+                    ELSE collector_heartbeats.retry_attempts END,
+                delivery_failures=CASE WHEN ? THEN excluded.delivery_failures
+                    ELSE collector_heartbeats.delivery_failures END,
+                last_successful_delivery=excluded.last_successful_delivery
             """,
             (
                 source_type, collector_id, heartbeat_at, event_at,
                 events_received, int(endpoint_available), collector_version, hostname,
+                buffered_events, buffer_oldest_age, buffer["retry_attempts"],
+                buffer["delivery_failures"], heartbeat_at,
                 source_type, collector_id, MAX_COLLECTOR_HEARTBEATS,
+                *((int(metrics_reported),) * 4),
             ),
         )
         if cursor.rowcount != 1:
@@ -299,7 +357,9 @@ def record_collector_heartbeat(
         )
         row = connection.execute(
             """
-            SELECT collector_version, hostname, duplicate_id_warning
+            SELECT collector_version, hostname, duplicate_id_warning,
+                   buffered_events, buffer_oldest_age, retry_attempts,
+                   delivery_failures, last_successful_delivery
             FROM collector_heartbeats
             WHERE source_type = ? AND collector_id = ?
             """,
@@ -312,6 +372,11 @@ def record_collector_heartbeat(
         "source_type": source_type,
         "last_seen": heartbeat_at,
         "duplicate_id_warning": bool(row[2]),
+        "buffered_events": row[3],
+        "buffer_oldest_age": row[4],
+        "retry_attempts": row[5],
+        "delivery_failures": row[6],
+        "last_successful_delivery": row[7],
     }
 
 
@@ -328,7 +393,9 @@ def get_collector_gap_diagnostics(now=None, stale_seconds=None) -> dict:
             """
             SELECT source_type, collector_id, last_heartbeat_at, last_event_at,
                    last_batch_events, endpoint_available, collector_version,
-                   hostname, duplicate_id_warning
+                   hostname, duplicate_id_warning, buffered_events,
+                   buffer_oldest_age, retry_attempts, delivery_failures,
+                   last_successful_delivery
             FROM collector_heartbeats
             ORDER BY source_type, collector_id
             """
@@ -338,6 +405,8 @@ def get_collector_gap_diagnostics(now=None, stale_seconds=None) -> dict:
     for (
         source_type, collector_id, heartbeat_at, event_at, event_count,
         endpoint_available, collector_version, hostname, duplicate_id_warning,
+        buffered_events, buffer_oldest_age, retry_attempts, delivery_failures,
+        last_successful_delivery,
     ) in rows:
         heartbeat = datetime.fromisoformat(heartbeat_at.replace("Z", "+00:00"))
         heartbeat_age = max(0.0, (now.astimezone(timezone.utc) - heartbeat).total_seconds())
@@ -364,6 +433,14 @@ def get_collector_gap_diagnostics(now=None, stale_seconds=None) -> dict:
             "last_event_age_seconds": round(event_age, 1) if event_age is not None else None,
             "endpoint_available": bool(endpoint_available),
             "duplicate_id_warning": bool(duplicate_id_warning),
+            "buffered_events": buffered_events,
+            "buffer_oldest_age": (
+                round(buffer_oldest_age + heartbeat_age, 1)
+                if buffered_events and buffer_oldest_age is not None else None
+            ),
+            "retry_attempts": retry_attempts,
+            "delivery_failures": delivery_failures,
+            "last_successful_delivery": last_successful_delivery,
         })
 
     states = {collector["status"] for collector in collectors}

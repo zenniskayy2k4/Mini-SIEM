@@ -206,6 +206,23 @@ COLLECTOR_IDENTITY_NAME = "collector_identity_v0.9.0"
 COLLECTOR_IDENTITY_CHECKSUM = hashlib.sha256(
     COLLECTOR_IDENTITY_SCHEMA.encode("utf-8")
 ).hexdigest()
+COLLECTOR_BUFFER_SCHEMA = """
+ALTER TABLE collector_heartbeats
+ADD COLUMN buffered_events INTEGER NOT NULL DEFAULT 0 CHECK(buffered_events >= 0);
+ALTER TABLE collector_heartbeats
+ADD COLUMN buffer_oldest_age REAL CHECK(buffer_oldest_age IS NULL OR buffer_oldest_age >= 0);
+ALTER TABLE collector_heartbeats
+ADD COLUMN retry_attempts INTEGER NOT NULL DEFAULT 0 CHECK(retry_attempts >= 0);
+ALTER TABLE collector_heartbeats
+ADD COLUMN delivery_failures INTEGER NOT NULL DEFAULT 0 CHECK(delivery_failures >= 0);
+ALTER TABLE collector_heartbeats
+ADD COLUMN last_successful_delivery TEXT;
+"""
+COLLECTOR_BUFFER_VERSION = 4
+COLLECTOR_BUFFER_NAME = "collector_buffer_diagnostics_v0.9.0"
+COLLECTOR_BUFFER_CHECKSUM = hashlib.sha256(
+    COLLECTOR_BUFFER_SCHEMA.encode("utf-8")
+).hexdigest()
 MIGRATIONS = (
     (BASELINE_VERSION, BASELINE_NAME, BASELINE_CHECKSUM, BASELINE_SCHEMA),
     (QUERY_INDEX_VERSION, QUERY_INDEX_NAME, QUERY_INDEX_CHECKSUM, QUERY_INDEX_SCHEMA),
@@ -214,6 +231,12 @@ MIGRATIONS = (
         COLLECTOR_IDENTITY_NAME,
         COLLECTOR_IDENTITY_CHECKSUM,
         COLLECTOR_IDENTITY_SCHEMA,
+    ),
+    (
+        COLLECTOR_BUFFER_VERSION,
+        COLLECTOR_BUFFER_NAME,
+        COLLECTOR_BUFFER_CHECKSUM,
+        COLLECTOR_BUFFER_SCHEMA,
     ),
 )
 

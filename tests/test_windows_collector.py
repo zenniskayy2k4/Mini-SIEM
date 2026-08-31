@@ -69,6 +69,12 @@ def test_windows_collector():
                     "collector_version": "0.9.0",
                     "hostname": "win-lab",
                     "source_type": "WINDOWS_EVENT",
+                    "buffer_diagnostics": {
+                        "buffered_events": 1,
+                        "buffer_oldest_age": 5.0,
+                        "retry_attempts": 2,
+                        "delivery_failures": 1,
+                    },
                     "events": [EVENT_XML],
                 },
             )
@@ -78,6 +84,10 @@ def test_windows_collector():
             assert payload["collector"]["collector_id"] == "win-stable-id"
             assert payload["collector"]["collector_version"] == "0.9.0"
             assert payload["collector"]["hostname"] == "win-lab"
+            assert payload["collector"]["buffered_events"] == 0
+            assert payload["collector"]["buffer_oldest_age"] is None
+            assert payload["collector"]["retry_attempts"] == 2
+            assert payload["collector"]["delivery_failures"] == 1
 
             duplicate = client.post(
                 "/api/windows-events",
@@ -105,12 +115,22 @@ def test_windows_collector():
                 json={"hostname": False, "events": [EVENT_XML]},
             ).status_code == 400
             assert client.post(
+                "/api/windows-events", headers=headers,
+                json={"buffer_diagnostics": {}, "events": [EVENT_XML]},
+            ).status_code == 400
+            assert client.post(
                 "/api/windows-events", headers=headers, json=[EVENT_XML],
             ).status_code == 400
             collector_script = Path("tools/windows_event_collector.ps1").read_text(encoding="utf-8")
             for field in ("collector_id", "collector_version", "hostname", "source_type"):
                 assert f"{field} =" in collector_script
             assert 'collector-id.txt' in collector_script
+            for marker in (
+                "buffered_events", "buffer_oldest_age", "retry_attempts",
+                "delivery_failures", "Sort-Object observed_at", "corrupt-$stamp",
+                "Select-Object -First $BatchSize",
+            ):
+                assert marker in collector_script
         finally:
             (
                 config.WINDOWS_COLLECTOR_SECRET, config.WINDOWS_EVENT_FILE,
@@ -120,4 +140,4 @@ def test_windows_collector():
 
 if __name__ == "__main__":
     test_windows_collector()
-    print("M7.2/M21.4 Windows collector and heartbeat passed")
+    print("M7.2/M21.4/M27.2 Windows collector, heartbeat, and buffer contract passed")

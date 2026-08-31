@@ -39,6 +39,11 @@ def test_ingestion_failures():
                 "source_type": "WINDOWS_EVENT",
                 "last_seen": "2026-08-25T09:00:00Z",
                 "duplicate_id_warning": False,
+                "buffered_events": 0,
+                "buffer_oldest_age": None,
+                "retry_attempts": 0,
+                "delivery_failures": 0,
+                "last_successful_delivery": "2026-08-25T09:00:00Z",
             }
             idle = get_collector_gap_diagnostics(
                 now=heartbeat_at, stale_seconds=60,
@@ -71,6 +76,30 @@ def test_ingestion_failures():
             )["collectors"][0]
             assert collector["last_seen"] == "2026-08-25T09:00:03Z"
             assert collector["duplicate_id_warning"] is True
+            recovered = record_collector_heartbeat(
+                "win-lab", events_received=1, hostname="win-lab",
+                buffer_diagnostics={
+                    "buffered_events": 4,
+                    "buffer_oldest_age": 12.5,
+                    "retry_attempts": 2,
+                    "delivery_failures": 1,
+                },
+                now=heartbeat_at.replace(second=4),
+            )
+            assert recovered["buffered_events"] == 3
+            assert recovered["buffer_oldest_age"] == 12.5
+            assert recovered["retry_attempts"] == 2
+            assert recovered["delivery_failures"] == 1
+            assert recovered["last_successful_delivery"] == "2026-08-25T09:00:04Z"
+            record_collector_heartbeat(
+                "win-lab", hostname="win-lab", now=heartbeat_at.replace(second=5),
+            )
+            preserved = get_collector_gap_diagnostics(
+                now=heartbeat_at.replace(second=5), stale_seconds=60,
+            )["collectors"][0]
+            assert preserved["buffered_events"] == 3
+            assert preserved["buffer_oldest_age"] == 13.5
+            assert preserved["delivery_failures"] == 1
             assert get_ingestion_health_metrics(
                 now=heartbeat_at.replace(second=2),
             )["WINDOWS_EVENT"]["collector_last_seen_seconds"] == 0
@@ -88,6 +117,19 @@ def test_ingestion_failures():
                 assert False, "empty collector version was accepted"
             except ValueError as exc:
                 assert str(exc).startswith("collector_version must contain")
+            try:
+                record_collector_heartbeat(
+                    "win-lab",
+                    buffer_diagnostics={
+                        "buffered_events": 501,
+                        "buffer_oldest_age": 1,
+                        "retry_attempts": 0,
+                        "delivery_failures": 0,
+                    },
+                )
+                assert False, "unbounded buffer metrics were accepted"
+            except ValueError as exc:
+                assert str(exc) == "buffered_events is outside its supported range"
 
             empty_health = get_ingestion_health_metrics()["WINDOWS_EVENT"]
             assert empty_health["events_received_total"] == 0
@@ -172,4 +214,4 @@ def test_ingestion_failures():
 
 if __name__ == "__main__":
     test_ingestion_failures()
-    print("M21.2-M21.4 ingestion diagnostics, metrics, and gap detection passed")
+    print("M21.2-M21.4/M27.2 ingestion and buffer diagnostics passed")

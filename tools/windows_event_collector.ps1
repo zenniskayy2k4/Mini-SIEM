@@ -45,6 +45,7 @@ $Channels = [ordered]@{
 $Endpoint = ([uri]::new($ServerUrl, "/api/windows-events")).AbsoluteUri
 $StateFile = Join-Path $StateDirectory "collector-state.json"
 $BufferFile = Join-Path $StateDirectory "collector-buffer.json"
+$DiagnosticsFile = Join-Path $StateDirectory "collector-diagnostics.json"
 $CollectorIdFile = Join-Path $StateDirectory "collector-id.txt"
 $CollectorVersion = "0.9.0"
 
@@ -78,6 +79,24 @@ function Save-JsonAtomic([string]$Path, $Value) {
     $temporary = "$Path.tmp"
     $Value | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $temporary -Encoding UTF8
     Move-Item -Force -LiteralPath $temporary -Destination $Path
+}
+
+function Read-Diagnostics {
+    $diagnostics = @{ retry_attempts = [long]0; delivery_failures = [long]0 }
+    if (-not (Test-Path -LiteralPath $DiagnosticsFile)) {
+        return $diagnostics
+    }
+    try {
+        $saved = Get-Content -Raw -LiteralPath $DiagnosticsFile | ConvertFrom-Json
+        foreach ($field in @("retry_attempts", "delivery_failures")) {
+            if ([long]$saved.$field -lt 0) { throw "Negative diagnostic counter" }
+            $diagnostics[$field] = [long]$saved.$field
+        }
+    }
+    catch {
+        Write-Warning "Collector diagnostics were invalid and have been reset."
+    }
+    return $diagnostics
 }
 
 function Get-LatestRecordId([string]$Channel, [bool]$Quiet = $false) {
@@ -128,21 +147,56 @@ function Read-Buffer {
     if (-not (Test-Path -LiteralPath $BufferFile)) {
         return @()
     }
-    return @(Get-Content -Raw -LiteralPath $BufferFile | ConvertFrom-Json)
+    try {
+        $parsed = Get-Content -Raw -LiteralPath $BufferFile | ConvertFrom-Json
+        $items = @()
+        foreach ($item in $parsed) {
+            if (-not $item.channel -or $null -eq $item.record_id -or -not $item.xml) {
+                throw "Buffered event is incomplete"
+            }
+            $items += $item
+        }
+        return $items
+    }
+    catch {
+        $stamp = [datetime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")
+        $quarantine = "$BufferFile.corrupt-$stamp"
+        Move-Item -LiteralPath $BufferFile -Destination $quarantine
+        Write-Warning "Corrupt collector buffer preserved at '$quarantine'."
+        return @()
+    }
 }
 
-function Send-Batch([object[]]$Items, [bool]$EndpointAvailable) {
+function Get-BufferDiagnostics([object[]]$Items, [bool]$FromBuffer) {
+    $bufferedEvents = if ($FromBuffer) { $Items.Count } else { 0 }
+    $oldestAge = $null
+    if ($bufferedEvents -gt 0 -and (Test-Path -LiteralPath $BufferFile)) {
+        $oldestAge = [math]::Round([math]::Max(
+            0, ([datetime]::UtcNow - (Get-Item -LiteralPath $BufferFile).LastWriteTimeUtc).TotalSeconds
+        ), 1)
+    }
+    return @{
+        buffered_events = $bufferedEvents
+        buffer_oldest_age = $oldestAge
+        retry_attempts = [long]$Diagnostics.retry_attempts
+        delivery_failures = [long]$Diagnostics.delivery_failures
+    }
+}
+
+function Send-Batch([object[]]$Items, [bool]$EndpointAvailable, [bool]$FromBuffer) {
     $hostname = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { "windows-host" }
-    $payload = @{
-        collector_id = $CollectorId
-        collector_version = $CollectorVersion
-        hostname = $hostname
-        source_type = "WINDOWS_EVENT"
-        heartbeat = $true
-        endpoint_available = $EndpointAvailable
-        events = @($Items | ForEach-Object { $_.xml })
-    } | ConvertTo-Json -Depth 4 -Compress
     for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        if ($attempt -gt 1) { $Diagnostics.retry_attempts++ }
+        $payload = @{
+            collector_id = $CollectorId
+            collector_version = $CollectorVersion
+            hostname = $hostname
+            source_type = "WINDOWS_EVENT"
+            heartbeat = $true
+            endpoint_available = $EndpointAvailable
+            buffer_diagnostics = Get-BufferDiagnostics $Items $FromBuffer
+            events = @($Items | ForEach-Object { $_.xml })
+        } | ConvertTo-Json -Depth 4 -Compress
         try {
             $response = Invoke-RestMethod -Method Post -Uri $Endpoint `
                 -Headers @{ "X-Mini-SIEM-Secret" = $Secret } `
@@ -150,6 +204,7 @@ function Send-Batch([object[]]$Items, [bool]$EndpointAvailable) {
             if (-not $response.ok) {
                 throw "Mini-SIEM rejected the batch."
             }
+            Save-JsonAtomic $DiagnosticsFile $Diagnostics
             return $true
         }
         catch {
@@ -158,6 +213,8 @@ function Send-Batch([object[]]$Items, [bool]$EndpointAvailable) {
             }
         }
     }
+    $Diagnostics.delivery_failures++
+    Save-JsonAtomic $DiagnosticsFile $Diagnostics
     return $false
 }
 
@@ -182,11 +239,12 @@ function Get-NewEvents([hashtable]$State) {
             $items += [pscustomobject]@{
                 channel = $channel
                 record_id = [long]$record.RecordId
+                observed_at = $record.TimeCreated.ToUniversalTime().ToString("o")
                 xml = $record.ToXml()
             }
         }
     }
-    return $items
+    return @($items | Sort-Object observed_at, channel, record_id | Select-Object -First $BatchSize)
 }
 
 function Save-Cursors([hashtable]$State, [object[]]$Items) {
@@ -200,6 +258,7 @@ function Save-Cursors([hashtable]$State, [object[]]$Items) {
 
 New-Item -ItemType Directory -Force -Path $StateDirectory | Out-Null
 $CollectorId = Get-StableCollectorId
+$Diagnostics = Read-Diagnostics
 $state = Read-State
 $initialized = Initialize-Cursors $state
 
@@ -207,7 +266,7 @@ do {
     $buffered = @(Read-Buffer)
     if ($buffered.Count -gt 0) {
         $endpointAvailable = @($state.Values | Where-Object { [long]$_ -ge 0 }).Count -gt 0
-        if (Send-Batch $buffered $endpointAvailable) {
+        if (Send-Batch $buffered $endpointAvailable $true) {
             Remove-Item -Force -LiteralPath $BufferFile
         }
         else {
@@ -221,7 +280,7 @@ do {
         Refresh-UnavailableCursors $state
         $events = @(Get-NewEvents $state)
         $endpointAvailable = @($state.Values | Where-Object { [long]$_ -ge 0 }).Count -gt 0
-        if (-not (Send-Batch $events $endpointAvailable)) {
+        if (-not (Send-Batch $events $endpointAvailable $false)) {
             if ($events.Count -gt 0) {
                 Save-JsonAtomic $BufferFile $events
                 Write-Warning "Mini-SIEM unavailable; buffered $($events.Count) events locally."
@@ -233,7 +292,7 @@ do {
     }
     else {
         $endpointAvailable = @($state.Values | Where-Object { [long]$_ -ge 0 }).Count -gt 0
-        if (-not (Send-Batch -Items @() -EndpointAvailable $endpointAvailable)) {
+        if (-not (Send-Batch -Items @() -EndpointAvailable $endpointAvailable -FromBuffer $false)) {
             Write-Warning "Mini-SIEM unavailable; heartbeat failed."
         }
     }

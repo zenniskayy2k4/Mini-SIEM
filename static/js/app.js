@@ -153,12 +153,15 @@ function initSettings() {
     const database = health.database || {};
     const queue = health.queue || {};
     const ingestion = health.ingestion || {};
+    const collectors = ingestion.collectors || [];
+    const bufferedEvents = collectors.reduce((total, item) => total + Number(item.buffered_events || 0), 0);
+    const deliveryFailures = collectors.reduce((total, item) => total + Number(item.delivery_failures || 0), 0);
     const summaries = {
       "admin-health-platform": health.status || "unknown",
       "admin-health-agent": `${agent.status || "unknown"}${agent.age_seconds == null ? "" : ` · ${agent.age_seconds}s`}`,
       "admin-health-database": `${database.status || "unknown"} · ${database.check || "not checked"}`,
       "admin-health-ai": `${queue.busy ? "busy" : "idle"} · backlog ${queue.backlog || 0}`,
-      "admin-health-ingestion": `${ingestion.status || "unknown"} · ${(ingestion.collectors || []).length} collectors`,
+      "admin-health-ingestion": `${ingestion.status || "unknown"} · ${collectors.length} collectors · ${bufferedEvents} buffered · ${deliveryFailures} delivery failures`,
     };
     Object.entries(summaries).forEach(([id, value]) => {
       const element = document.getElementById(id);

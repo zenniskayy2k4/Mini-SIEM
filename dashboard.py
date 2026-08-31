@@ -854,6 +854,7 @@ def api_windows_events():
             source_type=source_type,
             collector_version=collector_version,
             hostname=hostname,
+            buffer_diagnostics=body.get("buffer_diagnostics"),
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
