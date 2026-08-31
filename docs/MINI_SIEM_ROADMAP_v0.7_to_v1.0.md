@@ -140,7 +140,7 @@ M31 — Multi-tenancy Discovery
 | M24 | Database Migration & Disaster Recovery | v0.8.0 | ✅ Complete |
 | M25 | Load Testing & Backpressure | v0.9.0 | ✅ Complete |
 | M26 | Storage & Query Performance | v0.9.0 | ✅ Complete |
-| M27 | Collector Reliability & Offline Recovery | v0.9.0 | ⬜ |
+| M27 | Collector Reliability & Offline Recovery | v0.9.0 | ✅ Complete |
 | M28 | API & Schema Versioning | v1.0.0 | ⬜ |
 | M29 | Operator Experience & Accessibility | v1.0.0 | ⬜ |
 | M30 | Stable Release Qualification | v1.0.0 | ⬜ |
@@ -1896,7 +1896,7 @@ feat: version collector ingestion protocol
 
 ## M27.4 — Outage Recovery Scenario
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```text
 collector running
@@ -1908,12 +1908,36 @@ collector running
 → cursor advances
 ```
 
+### Scenario
+
+A Windows collector sends event A while the server is healthy. The server then
+goes unavailable — the collector reports `endpoint_available: false`. On recovery,
+the collector replays event B from its local buffer. The server accepts it as a
+new event (no duplicate). A replay of event B is correctly deduplicated. A new
+event C is accepted and all three events are persisted without silent loss. The
+collector heartbeat state remains consistent across the outage window.
+
 ### Definition of Done
 
-- [ ] No silent loss.
-- [ ] Buffer drains.
-- [ ] Dedup behaves correctly.
-- [ ] Test is offline/deterministic.
+- [x] No silent loss.
+- [x] Buffer drains.
+- [x] Dedup behaves correctly.
+- [x] Test is offline/deterministic.
+
+### Local verification — 2026-08-31
+
+| Check | Result |
+|---|:---:|
+| Step 1 — healthy server accepts event A as new | PASS |
+| Step 2 — unavailable server responds with `endpoint_unavailable` | PASS |
+| Step 3 — recovery replays event B as new (no duplicate) | PASS |
+| Step 4 — replay of event B correctly deduplicated | PASS |
+| Step 5 — new event C accepted, cursor advances | PASS |
+| Step 6 — all three events persisted, all unique event IDs | PASS |
+| Step 7 — collector heartbeat shows consistent state | PASS |
+| 70 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No external service call, provider init, or live data write | PASS |
 
 ### Suggested commit
 
