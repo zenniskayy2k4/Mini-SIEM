@@ -66,7 +66,7 @@ Platform and Supply-chain Hardening release.
 - Base and HTTPS Compose profiles, configuration validation, schema upgrades, backup/restore integrity, and release-artifact consistency pass locally.
 - GitHub Actions must pass baseline, Docker smoke, security, container scan, and release gate on this release commit before `v0.8.0` is tagged.
 
-See the [v0.8.0 release checklist](docs/RELEASE_v0.8.0.md) for setup, upgrade notes, verification details, and known limitations.
+See the [v0.8.0 release history](docs/RELEASE_HISTORY.md#mini-siem-v080-release-checklist) for setup, upgrade notes, verification details, and known limitations.
 
 ## [0.7.0] - 2026-08-26
 
