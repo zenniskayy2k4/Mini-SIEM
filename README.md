@@ -365,10 +365,11 @@ Mini-SIEM/
 
 ![Authenticated dashboard overview](assets/Dashboard.jpeg)
 
+The responsive dashboard includes a skip link, visible keyboard focus, labelled controls and charts, keyboard-scrollable data tables, associated form errors, and modal focus restoration.
+
 ## Near-term roadmap
 
-- Version the REST API surface and alert schema before v1.0.
-- Add operator diagnostics, an accessibility pass, and production-style runbooks.
+- Add production-style operator runbooks and complete stable-release qualification.
 - Keep multi-tenant architecture and production response integrations deferred until a concrete isolation or execution requirement exists.
 
 ## Dependency policy

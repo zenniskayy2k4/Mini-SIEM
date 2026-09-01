@@ -2270,17 +2270,35 @@ feat: add unified operator diagnostics view
 
 ## M29.3 — Accessibility Pass
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] keyboard navigation
-- [ ] visible focus
-- [ ] semantic labels
-- [ ] form error association
-- [ ] table headers
-- [ ] dialog focus
-- [ ] color not sole status signal
-- [ ] basic contrast
-- [ ] mobile behavior retained
+- [x] keyboard navigation
+- [x] visible focus
+- [x] semantic labels
+- [x] form error association
+- [x] table headers
+- [x] dialog focus
+- [x] color not sole status signal
+- [x] basic contrast
+- [x] mobile behavior retained
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Skip link, current-page semantics, and keyboard-operable controls | PASS |
+| High-visibility focus ring including custom switches and scroll regions | PASS |
+| Labels for filters, settings, charts, graph, and data regions | PASS |
+| Form status/error association and invalid-login state | PASS |
+| Column scope applied to every dashboard table header | PASS |
+| Native modal focus entry, containment, Escape close, and trigger restoration | PASS |
+| Text accompanies live, severity, coverage, and health status colors | PASS |
+| Higher-contrast semantic palette and login action | PASS |
+| Existing 1100 px, 700 px, and 480 px mobile behavior | PASS |
+| Focused accessibility, responsive, asset, admin, and viewer regressions | PASS |
+| 75 executable regression modules | PASS |
+| JavaScript and Python syntax validation | PASS |
+| No dependency, database migration, Ollama, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2588,11 +2606,11 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M29.3 — Accessibility Pass
+M29.4 — Operator Runbooks
 ```
 
-M29.3 checks keyboard navigation, visible focus, semantics, error association,
-table headers, dialog focus, contrast, and retained mobile behavior.
+M29.4 adds production-style operations, upgrade, troubleshooting, and security
+runbooks.
 
 ---
 
@@ -2780,9 +2798,10 @@ This roadmap is complete when:
 
 ```text
 START:
-M29.3 — Accessibility Pass
+M29.4 — Operator Runbooks
 ```
 
 M29.2 links health, ingestion failures, rule-load failures, provider state,
-and collector state into a single diagnostics view. M29.3 performs the
-accessibility pass without regressing mobile behavior.
+and collector state into a single diagnostics view. M29.3 completes the
+accessibility pass without regressing mobile behavior. M29.4 adds the operator
+runbooks required before stable-release qualification.

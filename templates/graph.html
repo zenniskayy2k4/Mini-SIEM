@@ -13,7 +13,7 @@
 </div>
 
 <div class="card graph-card">
-  <div class="graph-legend">
+  <div class="graph-legend" id="graph-legend">
     <span class="legend-item"><span class="dot dot-ip"></span> IP</span>
     <span class="legend-item"><span class="dot dot-mitre"></span> MITRE</span>
     <span class="legend-item"><span class="dot dot-alert"></span> Alert</span>
@@ -22,7 +22,7 @@
     <span class="legend-item"><span class="dot dot-event"></span> Event (hidden until click Campaign)</span>
   </div>
 
-  <div id="contextGraphFull" class="graph-canvas-full"></div>
+  <div id="contextGraphFull" class="graph-canvas-full" role="img" aria-label="Attack context graph" aria-describedby="graph-legend"></div>
   <div id="graph-tooltip" class="graph-tooltip" style="display:none;"></div>
 </div>
 

@@ -625,6 +625,7 @@ function initAssets() {
     enabled: document.getElementById("asset-enabled"),
   };
   let assets = new Map();
+  let dialogTrigger = null;
   filterQ.value = new URLSearchParams(window.location.search).get("q")?.slice(0, 200) || "";
 
   const splitList = (value) => value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
@@ -672,7 +673,8 @@ function initAssets() {
     }
   }
 
-  function openForm(asset) {
+  function openForm(asset, trigger) {
+    dialogTrigger = trigger || document.activeElement;
     form.reset();
     formError.textContent = "";
     fields.id.value = asset?.asset_id || "";
@@ -690,9 +692,13 @@ function initAssets() {
     fields.hostname.focus();
   }
 
-  document.getElementById("asset-add").addEventListener("click", () => openForm(null));
+  document.getElementById("asset-add").addEventListener("click", (event) => openForm(null, event.currentTarget));
   document.getElementById("asset-dialog-close").addEventListener("click", () => dialog.close());
   document.getElementById("asset-cancel").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => {
+    dialogTrigger?.focus();
+    dialogTrigger = null;
+  });
 
   filters.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -742,7 +748,7 @@ function initAssets() {
     const asset = assets.get(button.dataset.assetId);
     if (!asset) return;
     if (button.classList.contains("asset-edit")) {
-      openForm(asset);
+      openForm(asset, button);
       return;
     }
     if (!window.confirm(`Delete asset ${asset.hostname}?`)) return;
@@ -1250,6 +1256,7 @@ function initLogs() {
     state.live = on;
     btnLiveToggle.textContent = on ? "LIVE STREAM" : "PAUSED";
     btnLiveToggle.style.opacity = on ? "1" : "0.7";
+    btnLiveToggle.setAttribute("aria-pressed", String(on));
 
     if (state.timer) {
       clearInterval(state.timer);
@@ -1339,16 +1346,19 @@ function initLogs() {
       });
   }
 
-  btnFilterToggle?.addEventListener("click", () => {
-    const visible = filterPanel.style.display !== "none";
-    filterPanel.style.display = visible ? "none" : "block";
-  });
+  function setFilterVisible(visible) {
+    filterPanel.hidden = !visible;
+    btnFilterToggle.setAttribute("aria-expanded", String(visible));
+    (visible ? inpFrom : btnFilterToggle)?.focus();
+  }
+
+  btnFilterToggle?.addEventListener("click", () => setFilterVisible(filterPanel.hidden));
 
   btnApply?.addEventListener("click", () => {
     readFiltersFromUI();
     setLive(false);
     fetchPage(1);
-    filterPanel.style.display = "none";
+    setFilterVisible(false);
   });
 
   btnClear?.addEventListener("click", () => {
@@ -1363,7 +1373,7 @@ function initLogs() {
     selPageSize.value = "50";
     readFiltersFromUI();
     setLive(true);
-    filterPanel.style.display = "none";
+    setFilterVisible(false);
   });
 
   selPageSize?.addEventListener("change", () => {
@@ -1413,7 +1423,7 @@ function createRow(alert) {
 
   const responseActions = alert.response_actions || [];
   const responseAction = responseActions[responseActions.length - 1];
-  let responseHTML = '<span style="color:#64748b; font-size:11px;">No Action</span>';
+  let responseHTML = '<span style="color:#94a3b8; font-size:11px;">No Action</span>';
   if (responseAction) {
     responseHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ` +
       `${escapeHTML(responseAction.action_type)} ${escapeHTML(responseAction.target)} ` +

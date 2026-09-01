@@ -12,14 +12,14 @@
         <div class="auth-logo">Mini-SIEM</div>
         <h1>Analyst sign in</h1>
         <p>Use your assigned SOC account.</p>
-        {% if error %}<div class="auth-error" role="alert">{{ error }}</div>{% endif %}
-        <form method="post" action="{{ url_for('login') }}">
+        {% if error %}<div class="auth-error" id="login-error" role="alert">{{ error }}</div>{% endif %}
+        <form method="post" action="{{ url_for('login') }}"{% if error %} aria-describedby="login-error"{% endif %}>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="{{ next }}">
             <label for="username">Username</label>
-            <input id="username" name="username" type="text" maxlength="64" autocomplete="username" required autofocus>
+            <input id="username" name="username" type="text" maxlength="64" autocomplete="username" required autofocus{% if error %} aria-invalid="true"{% endif %}>
             <label for="password">Password</label>
-            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <input id="password" name="password" type="password" autocomplete="current-password" required{% if error %} aria-invalid="true"{% endif %}>
             <button type="submit">Sign in</button>
         </form>
     </main>

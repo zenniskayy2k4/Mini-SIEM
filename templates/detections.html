@@ -28,9 +28,9 @@
             <input id="detection-tuning-filter" class="styled-input" type="search" maxlength="200" placeholder="Rule, title, or MITRE">
         </div>
     </div>
-    <div class="table-responsive">
+    <div class="table-responsive" role="region" aria-label="Detection rules" tabindex="0">
         <table class="mini-table detection-tuning-table">
-            <thead><tr><th>Rule</th><th>Status</th><th>Validation</th><th>Feedback</th><th>Exceptions</th><th>Suppression</th><th>MITRE</th><th>Action</th></tr></thead>
+            <thead><tr><th scope="col">Rule</th><th scope="col">Status</th><th scope="col">Validation</th><th scope="col">Feedback</th><th scope="col">Exceptions</th><th scope="col">Suppression</th><th scope="col">MITRE</th><th scope="col">Action</th></tr></thead>
             <tbody id="detection-tuning-body"></tbody>
         </table>
     </div>
@@ -39,9 +39,9 @@
 <section class="settings-card detection-tuning-card">
     <h3><i class="fa-solid fa-clock"></i> Active exception expiry</h3>
     <p class="muted">All active scopes are shown; expired exceptions are excluded from matching.</p>
-    <div class="table-responsive">
+    <div class="table-responsive" role="region" aria-label="Active detection exceptions" tabindex="0">
         <table class="mini-table detection-exception-table">
-            <thead><tr><th>Scope</th><th>Value</th><th>Reason</th><th>Creator</th><th>Expires</th></tr></thead>
+            <thead><tr><th scope="col">Scope</th><th scope="col">Value</th><th scope="col">Reason</th><th scope="col">Creator</th><th scope="col">Expires</th></tr></thead>
             <tbody id="detection-tuning-exceptions"></tbody>
         </table>
     </div>

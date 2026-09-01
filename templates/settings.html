@@ -30,16 +30,16 @@
     <div class="settings-card admin-wide-card">
         <h3><i class="fa-solid fa-stethoscope"></i> Unified Diagnostics</h3>
         <p class="muted">Current operator answers from health, ingestion, rule, provider, and collector state.</p>
-        <div id="admin-diagnostics" class="admin-status-list">Loading diagnostics...</div>
-        <div id="admin-rule-failures" class="table-responsive">
+        <div id="admin-diagnostics" class="admin-status-list" aria-live="polite">Loading diagnostics...</div>
+        <div id="admin-rule-failures" class="table-responsive" role="region" aria-label="Rule load failures" tabindex="0">
             <table class="mini-table">
-                <thead><tr><th>Rule source</th><th>Rejected or unsupported reason</th></tr></thead>
+                <thead><tr><th scope="col">Rule source</th><th scope="col">Rejected or unsupported reason</th></tr></thead>
                 <tbody id="admin-rule-failures-body"></tbody>
             </table>
         </div>
-        <div id="admin-collector-diagnostics" class="table-responsive">
+        <div id="admin-collector-diagnostics" class="table-responsive" role="region" aria-label="Collector diagnostics" tabindex="0">
             <table class="mini-table">
-                <thead><tr><th>Collector</th><th>Status</th><th>Last event</th><th>Buffered</th><th>Delivery failures</th></tr></thead>
+                <thead><tr><th scope="col">Collector</th><th scope="col">Status</th><th scope="col">Last event</th><th scope="col">Buffered</th><th scope="col">Delivery failures</th></tr></thead>
                 <tbody id="admin-collector-diagnostics-body"></tbody>
             </table>
         </div>
@@ -47,7 +47,7 @@
 
     <div class="settings-card admin-wide-card">
         <h3><i class="fa-solid fa-users-gear"></i> User Management</h3>
-        <form id="admin-user-form" class="admin-user-form">
+        <form id="admin-user-form" class="admin-user-form" aria-describedby="admin-user-status">
             <div>
                 <label class="input-label" for="admin-user-name">Username</label>
                 <input id="admin-user-name" class="styled-input" maxlength="64" required autocomplete="off">
@@ -67,9 +67,9 @@
             <button class="btn btn-primary" type="submit">Create / reset</button>
         </form>
         <p class="admin-action-status muted" id="admin-user-status" role="status"></p>
-        <div class="table-responsive">
+        <div class="table-responsive" role="region" aria-label="Dashboard users" tabindex="0">
             <table class="mini-table admin-users-table">
-                <thead><tr><th>Username</th><th>Role</th><th>Action</th></tr></thead>
+                <thead><tr><th scope="col">Username</th><th scope="col">Role</th><th scope="col">Action</th></tr></thead>
                 <tbody id="admin-users-body"></tbody>
             </table>
         </div>
@@ -78,7 +78,7 @@
     <div class="settings-card admin-wide-card">
         <h3><i class="fa-solid fa-filter-circle-xmark"></i> Detection Exceptions</h3>
         <p class="muted">Exact, narrow matches are retained as non-notifying telemetry. Wildcards are rejected.</p>
-        <form id="detection-exception-form" class="detection-exception-form">
+        <form id="detection-exception-form" class="detection-exception-form" aria-describedby="detection-exception-status">
             <div>
                 <label class="input-label" for="exception-scope-type">Scope</label>
                 <select id="exception-scope-type" class="styled-input">
@@ -105,9 +105,9 @@
             <button class="btn btn-primary" type="submit">Add exception</button>
         </form>
         <p class="admin-action-status muted" id="detection-exception-status" role="status"></p>
-        <div class="table-responsive">
+        <div class="table-responsive" role="region" aria-label="Detection exceptions" tabindex="0">
             <table class="mini-table detection-exception-table">
-                <thead><tr><th>Scope</th><th>Value</th><th>Reason</th><th>Creator</th><th>Expiry</th><th>Action</th></tr></thead>
+                <thead><tr><th scope="col">Scope</th><th scope="col">Value</th><th scope="col">Reason</th><th scope="col">Creator</th><th scope="col">Expiry</th><th scope="col">Action</th></tr></thead>
                 <tbody id="detection-exception-body"></tbody>
             </table>
         </div>
@@ -116,7 +116,7 @@
     <div class="settings-card admin-wide-card">
         <h3><i class="fa-solid fa-layer-group"></i> Alert Suppression Policies</h3>
         <p class="muted">Group repeated alerts only when both the rule and correlation key match exactly.</p>
-        <form id="suppression-policy-form" class="suppression-policy-form">
+        <form id="suppression-policy-form" class="suppression-policy-form" aria-describedby="suppression-policy-status">
             <div>
                 <label class="input-label" for="suppression-rule-id">Rule ID</label>
                 <input id="suppression-rule-id" class="styled-input" maxlength="200" required autocomplete="off">
@@ -132,9 +132,9 @@
             <button class="btn btn-primary" type="submit">Add policy</button>
         </form>
         <p class="admin-action-status muted" id="suppression-policy-status" role="status"></p>
-        <div class="table-responsive">
+        <div class="table-responsive" role="region" aria-label="Alert suppression policies" tabindex="0">
             <table class="mini-table suppression-policy-table">
-                <thead><tr><th>Rule</th><th>Correlation key</th><th>Window</th><th>Creator</th><th>Action</th></tr></thead>
+                <thead><tr><th scope="col">Rule</th><th scope="col">Correlation key</th><th scope="col">Window</th><th scope="col">Creator</th><th scope="col">Action</th></tr></thead>
                 <tbody id="suppression-policy-body"></tbody>
             </table>
         </div>
@@ -149,7 +149,7 @@
         <h3><i class="fa-solid fa-link"></i> Audit Integrity</h3>
         <div class="setting-item">
             <div class="setting-info">
-                <label id="admin-audit-state">Loading...</label>
+                <strong id="admin-audit-state">Loading...</strong>
                 <p id="admin-audit-detail">Verifying hash chain.</p>
             </div>
         </div>
@@ -163,9 +163,9 @@
     <div class="settings-card admin-wide-card" id="admin-ingestion-failures-card">
         <h3><i class="fa-solid fa-triangle-exclamation"></i> Ingestion Failures</h3>
         <div id="admin-ingestion-summary" class="admin-status-list">Loading ingestion diagnostics...</div>
-        <div class="table-responsive">
+        <div class="table-responsive" role="region" aria-label="Ingestion failures" tabindex="0">
             <table class="mini-table">
-                <thead><tr><th>Time</th><th>Type</th><th>Collector</th><th>Reason</th><th>Redacted preview</th></tr></thead>
+                <thead><tr><th scope="col">Time</th><th scope="col">Type</th><th scope="col">Collector</th><th scope="col">Reason</th><th scope="col">Redacted preview</th></tr></thead>
                 <tbody id="admin-ingestion-failures-body"></tbody>
             </table>
         </div>
@@ -177,7 +177,7 @@
 
         <div class="setting-item">
             <div class="setting-info">
-                <label>NIDS (Network Monitor)</label>
+                <label for="set-nids-enabled">NIDS (Network Monitor)</label>
                 <p>Sniff packets via Scapy. Requires Admin/Root + Npcap on Windows.</p>
             </div>
             <label class="switch">
@@ -188,7 +188,7 @@
 
         <div class="setting-item">
             <div class="setting-info">
-                <label>Honeypot (Internal Port Trap)</label>
+                <label for="set-honeypot-enabled">Honeypot (Internal Port Trap)</label>
                 <p>High-fidelity signal: any connection is suspicious.</p>
             </div>
             <label class="switch">
@@ -204,7 +204,7 @@
 
         <div class="setting-item">
             <div class="setting-info">
-                <label>Auto Refresh Graph</label>
+                <label for="set-graph-auto">Auto Refresh Graph</label>
                 <p>Reduce CPU by increasing refresh interval.</p>
             </div>
             <label class="switch">
@@ -214,18 +214,18 @@
         </div>
 
         <div class="input-group">
-            <label class="input-label">Graph Refresh (ms)</label>
+            <label class="input-label" for="set-graph-refresh-ms">Graph Refresh (ms)</label>
             <input id="set-graph-refresh-ms" type="number" class="styled-input" min="1000" step="500" value="10000">
         </div>
 
         <div class="input-group">
-            <label class="input-label">Graph Max Alerts</label>
+            <label class="input-label" for="set-graph-max-alerts">Graph Max Alerts</label>
             <input id="set-graph-max-alerts" type="number" class="styled-input" min="50" step="50" value="500">
         </div>
 
         <div class="setting-item">
             <div class="setting-info">
-                <label>Include source_type nodes</label>
+                <label for="set-graph-include-sources">Include source_type nodes</label>
                 <p>Add nodes for HIDS_LOG / WINDOWS_EVENT / NIDS / HONEYPOT.</p>
             </div>
             <label class="switch">
@@ -236,7 +236,7 @@
 
         <div class="setting-item">
             <div class="setting-info">
-                <label>Include campaign/correlation nodes</label>
+                <label for="set-graph-include-campaigns">Include campaign/correlation nodes</label>
                 <p>Use <span class="font-mono">correlated_events</span> to show campaigns.</p>
             </div>
             <label class="switch">
@@ -253,7 +253,7 @@
         <h3><i class="fa-solid fa-server"></i> Agent Status</h3>
         <div class="setting-item">
             <div class="setting-info">
-                <label>Log Monitoring</label>
+                <strong>Log Monitoring</strong>
                 <p>Watching: <span class="font-mono" style="color:var(--accent-blue)">{{ log_path }}</span></p>
                 <p>Alerts: <span class="font-mono" style="color:var(--accent-purple)">{{ alerts_path }}</span></p>
             </div>
