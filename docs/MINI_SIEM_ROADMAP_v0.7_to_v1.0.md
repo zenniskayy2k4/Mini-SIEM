@@ -2095,16 +2095,37 @@ refactor: version persisted alert schema
 
 ## M28.3 — Machine-readable API Contract
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Use OpenAPI or JSON Schema.
 
-- [ ] Core endpoints.
-- [ ] Auth requirements.
-- [ ] Error model.
-- [ ] Pagination.
-- [ ] Request limits.
-- [ ] CI schema validation.
+- [x] Core endpoints.
+- [x] Auth requirements.
+- [x] Error model.
+- [x] Pagination.
+- [x] Request limits.
+- [x] CI schema validation.
+
+The supported REST v1 surface is now described by an OpenAPI 3.1 document.
+It records every registered v1 path and method, dashboard session and CSRF
+requirements, minimum roles, reusable JSON errors, alert pagination, field
+bounds, and enforced request-body limits. The existing CI regression loop
+loads the contract, resolves every local reference, and rejects route,
+security, pagination, or limit drift without adding another dependency.
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| OpenAPI paths and methods exactly match all registered Flask v1 routes | PASS |
+| Session, CSRF, and minimum-role requirements present on every operation | PASS |
+| Reusable JSON error schema and internal reference resolution | PASS |
+| Alert pagination defaults, bounds, and response schema | PASS |
+| Runtime request-body, field, list, and KPI range limits represented | PASS |
+| Existing CI `tests/test_*.py` loop discovers the contract regression | PASS |
+| M28.1–M28.3 focused regression modules | PASS |
+| 73 executable regression modules | PASS |
+| No dependency, database migration, Ollama, or external provider call | PASS |
 
 ### Suggested commit
 
@@ -2512,18 +2533,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M28.3 — Machine-readable API Contract
+M28.4 — API Compatibility Regression
 ```
 
-M28.2 establishes the versioned alert payload contract:
+M28.3 establishes the machine-readable REST v1 contract:
 
 ```text
-current alert factory + persisted legacy payloads
-→ alert_schema_version 1 + shared read/write adapter
-→ documented fields, enums, nullability, and compatibility
+registered Flask v1 routes + runtime validation limits
+→ OpenAPI 3.1 paths, auth, roles, errors, pagination, and bounds
+→ CI contract drift validation
 ```
 
-M28.3 adds a machine-readable contract for the stable v1 API surface.
+M28.4 adds behavioral compatibility coverage for the published contract.
 
 ---
 
@@ -2711,9 +2732,9 @@ This roadmap is complete when:
 
 ```text
 START:
-M28.3 — Machine-readable API Contract
+M28.4 — API Compatibility Regression
 ```
 
-M28.2 versions alert payloads and normalizes legacy records without rewriting
-historical storage. M28.3 defines the core endpoints, authentication, errors,
-pagination, and request limits in a CI-validated machine-readable contract.
+M28.3 publishes and validates the OpenAPI 3.1 contract against every
+registered v1 route. M28.4 verifies response fields, status behavior,
+permission boundaries, pagination, and legacy alert normalization end to end.

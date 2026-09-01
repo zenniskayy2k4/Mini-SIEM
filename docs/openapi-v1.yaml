@@ -1,0 +1,979 @@
+openapi: 3.1.0
+info:
+  title: Mini-SIEM REST API
+  version: 1.0.0
+  description: Supported, session-authenticated Mini-SIEM REST API v1.
+servers:
+  - url: /
+x-default-request-body-limit-bytes: 2097152
+security:
+  - sessionCookie: []
+paths:
+  /api/v1/system/status:
+    get:
+      operationId: getSystemStatus
+      x-required-role: admin
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/JsonObject"
+  /api/v1/analytics/kpis:
+    get:
+      operationId: getSocKpis
+      x-required-role: viewer
+      x-max-range-days: 366
+      parameters:
+        - $ref: "#/components/parameters/FromTimestamp"
+        - $ref: "#/components/parameters/ToTimestamp"
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/detection-exceptions:
+    get:
+      operationId: listDetectionExceptions
+      x-required-role: admin
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createDetectionException
+      x-required-role: admin
+      x-request-body-limit-bytes: 8192
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DetectionExceptionInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/JsonObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+  /api/v1/detection-exceptions/{exception_id}:
+    parameters:
+      - $ref: "#/components/parameters/ExceptionId"
+    delete:
+      operationId: deleteDetectionException
+      x-required-role: admin
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        "204":
+          description: Detection exception deleted.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/alert-suppression-policies:
+    get:
+      operationId: listAlertSuppressionPolicies
+      x-required-role: admin
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createAlertSuppressionPolicy
+      x-required-role: admin
+      x-request-body-limit-bytes: 8192
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuppressionPolicyInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/JsonObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+  /api/v1/alert-suppression-policies/{policy_id}:
+    parameters:
+      - $ref: "#/components/parameters/PolicyId"
+    delete:
+      operationId: deleteAlertSuppressionPolicy
+      x-required-role: admin
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        "204":
+          description: Alert suppression policy deleted.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/detection-coverage:
+    get:
+      operationId: getDetectionCoverage
+      x-required-role: viewer
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/detection-rules:
+    get:
+      operationId: listDetectionRules
+      x-required-role: admin
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/detection-rules/{rule_id}:
+    parameters:
+      - $ref: "#/components/parameters/RuleId"
+    patch:
+      operationId: updateDetectionRule
+      x-required-role: admin
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/alerts:
+    get:
+      operationId: listRecentAlerts
+      x-required-role: viewer
+      responses:
+        "200":
+          description: The 50 most recent alerts.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/Alert"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/alerts/search:
+    get:
+      operationId: searchAlerts
+      x-required-role: viewer
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: severity
+          in: query
+          schema:
+            $ref: "#/components/schemas/Severity"
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: ip
+          in: query
+          schema:
+            type: string
+        - name: mitre
+          in: query
+          schema:
+            type: string
+        - name: incident_status
+          in: query
+          schema:
+            $ref: "#/components/schemas/IncidentStatus"
+        - name: ai_disposition
+          in: query
+          schema:
+            type: string
+        - name: human_review
+          in: query
+          deprecated: true
+          description: Compatibility filter; prefer ai_disposition.
+          schema:
+            type: boolean
+        - name: assigned_to
+          in: query
+          schema:
+            type: string
+        - name: unassigned
+          in: query
+          schema:
+            type: boolean
+        - name: open_incidents
+          in: query
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/FromTimestamp"
+        - $ref: "#/components/parameters/ToTimestamp"
+      responses:
+        "200":
+          description: Paginated alert search results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/alerts/{alert_id}/report.pdf:
+    parameters:
+      - $ref: "#/components/parameters/AlertId"
+    get:
+      operationId: downloadIncidentReport
+      x-required-role: viewer
+      responses:
+        "200":
+          description: Incident report PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/alerts/{alert_id}/external-case:
+    parameters:
+      - $ref: "#/components/parameters/AlertId"
+    post:
+      operationId: exportExternalCase
+      x-required-role: analyst
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "201":
+          $ref: "#/components/responses/JsonObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/JsonObject"
+        "503":
+          $ref: "#/components/responses/JsonObject"
+  /api/v1/alerts/{alert_id}/status:
+    parameters:
+      - $ref: "#/components/parameters/AlertId"
+    patch:
+      operationId: updateIncidentStatus
+      x-required-role: analyst
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  $ref: "#/components/schemas/IncidentStatus"
+      responses:
+        "200":
+          $ref: "#/components/responses/Alert"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/alerts/{alert_id}/notes:
+    parameters:
+      - $ref: "#/components/parameters/AlertId"
+    post:
+      operationId: addAnalystNote
+      x-required-role: analyst
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        "200":
+          $ref: "#/components/responses/Alert"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/alerts/{alert_id}/feedback:
+    parameters:
+      - $ref: "#/components/parameters/AlertId"
+    post:
+      operationId: createDetectionFeedback
+      x-required-role: analyst
+      x-request-body-limit-bytes: 8192
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [classification]
+              properties:
+                classification:
+                  type: string
+                  enum: [TRUE_POSITIVE, FALSE_POSITIVE, BENIGN_EXPECTED]
+                reason:
+                  type: string
+                  maxLength: 2000
+      responses:
+        "201":
+          $ref: "#/components/responses/JsonObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+  /api/v1/alerts/{alert_id}/assignee:
+    parameters:
+      - $ref: "#/components/parameters/AlertId"
+    patch:
+      operationId: updateAlertAssignee
+      x-required-role: analyst
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [assigned_to]
+              properties:
+                assigned_to:
+                  type: [string, "null"]
+                  maxLength: 100
+      responses:
+        "200":
+          $ref: "#/components/responses/Alert"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/alerts/{alert_id}/response-actions:
+    parameters:
+      - $ref: "#/components/parameters/AlertId"
+    post:
+      operationId: requestResponseAction
+      x-required-role: analyst
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [action_type, target]
+              properties:
+                action_type:
+                  type: string
+                  enum: [BLOCK_IP, UNBLOCK_IP, DISABLE_USER, KILL_PROCESS, QUARANTINE_FILE, NOTIFY_ANALYST]
+                target:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        "201":
+          $ref: "#/components/responses/Alert"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/alerts/{alert_id}/response-actions/{action_id}/approve:
+    parameters:
+      - $ref: "#/components/parameters/AlertId"
+      - $ref: "#/components/parameters/ActionId"
+    post:
+      operationId: approveResponseAction
+      x-required-role: analyst
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Alert"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/alerts/{alert_id}/response-actions/{action_id}/rollback:
+    parameters:
+      - $ref: "#/components/parameters/AlertId"
+      - $ref: "#/components/parameters/ActionId"
+    post:
+      operationId: rollbackResponseAction
+      x-required-role: analyst
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Alert"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/assets:
+    get:
+      operationId: listAssets
+      x-required-role: admin
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: environment
+          in: query
+          schema:
+            type: string
+            enum: [dev, test, prod]
+        - name: criticality
+          in: query
+          schema:
+            $ref: "#/components/schemas/Severity"
+        - name: enabled
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createAsset
+      x-required-role: admin
+      x-request-body-limit-bytes: 65536
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetCreateInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/JsonObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/assets/{asset_id}:
+    parameters:
+      - $ref: "#/components/parameters/AssetId"
+    get:
+      operationId: getAsset
+      x-required-role: admin
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateAsset
+      x-required-role: admin
+      x-request-body-limit-bytes: 65536
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/JsonObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAsset
+      x-required-role: admin
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        "204":
+          description: Asset deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Secure dashboard session established by the sign-in flow.
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Required with the session cookie for non-safe methods.
+  parameters:
+    AlertId:
+      name: alert_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ActionId:
+      name: action_id
+      in: path
+      required: true
+      schema:
+        type: string
+    AssetId:
+      name: asset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ExceptionId:
+      name: exception_id
+      in: path
+      required: true
+      schema:
+        type: string
+    PolicyId:
+      name: policy_id
+      in: path
+      required: true
+      schema:
+        type: string
+    RuleId:
+      name: rule_id
+      in: path
+      required: true
+      schema:
+        type: string
+        maxLength: 200
+    FromTimestamp:
+      name: from
+      in: query
+      schema:
+        type: string
+        format: date-time
+    ToTimestamp:
+      name: to
+      in: query
+      schema:
+        type: string
+        format: date-time
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: string
+          minLength: 1
+    Severity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+    IncidentStatus:
+      type: string
+      enum: [NEW, INVESTIGATING, CONTAINED, RESOLVED, FALSE_POSITIVE]
+    Alert:
+      type: object
+      additionalProperties: true
+      required:
+        - alert_schema_version
+        - alert_id
+        - timestamp
+        - alert_name
+        - severity
+        - status
+        - source_type
+        - description
+        - event_count
+        - first_seen
+        - last_seen
+        - analyst_notes
+        - timeline
+        - response_actions
+        - external_cases
+        - risk_score
+        - risk_level
+        - risk_factors
+      properties:
+        alert_schema_version:
+          type: integer
+          const: 1
+        alert_id:
+          type: string
+        incident_id:
+          type: [string, "null"]
+        timestamp:
+          type: string
+          format: date-time
+        alert_name:
+          type: string
+        severity:
+          $ref: "#/components/schemas/Severity"
+        status:
+          type: string
+        incident_status:
+          oneOf:
+            - $ref: "#/components/schemas/IncidentStatus"
+            - type: "null"
+        source_type:
+          type: string
+        description:
+          type: string
+        event_count:
+          type: integer
+          minimum: 0
+        first_seen:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+        assigned_to:
+          type: [string, "null"]
+        analyst_notes:
+          type: array
+          items:
+            type: object
+        timeline:
+          type: array
+          items:
+            type: object
+        response_actions:
+          type: array
+          items:
+            type: object
+        external_cases:
+          type: array
+          items:
+            type: object
+        risk_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        risk_level:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        risk_factors:
+          type: array
+          items:
+            type: object
+    AlertPage:
+      type: object
+      additionalProperties: false
+      required: [items, total, page, page_size, total_pages]
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/Alert"
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total_pages:
+          type: integer
+          minimum: 0
+    DetectionExceptionInput:
+      type: object
+      additionalProperties: false
+      required: [scope_type, scope_value, reason]
+      properties:
+        scope_type:
+          type: string
+          enum: [hostname, source_ip, user, process_path, rule_id, asset_id]
+        scope_value:
+          type: string
+          minLength: 1
+          maxLength: 500
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        expires_at:
+          type: [string, "null"]
+          format: date-time
+    SuppressionPolicyInput:
+      type: object
+      additionalProperties: false
+      required: [rule_id, correlation_key, window_seconds]
+      properties:
+        rule_id:
+          type: string
+          minLength: 1
+          maxLength: 200
+        correlation_key:
+          type: string
+          minLength: 1
+          maxLength: 500
+        window_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+    AssetInput:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        hostname:
+          type: string
+          minLength: 1
+          maxLength: 253
+        ip_addresses:
+          type: array
+          maxItems: 64
+          items:
+            type: string
+        os:
+          type: string
+          maxLength: 100
+        owner:
+          type: string
+          maxLength: 200
+        department:
+          type: string
+          maxLength: 200
+        environment:
+          type: string
+          enum: [dev, test, prod]
+        criticality:
+          $ref: "#/components/schemas/Severity"
+        tags:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            maxLength: 64
+        enabled:
+          type: boolean
+    AssetCreateInput:
+      allOf:
+        - $ref: "#/components/schemas/AssetInput"
+      required: [hostname]
+  responses:
+    Alert:
+      description: Current alert state.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Alert"
+    JsonObject:
+      description: Endpoint-specific JSON object.
+      content:
+        application/json:
+          schema:
+            type: object
+    BadRequest:
+      description: Invalid request or CSRF token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Authentication required or session expired.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: The authenticated role cannot perform this operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Resource conflicts with existing state.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    PayloadTooLarge:
+      description: Request body exceeds the endpoint limit.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unavailable:
+      description: A required subsystem or external provider is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

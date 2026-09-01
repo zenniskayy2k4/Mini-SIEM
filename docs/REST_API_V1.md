@@ -6,7 +6,11 @@ unversioned paths remain temporary compatibility aliases and return
 
 All v1 routes reuse the existing handlers, authentication, role checks, CSRF
 protection, request limits, status codes, and response bodies. M28.2 versions
-the alert payload itself; see [Alert Schema v1](ALERT_SCHEMA.md).
+the alert payload itself; see [Alert Schema v1](ALERT_SCHEMA.md). The
+[OpenAPI 3.1 contract](openapi-v1.yaml) is the machine-readable source for
+supported paths and methods, session/CSRF requirements, roles, errors,
+pagination, field bounds, and request-body limits. CI rejects drift between
+that contract and the registered Flask v1 routes.
 
 ## Supported v1 routes
 
