@@ -276,6 +276,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 ## Operations and testing
 
 - `GET /health` provides an unauthenticated liveness/readiness summary; authenticated admins can use `/api/system/status` for richer diagnostics.
+- New integrations should use the versioned [REST API v1](docs/REST_API_V1.md); existing `/api/...` paths remain temporary compatibility aliases.
 - The opt-in [local HTTPS profile](docs/HTTPS_DEPLOYMENT.md) terminates TLS with Caddy, closes the direct dashboard port, validates one forwarded-header hop, and documents the development CA certificate path.
 - Retention, backup, restore verification, and log rotation are documented in [Retention and backup](docs/RETENTION_BACKUP.md).
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).

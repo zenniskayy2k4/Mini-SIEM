@@ -94,6 +94,31 @@ ALLOWED_SETTINGS = {
     "GRAPH_INCLUDE_CAMPAIGNS",
 }
 
+V1_API_ENDPOINTS = {
+    "api_alert_note",
+    "api_alert_response_action",
+    "api_alert_response_action_approve",
+    "api_alert_response_action_rollback",
+    "api_alert_assignee",
+    "api_alert_feedback",
+    "api_alert_status",
+    "api_alert_suppression_policies",
+    "api_alert_suppression_policy_delete",
+    "api_alerts",
+    "api_alerts_search",
+    "api_soc_kpis",
+    "api_asset",
+    "api_assets",
+    "api_detection_coverage",
+    "api_detection_exception_delete",
+    "api_detection_exceptions",
+    "api_detection_rule_update",
+    "api_detection_rules",
+    "api_external_case",
+    "api_incident_report",
+    "api_system_status",
+}
+
 def _ensure_runtime_settings_file():
     os.makedirs(os.path.dirname(RUNTIME_SETTINGS_FILE), exist_ok=True)
     if not os.path.exists(RUNTIME_SETTINGS_FILE):
@@ -405,6 +430,10 @@ def dashboard_security_headers(response):
     response.headers.setdefault("Referrer-Policy", "same-origin")
     if request.endpoint != "static":
         response.headers.setdefault("Cache-Control", "no-store")
+    if request.endpoint in V1_API_ENDPOINTS:
+        successor = url_for(f"v1_{request.endpoint}", **(request.view_args or {}))
+        response.headers.setdefault("Deprecation", "true")
+        response.headers.setdefault("Link", f'<{successor}>; rel="successor-version"')
     return response
 
 
@@ -1486,6 +1515,21 @@ def api_graph():
 @app.route("/graph")
 def graph_page():
     return render_template("graph.html", page="graph")
+
+
+def _register_v1_routes():
+    routes = {rule.endpoint: rule for rule in app.url_map.iter_rules()}
+    for endpoint in V1_API_ENDPOINTS:
+        legacy = routes[endpoint]
+        app.add_url_rule(
+            legacy.rule.replace("/api/", "/api/v1/", 1),
+            endpoint=f"v1_{endpoint}",
+            view_func=app.view_functions[endpoint],
+            methods=sorted(legacy.methods - {"HEAD", "OPTIONS"}),
+        )
+
+
+_register_v1_routes()
 
 if __name__ == "__main__":
     app.run(host=config.DASHBOARD_HOST, port=config.DASHBOARD_PORT, debug=False)

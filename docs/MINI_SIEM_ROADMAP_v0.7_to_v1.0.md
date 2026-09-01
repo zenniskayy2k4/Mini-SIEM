@@ -2000,7 +2000,7 @@ docs: release v0.9.0
 
 ## M28.1 — REST API v1
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Example:
 
@@ -2013,12 +2013,35 @@ Example:
 
 ### Tasks
 
-- [ ] Inventory current endpoints.
-- [ ] Classify public/internal.
-- [ ] Define v1 contracts.
-- [ ] Add versioned routes.
-- [ ] Temporary compatibility aliases.
-- [ ] Deprecation documentation.
+- [x] Inventory current endpoints.
+- [x] Classify public/internal.
+- [x] Define v1 contracts.
+- [x] Add versioned routes.
+- [x] Temporary compatibility aliases.
+- [x] Deprecation documentation.
+
+The supported REST surface now has `/api/v1/...` routes backed by the same
+handlers, authorization checks, CSRF protection, limits, and response bodies
+as the existing endpoints. Unversioned routes remain temporary aliases and
+advertise their successor through deprecation headers. Dashboard-internal,
+collector, health, and metrics endpoints remain outside the v1 contract.
+The complete inventory and compatibility policy are documented in
+[REST API v1](REST_API_V1.md).
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Explicit supported endpoint inventory and public/internal classification | PASS |
+| v1 route patterns and HTTP methods match their compatibility aliases | PASS |
+| v1 and alias routes share the same handlers and authorization boundaries | PASS |
+| Authenticated v1 and alias alert responses are identical | PASS |
+| Anonymous v1 and alias alert requests both return HTTP 401 | PASS |
+| Legacy aliases advertise v1 successors; v1 responses are not deprecated | PASS |
+| Collector and dashboard-internal endpoints are excluded from v1 | PASS |
+| 71 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No schema migration, dependency, Ollama, or external provider call | PASS |
 
 ### Suggested commit
 
@@ -2466,20 +2489,19 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M28.1 — REST API v1
+M28.2 — Alert Schema Version
 ```
 
-M27.5 completes the v0.9.0 release:
+M28.1 establishes the versioned REST route contract:
 
 ```text
-load/backpressure + storage performance + collector resilience
-→ measured single-node capacity + bounded overload + recovery path
-→ CI-gated Performance & Operational Resilience release
+current REST handlers + explicit supported surface
+→ /api/v1 routes + temporary compatibility aliases
+→ documented deprecation and endpoint classification
 ```
 
-M28 starts the v1.0 Stable Product Contract phase. The first step is
-inventorying and versioning the REST API surface before adding a
-machine-readable contract.
+M28.2 versions and documents the alert payload while normalizing legacy
+records through the existing adapter.
 
 ---
 
@@ -2667,10 +2689,9 @@ This roadmap is complete when:
 
 ```text
 START:
-M28.1 — REST API v1
+M28.2 — Alert Schema Version
 ```
 
-M27.5 prepares the v0.9.0 release. All release-gate items except the
-CI-gated tag are complete locally. After CI verifies the release commit,
-create the annotated `v0.9.0` tag. The next development batch inventories
-and versioned the REST API surface as the first v1.0 contract step.
+M28.1 introduces the `/api/v1` route contract while retaining temporary
+unversioned aliases. M28.2 adds an explicit alert schema version and documents
+field, nullability, enum, and legacy-normalization behavior.
