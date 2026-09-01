@@ -6,7 +6,7 @@ unversioned paths remain temporary compatibility aliases and return
 
 All v1 routes reuse the existing handlers, authentication, role checks, CSRF
 protection, request limits, status codes, and response bodies. M28.2 versions
-the alert payload itself; this batch only versions the HTTP route contract.
+the alert payload itself; see [Alert Schema v1](ALERT_SCHEMA.md).
 
 ## Supported v1 routes
 

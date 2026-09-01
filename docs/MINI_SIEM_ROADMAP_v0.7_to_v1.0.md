@@ -2053,14 +2053,37 @@ refactor: introduce versioned REST API v1
 
 ## M28.2 — Alert Schema Version
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] Add `alert_schema_version`.
-- [ ] Document field semantics.
-- [ ] Document nullable fields.
-- [ ] Document enums.
-- [ ] Define compatibility policy.
-- [ ] Normalize legacy alerts through adapter.
+- [x] Add `alert_schema_version`.
+- [x] Document field semantics.
+- [x] Document nullable fields.
+- [x] Document enums.
+- [x] Define compatibility policy.
+- [x] Normalize legacy alerts through adapter.
+
+New and updated alerts persist `alert_schema_version: 1`. The shared adapter
+normalizes pre-versioned JSONL and SQLite payloads in memory, generates stable
+UUID5 identifiers when needed, maps legacy `INFO` severity to `LOW`, and
+rejects invalid or unsupported future versions. Field, nullability, enum,
+extension, and compatibility rules are documented in
+[Alert Schema v1](ALERT_SCHEMA.md).
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| New alerts and repository writes carry `alert_schema_version: 1` | PASS |
+| Missing/zero legacy versions normalize to v1 on JSONL and SQLite reads | PASS |
+| Missing legacy IDs receive deterministic UUID5 identifiers | PASS |
+| Legacy `INFO` severity normalizes to `LOW` | PASS |
+| Boolean, string, null, negative, and future versions rejected clearly | PASS |
+| Lifecycle arrays and nullable/enum semantics documented | PASS |
+| v1 and compatibility API routes expose the same normalized payload | PASS |
+| JSON-to-SQLite migration remains idempotent | PASS |
+| 72 executable regression modules | PASS |
+| Python syntax validation | PASS |
+| No database migration, dependency, Ollama, or external provider call | PASS |
 
 ### Suggested commit
 
@@ -2489,19 +2512,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M28.2 — Alert Schema Version
+M28.3 — Machine-readable API Contract
 ```
 
-M28.1 establishes the versioned REST route contract:
+M28.2 establishes the versioned alert payload contract:
 
 ```text
-current REST handlers + explicit supported surface
-→ /api/v1 routes + temporary compatibility aliases
-→ documented deprecation and endpoint classification
+current alert factory + persisted legacy payloads
+→ alert_schema_version 1 + shared read/write adapter
+→ documented fields, enums, nullability, and compatibility
 ```
 
-M28.2 versions and documents the alert payload while normalizing legacy
-records through the existing adapter.
+M28.3 adds a machine-readable contract for the stable v1 API surface.
 
 ---
 
@@ -2689,9 +2711,9 @@ This roadmap is complete when:
 
 ```text
 START:
-M28.2 — Alert Schema Version
+M28.3 — Machine-readable API Contract
 ```
 
-M28.1 introduces the `/api/v1` route contract while retaining temporary
-unversioned aliases. M28.2 adds an explicit alert schema version and documents
-field, nullability, enum, and legacy-normalization behavior.
+M28.2 versions alert payloads and normalizes legacy records without rewriting
+historical storage. M28.3 defines the core endpoints, authentication, errors,
+pagination, and request limits in a CI-validated machine-readable contract.

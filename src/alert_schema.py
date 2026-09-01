@@ -1,7 +1,9 @@
+import json
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 
+ALERT_SCHEMA_VERSION = 1
 SEVERITIES = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
 SOURCE_TYPES = {"HIDS_LOG", "WINDOWS_EVENT", "NIDS", "HONEYPOT", "CORRELATION"}
 INCIDENT_STATUSES = {"NEW", "INVESTIGATING", "CONTAINED", "RESOLVED", "FALSE_POSITIVE"}
@@ -15,6 +17,33 @@ def utc_iso(value=None) -> str:
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def legacy_alert_id(alert: dict) -> str:
+    identity = {key: value for key, value in alert.items() if key != "alert_schema_version"}
+    canonical = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return f"ALT-{uuid5(NAMESPACE_URL, canonical)}"
+
+
+def normalize_alert(alert: dict) -> dict:
+    if not isinstance(alert, dict):
+        raise ValueError("alert must be a JSON object")
+    version = alert.get("alert_schema_version", 0)
+    if isinstance(version, bool) or not isinstance(version, int):
+        raise ValueError("alert_schema_version must be an integer")
+    if version not in {0, ALERT_SCHEMA_VERSION}:
+        raise ValueError(
+            f"unsupported alert_schema_version {version}; "
+            f"supported versions: legacy 0, {ALERT_SCHEMA_VERSION}"
+        )
+    if version == ALERT_SCHEMA_VERSION and not alert.get("alert_id"):
+        raise ValueError("v1 alert requires alert_id")
+    if not alert.get("alert_id"):
+        alert["alert_id"] = legacy_alert_id(alert)
+    if version == 0 and str(alert.get("severity") or "").upper() == "INFO":
+        alert["severity"] = "LOW"
+    alert["alert_schema_version"] = ALERT_SCHEMA_VERSION
+    return ensure_lifecycle(alert)
 
 
 def ensure_lifecycle(alert: dict) -> dict:
@@ -56,6 +85,7 @@ def ensure_lifecycle(alert: dict) -> dict:
     alert["external_cases"] = dict(external_cases)
     alert["analyst_notes"] = list(alert.get("analyst_notes") or [])
     alert["response_actions"] = list(alert.get("response_actions") or [])
+    alert["timeline"] = list(alert.get("timeline") or [])
     return alert
 
 
@@ -82,6 +112,7 @@ def build_alert(
 
     timestamp = utc_iso(timestamp)
     alert = {
+        "alert_schema_version": ALERT_SCHEMA_VERSION,
         "alert_id": alert_id or f"ALT-{uuid4()}",
         "timestamp": timestamp,
         "alert_name": alert_name,
@@ -111,4 +142,4 @@ def build_alert(
         "updated_at": updated_at or created_at or timestamp,
     }
     alert.update(extra)
-    return ensure_lifecycle(alert)
+    return normalize_alert(alert)

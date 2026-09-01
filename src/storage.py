@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from config import config
+from src.alert_schema import normalize_alert
 from src.sqlite_store import SQLiteAlertRepository
 
 try:
@@ -59,6 +60,7 @@ class JsonAlertRepository:
         )
 
     def create_alert(self, alert: dict) -> dict:
+        alert = normalize_alert(alert)
         with self._locked():
             lines = self._read_lines()
             replaced = False
@@ -83,7 +85,7 @@ class JsonAlertRepository:
             lines = self._read_lines()
             for index, line in enumerate(lines):
                 try:
-                    alert = json.loads(line)
+                    alert = normalize_alert(json.loads(line))
                 except json.JSONDecodeError:
                     continue
                 if alert.get("alert_id") != alert_id:
@@ -92,6 +94,7 @@ class JsonAlertRepository:
                     changes(alert)
                 else:
                     alert.update(changes)
+                normalize_alert(alert)
                 lines[index] = json.dumps(alert, ensure_ascii=False) + "\n"
                 with open(self.path, "w", encoding="utf-8") as file:
                     file.writelines(lines)
@@ -102,7 +105,7 @@ class JsonAlertRepository:
         with self._locked():
             for line in self._read_lines():
                 try:
-                    alert = json.loads(line)
+                    alert = normalize_alert(json.loads(line))
                 except json.JSONDecodeError:
                     continue
                 if alert.get("alert_id") == alert_id:
@@ -164,7 +167,7 @@ class JsonAlertRepository:
             alerts = []
             for line in self._read_lines():
                 try:
-                    alert = json.loads(line)
+                    alert = normalize_alert(json.loads(line))
                 except json.JSONDecodeError:
                     continue
                 if not self._matches(alert, filters):
