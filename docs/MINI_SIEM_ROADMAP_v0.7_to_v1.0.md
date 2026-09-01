@@ -2360,9 +2360,16 @@ docs: add production-style operator runbooks
 
 # M30 — v1.0 Stable Release Qualification
 
+> **Feature freeze active:** 2026-09-01
+>
+> **Qualification baseline:** M29.4 completion commit `2de82ae`
+
+Until v1.0.0 is released, every change must map to an allowed M30.1 category and
+must preserve the stable API, schema, provider, and single-node architecture boundaries.
+
 ## M30.1 — Feature Freeze
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Allowed:
 
@@ -2382,6 +2389,25 @@ schema redesign
 new external providers
 new architectural layer
 ```
+
+### Freeze rules
+
+- [x] Every change maps to an allowed category and an incomplete M30 qualification item or documented release blocker.
+- [x] Public API and alert schema changes remain backward compatible.
+- [x] Released database migrations remain immutable; only forward fixes are allowed.
+- [x] No dependency, provider, architecture, or major feature expansion enters the release candidate.
+- [x] Required regression and security gates must pass before a change is accepted.
+- [x] Any freeze exception must be documented in this roadmap before implementation.
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Freeze baseline points to completed M29.4 | PASS |
+| Allowed fixes and release-blocker scope recorded | PASS |
+| Major features, schema redesign, providers, and architecture expansion excluded | PASS |
+| Stable API, migration, regression, and security boundaries retained | PASS |
+| No product code, dependency, runtime data, or deployment change | PASS |
 
 ### Suggested commit
 
@@ -2621,11 +2647,11 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M30.1 — Feature Freeze
+M30.2 — Full Regression Qualification
 ```
 
-M30.1 enters the v1.0 release-candidate feature freeze and records the allowed
-change boundary.
+M30.2 runs the complete v1.0 qualification matrix and records reproducible
+evidence for every required gate.
 
 ---
 
