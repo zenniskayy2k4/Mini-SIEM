@@ -51,6 +51,14 @@ def ensure_lifecycle(alert: dict) -> dict:
     alert.pop("mitigation_command", None)
     if not alert.get("alert_id"):
         alert["alert_id"] = f"ALT-{uuid4()}"
+    timestamp = utc_iso(alert.get("timestamp"))
+    event_count = alert.get("event_count", 1)
+    if isinstance(event_count, bool) or not isinstance(event_count, int) or event_count < 1:
+        raise ValueError("event_count must be a positive integer")
+    alert["timestamp"] = timestamp
+    alert["event_count"] = event_count
+    alert["first_seen"] = utc_iso(alert.get("first_seen") or timestamp)
+    alert["last_seen"] = utc_iso(alert.get("last_seen") or timestamp)
     alert["created_at"] = utc_iso(alert.get("created_at") or alert.get("timestamp"))
     alert["updated_at"] = utc_iso(alert.get("updated_at") or alert["created_at"])
 

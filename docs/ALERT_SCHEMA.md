@@ -78,6 +78,8 @@ Nullable enum fields may be JSON `null`; placeholder strings such as `N/A`,
 
 Legacy normalization generates a deterministic UUID5 alert ID when missing,
 maps legacy `INFO` severity to `LOW`, removes obsolete mitigation-command
-fields, and supplies lifecycle/list defaults. Reads do not rewrite historical
-JSONL or SQLite payloads; the next normal update persists the v1 form. New
-alerts are always written as v1. No database schema migration is required.
+fields, defaults a missing event count to `1`, uses `timestamp` for missing
+event-window bounds, and supplies lifecycle/list defaults. Reads do not rewrite
+historical JSONL or SQLite payloads; the next normal update persists the v1
+form. New alerts are always written as v1. No database schema migration is
+required.

@@ -2137,13 +2137,36 @@ docs: add machine-readable API contract
 
 ## M28.4 — API Compatibility Regression
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] Required response fields.
-- [ ] Error status behavior.
-- [ ] Permission boundaries.
-- [ ] Pagination.
-- [ ] Legacy alert normalization.
+- [x] Required response fields.
+- [x] Error status behavior.
+- [x] Permission boundaries.
+- [x] Pagination.
+- [x] Legacy alert normalization.
+
+The compatibility suite exercises the published v1 API through Flask with a
+temporary SQLite repository. It derives required alert fields from OpenAPI,
+checks 400/401/403/404/413 behavior, verifies viewer/analyst/admin boundaries,
+tests multi-page search metadata, and confirms pre-versioned SQLite alerts are
+normalized before being returned. The shared adapter now supplies legacy
+event-window defaults, and the OpenAPI `external_cases` type matches the
+provider-keyed object returned by the API.
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Current and legacy API responses contain every OpenAPI-required alert field | PASS |
+| JSON error model and HTTP 400/401/403/404/413 behavior | PASS |
+| Viewer, analyst, and admin permission boundaries | PASS |
+| Page size, total, page number, total pages, and non-overlapping pages | PASS |
+| Legacy severity, schema version, event count, and event-window normalization | PASS |
+| OpenAPI `external_cases` object agrees with runtime payloads | PASS |
+| M28.2–M28.4 focused regression modules | PASS |
+| 74 executable regression modules | PASS |
+| Python syntax validation | PASS |
+| No dependency, database migration, Ollama, or external provider call | PASS |
 
 ### Suggested commit
 
@@ -2533,18 +2556,18 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M28.4 — API Compatibility Regression
+M29.1 — Environment Doctor
 ```
 
-M28.3 establishes the machine-readable REST v1 contract:
+M28 completes the stable API and alert-schema contract:
 
 ```text
-registered Flask v1 routes + runtime validation limits
-→ OpenAPI 3.1 paths, auth, roles, errors, pagination, and bounds
-→ CI contract drift validation
+versioned REST routes + alert schema + OpenAPI 3.1
+→ behavioral compatibility regression
+→ stable API v1 foundation
 ```
 
-M28.4 adds behavioral compatibility coverage for the published contract.
+M29.1 adds a read-only environment doctor for operator preflight checks.
 
 ---
 
@@ -2716,8 +2739,8 @@ This roadmap is complete when:
 - [x] `v0.7.0` ships with detection replay, tuning, and ingestion quality.
 - [x] `v0.8.0` ships with secure deployment, supply-chain checks, and tested migration/recovery.
 - [x] `v0.9.0` ships with measured performance and collector recovery.
-- [ ] API v1 exists.
-- [ ] Alert schema is explicitly versioned.
+- [x] API v1 exists.
+- [x] Alert schema is explicitly versioned.
 - [x] Historical upgrade tests pass.
 - [ ] Operator diagnostics and runbooks are complete.
 - [ ] Accessibility pass is complete.
@@ -2732,9 +2755,9 @@ This roadmap is complete when:
 
 ```text
 START:
-M28.4 — API Compatibility Regression
+M29.1 — Environment Doctor
 ```
 
-M28.3 publishes and validates the OpenAPI 3.1 contract against every
-registered v1 route. M28.4 verifies response fields, status behavior,
-permission boundaries, pagination, and legacy alert normalization end to end.
+M28.4 verifies the published API contract behavior and closes stable API/schema
+versioning. M29.1 adds non-destructive checks for storage, database, users,
+configuration, collectors, optional integrations, and AI readiness.

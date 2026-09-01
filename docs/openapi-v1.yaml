@@ -787,7 +787,7 @@ components:
           type: string
         event_count:
           type: integer
-          minimum: 0
+          minimum: 1
         first_seen:
           type: string
           format: date-time
@@ -809,8 +809,8 @@ components:
           items:
             type: object
         external_cases:
-          type: array
-          items:
+          type: object
+          additionalProperties:
             type: object
         risk_score:
           type: number
