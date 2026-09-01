@@ -2223,7 +2223,7 @@ feat: add Mini-SIEM environment doctor
 
 ## M29.2 — Unified Diagnostics View
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Answer:
 
@@ -2237,12 +2237,28 @@ Is the database healthy?
 
 ### Tasks
 
-- [ ] Link health status.
-- [ ] Link ingestion failures.
-- [ ] Link rule-load failures.
-- [ ] Link provider state.
-- [ ] Link collector state.
-- [ ] Never expose secrets.
+- [x] Link health status.
+- [x] Link ingestion failures.
+- [x] Link rule-load failures.
+- [x] Link provider state.
+- [x] Link collector state.
+- [x] Never expose secrets.
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Unified operator answers rendered in the admin workspace | PASS |
+| Database, ingestion, AI, integration, and collector state linked | PASS |
+| Native and Sigma rule-load failures retained with a 50-item bound | PASS |
+| Rule diagnostics redact secret-like values before API output | PASS |
+| Collector diagnostics expose only allowlisted operational fields | PASS |
+| Admin-only API authorization retained | PASS |
+| Focused rule-loader and admin-workspace regressions | PASS |
+| Responsive dashboard contract | PASS |
+| 74 executable regression modules | PASS |
+| Python and JavaScript syntax validation | PASS |
+| No database migration, dependency, Ollama, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2572,11 +2588,11 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M29.2 — Unified Diagnostics View
+M29.3 — Accessibility Pass
 ```
 
-M29.2 links health, ingestion failures, rule-load failures, provider state,
-and collector state into a single diagnostics view.
+M29.3 checks keyboard navigation, visible focus, semantics, error association,
+table headers, dialog focus, contrast, and retained mobile behavior.
 
 ---
 
@@ -2764,9 +2780,9 @@ This roadmap is complete when:
 
 ```text
 START:
-M29.2 — Unified Diagnostics View
+M29.3 — Accessibility Pass
 ```
 
-M29.1 ships a read-only environment doctor for operator preflight checks.
 M29.2 links health, ingestion failures, rule-load failures, provider state,
-and collector state into a single diagnostics view.
+and collector state into a single diagnostics view. M29.3 performs the
+accessibility pass without regressing mobile behavior.

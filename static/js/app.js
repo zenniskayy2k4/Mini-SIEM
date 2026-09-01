@@ -168,6 +168,37 @@ function initSettings() {
       if (element) element.textContent = value;
     });
 
+    const diagnostics = data.diagnostics || {};
+    const diagnosticLinks = {
+      events: ["Why am I not receiving events?", "#admin-ingestion-failures-card"],
+      ai: ["Why is AI unavailable?", "#admin-integrations-card"],
+      rules: ["Why did a rule not load?", "#admin-rule-failures"],
+      providers: ["Why did an integration fail?", "#admin-integrations-card"],
+      database: ["Is the database healthy?", "#admin-maintenance-card"],
+      collectors: ["What is the collector state?", "#admin-collector-diagnostics"],
+    };
+    const diagnosticElement = document.getElementById("admin-diagnostics");
+    if (diagnosticElement) diagnosticElement.innerHTML = Object.entries(diagnosticLinks).map(([key, [question, href]]) => {
+      const item = diagnostics[key] || {};
+      return `<div class="admin-status-row"><strong>${question}</strong><span>` +
+        `<b class="${adminState(item.status)}">${escapeHTML(item.status || "unknown")}</b><br>` +
+        `${escapeHTML(item.detail || "No diagnostic available.")} <a href="${href}">Details</a></span></div>`;
+    }).join("");
+
+    const ruleFailures = diagnostics.rules?.failures || [];
+    const ruleFailureBody = document.getElementById("admin-rule-failures-body");
+    if (ruleFailureBody) ruleFailureBody.innerHTML = ruleFailures.map((failure) => `
+      <tr><td>${escapeHTML(failure.source)}</td><td>${escapeHTML(failure.reason)}</td></tr>`).join("") ||
+      '<tr><td colspan="2" class="muted">No rejected or unsupported rules.</td></tr>';
+
+    const collectorItems = diagnostics.collectors?.items || [];
+    const collectorBody = document.getElementById("admin-collector-diagnostics-body");
+    if (collectorBody) collectorBody.innerHTML = collectorItems.map((collector) => `
+      <tr><td>${escapeHTML(collector.collector_id)}</td><td>${escapeHTML(collector.status)}</td>` +
+      `<td>${escapeHTML(collector.last_event_at || "never")}</td><td>${escapeHTML(collector.buffered_events || 0)}</td>` +
+      `<td>${escapeHTML(collector.delivery_failures || 0)}</td></tr>`).join("") ||
+      '<tr><td colspan="5" class="muted">No collector state reported.</td></tr>';
+
     const integrations = document.getElementById("admin-integrations");
     if (integrations) integrations.innerHTML = (data.integrations || []).map((item) => `
       <div class="admin-status-row">

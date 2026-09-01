@@ -7,7 +7,7 @@
     </div>
 </div>
 
-<div class="admin-overview" aria-label="System health summary">
+<div class="admin-overview" id="admin-health-overview" aria-label="System health summary">
     <article class="settings-card admin-overview-card">
         <span>Platform</span><strong id="admin-health-platform">Loading...</strong>
     </article>
@@ -26,6 +26,24 @@
 </div>
 
 <div class="settings-container admin-settings-container">
+
+    <div class="settings-card admin-wide-card">
+        <h3><i class="fa-solid fa-stethoscope"></i> Unified Diagnostics</h3>
+        <p class="muted">Current operator answers from health, ingestion, rule, provider, and collector state.</p>
+        <div id="admin-diagnostics" class="admin-status-list">Loading diagnostics...</div>
+        <div id="admin-rule-failures" class="table-responsive">
+            <table class="mini-table">
+                <thead><tr><th>Rule source</th><th>Rejected or unsupported reason</th></tr></thead>
+                <tbody id="admin-rule-failures-body"></tbody>
+            </table>
+        </div>
+        <div id="admin-collector-diagnostics" class="table-responsive">
+            <table class="mini-table">
+                <thead><tr><th>Collector</th><th>Status</th><th>Last event</th><th>Buffered</th><th>Delivery failures</th></tr></thead>
+                <tbody id="admin-collector-diagnostics-body"></tbody>
+            </table>
+        </div>
+    </div>
 
     <div class="settings-card admin-wide-card">
         <h3><i class="fa-solid fa-users-gear"></i> User Management</h3>
@@ -122,7 +140,7 @@
         </div>
     </div>
 
-    <div class="settings-card">
+    <div class="settings-card" id="admin-integrations-card">
         <h3><i class="fa-solid fa-plug-circle-check"></i> Integrations</h3>
         <div id="admin-integrations" class="admin-status-list">Loading integrations...</div>
     </div>
@@ -137,12 +155,12 @@
         </div>
     </div>
 
-    <div class="settings-card">
+    <div class="settings-card" id="admin-maintenance-card">
         <h3><i class="fa-solid fa-box-archive"></i> Retention & Backup</h3>
         <div id="admin-maintenance" class="admin-status-list">Loading maintenance status...</div>
     </div>
 
-    <div class="settings-card admin-wide-card">
+    <div class="settings-card admin-wide-card" id="admin-ingestion-failures-card">
         <h3><i class="fa-solid fa-triangle-exclamation"></i> Ingestion Failures</h3>
         <div id="admin-ingestion-summary" class="admin-status-list">Loading ingestion diagnostics...</div>
         <div class="table-responsive">

@@ -44,8 +44,13 @@ def test_rule_loader():
 """,
             encoding="utf-8",
         )
+        errors = []
         with patch("logging.warning"):
-            assert [rule["id"] for rule in load_rules(directory, config.SIGNATURES)] == ["DET-TEST-001"]
+            assert [rule["id"] for rule in load_rules(directory, config.SIGNATURES, errors)] == ["DET-TEST-001"]
+        assert errors == [{
+            "source_filename": "rules.yml",
+            "reason": "Rule DET-TEST-003 has invalid regex: unterminated character set at position 0",
+        }]
 
     with tempfile.TemporaryDirectory() as directory:
         with patch("logging.warning"):
