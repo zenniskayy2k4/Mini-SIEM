@@ -1,4 +1,4 @@
-# Mini-SIEM Blue Team — Roadmap from v0.6.0 to v1.0.0
+﻿# Mini-SIEM Blue Team — Roadmap from v0.6.0 to v1.0.0
 
 > **Repository:** `zenniskayy2k4/Mini-SIEM`
 > **Starting point:** `v0.6.0`
@@ -141,8 +141,8 @@ M31 — Multi-tenancy Discovery
 | M25 | Load Testing & Backpressure | v0.9.0 | ✅ Complete |
 | M26 | Storage & Query Performance | v0.9.0 | ✅ Complete |
 | M27 | Collector Reliability & Offline Recovery | v0.9.0 | ✅ Complete |
-| M28 | API & Schema Versioning | v1.0.0 | ⬜ |
-| M29 | Operator Experience & Accessibility | v1.0.0 | ⬜ |
+| M28 | API & Schema Versioning | v1.0.0 | ✅ Complete |
+| M29 | Operator Experience & Accessibility | v1.0.0 | 🟠 In Progress |
 | M30 | Stable Release Qualification | v1.0.0 | ⬜ |
 | M31 | Multi-tenancy Discovery | Optional | ⬜ |
 
@@ -2180,7 +2180,7 @@ test: add API compatibility regression suite
 
 ## M29.1 — Environment Doctor
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```text
 python -m tools.doctor
@@ -2188,14 +2188,30 @@ python -m tools.doctor
 
 ### Check
 
-- [ ] required directories
-- [ ] writable data path
-- [ ] DB integrity
-- [ ] admin user existence
-- [ ] config validity
-- [ ] optional integrations
-- [ ] collector config
-- [ ] AI readiness without consuming an analysis request
+- [x] required directories
+- [x] writable data path
+- [x] DB integrity
+- [x] admin user existence
+- [x] config validity
+- [x] optional integrations
+- [x] collector config
+- [x] AI readiness without consuming an analysis request
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Required directories (BASE, RULES, SIGMA) checked for existence and readability | PASS |
+| Writable data, backup, and archive paths | PASS |
+| SQLite database read-only integrity check | PASS |
+| Dashboard users file with admin role enumeration and no-admin warning | PASS |
+| Configuration validation reusing `tools.validate_config` | PASS |
+| Case export, TheHive/Jira, and threat intelligence providers | PASS |
+| Windows collector secret and stale threshold | PASS |
+| Ollama Cloud/local primary and fallback without making an analysis call | PASS |
+| Aggregated PASS/FAIL output with exit code | PASS |
+| Python syntax validation | PASS |
+| No database migration, dependency, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2556,18 +2572,11 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M29.1 — Environment Doctor
+M29.2 — Unified Diagnostics View
 ```
 
-M28 completes the stable API and alert-schema contract:
-
-```text
-versioned REST routes + alert schema + OpenAPI 3.1
-→ behavioral compatibility regression
-→ stable API v1 foundation
-```
-
-M29.1 adds a read-only environment doctor for operator preflight checks.
+M29.2 links health, ingestion failures, rule-load failures, provider state,
+and collector state into a single diagnostics view.
 
 ---
 
@@ -2755,9 +2764,9 @@ This roadmap is complete when:
 
 ```text
 START:
-M29.1 — Environment Doctor
+M29.2 — Unified Diagnostics View
 ```
 
-M28.4 verifies the published API contract behavior and closes stable API/schema
-versioning. M29.1 adds non-destructive checks for storage, database, users,
-configuration, collectors, optional integrations, and AI readiness.
+M29.1 ships a read-only environment doctor for operator preflight checks.
+M29.2 links health, ingestion failures, rule-load failures, provider state,
+and collector state into a single diagnostics view.
