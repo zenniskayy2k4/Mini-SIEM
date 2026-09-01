@@ -37,31 +37,56 @@ Current release: **v0.9.0** — see the [changelog](CHANGELOG.md) and [release c
 ## Architecture
 
 ```mermaid
-flowchart LR
-    Linux[Linux logs] --> Agent[Mini-SIEM agent]
-    Windows[Windows/Sysmon collector] -->|shared-secret ingest| Ingest[Windows ingest API]
-    Ingest --> WinFile[(windows_events.jsonl)]
+flowchart TB
+    subgraph Collection[Telemetry collection]
+        direction LR
+        Linux[Linux logs]
+        Windows[Windows/Sysmon collector] -->|shared secret| Ingest[Windows ingest API]
+        Ingest --> WinFile[(Windows event buffer)]
+        NIDS[NIDS packet capture]
+        Honey[Honeypot events]
+    end
+
+    subgraph Detection[Detection pipeline]
+        direction TB
+        Agent[Mini-SIEM agent]
+        Agent --> Rules[YAML rules]
+        Agent --> NLP[TF-IDF + Isolation Forest]
+        Agent --> AE[Autoencoder]
+        Rules --> Pipeline[Alert pipeline]
+        NLP --> Pipeline
+        AE --> Pipeline
+        Pipeline --> Correlation[Correlation + incident lifecycle]
+    end
+
+    Linux --> Agent
     WinFile --> Agent
-    NIDS[NIDS packet capture] --> Agent
-    Honey[Honeypot events] --> Agent
+    NIDS --> Agent
+    Honey --> Agent
 
-    Agent --> Rules[YAML rules]
-    Agent --> NLP[TF-IDF + Isolation Forest]
-    Agent --> AE[Autoencoder]
-    Rules --> Pipeline[Alert pipeline]
-    NLP --> Pipeline
-    AE --> Pipeline
+    subgraph Enrichment[Enrichment, storage, and response]
+        direction TB
+        TI["Threat intelligence<br/>GeoIP + reputation + STIX/TAXII"]
+        AI["Ollama providers<br/>bounded fallback / shared 1-worker analyst"]
+        Response[Safe response workflow]
+        Webhook[Optional webhook]
+        TI --> SQLite[(SQLite)]
+        TI --> JSON[(JSON fallback)]
+    end
 
-    Pipeline --> Correlation[Correlation + incident lifecycle]
-    Correlation --> TI["Threat intelligence<br/>GeoIP + reputation + STIX/TAXII"]
-    TI --> SQLite[(SQLite)]
-    TI --> JSON[(JSON fallback)]
-    Correlation --> AI["Ollama providers<br/>bounded fallback / shared 1-worker analyst"]
-    Correlation --> Response[Safe response workflow]
-    Correlation --> Webhook[Optional webhook]
+    Correlation --> TI
+    Correlation --> AI
+    Correlation --> Response
+    Correlation --> Webhook
 
-    SQLite --> UI[Authenticated Flask dashboard]
-    Agent -->|heartbeat| Health[Health diagnostics]
+    subgraph Operations[Analyst and operations]
+        direction LR
+        UI[Authenticated Flask dashboard]
+        Health[Health diagnostics]
+    end
+
+    SQLite --> UI
+    Agent -->|heartbeat| Health
     UI --> Health
 ```
 
