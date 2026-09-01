@@ -2419,21 +2419,46 @@ docs: enter v1.0 release candidate freeze
 
 ## M30.2 — Full Regression Qualification
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Required:
 
-- [ ] existing regression modules
-- [ ] detection replay corpus
-- [ ] Sigma corpus
-- [ ] AI evaluation corpus
-- [ ] security regression pack
-- [ ] API compatibility suite
-- [ ] DB migration tests
-- [ ] backup/restore drill
-- [ ] collector outage recovery
-- [ ] load smoke
-- [ ] clean-clone Docker smoke
+- [x] existing regression modules
+- [x] detection replay corpus
+- [x] Sigma corpus
+- [x] AI evaluation corpus
+- [x] security regression pack
+- [x] API compatibility suite
+- [x] DB migration tests
+- [x] backup/restore drill
+- [x] collector outage recovery
+- [x] load smoke
+- [x] clean-clone Docker smoke
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Python compilation and 75 executable regression modules | PASS |
+| 18/18 offline detection scenarios and 14/14-rule coverage artifact | PASS |
+| Sigma and AI evaluation corpora with providers disabled | PASS |
+| Security regression pack and API compatibility suite | PASS |
+| Migration tracking, runner, historical upgrade matrix, and restore drill | PASS |
+| Collector outage recovery and buffered redelivery | PASS |
+| 1,000-event local telemetry generation and five-profile throughput smoke | PASS |
+| Clean tracked checkout Compose, health/login, and backup-first schema v1 → v4 migration | PASS |
+| Final cached image build, rollout, JavaScript syntax, and Compose validation | PASS |
+| Dashboard, agent, alert store, and SQLite health returned HTTP 200 | PASS |
+| No Ollama, external TI, case export, notification, or response execution | PASS |
+
+The local clean-checkout smoke reused the single qualification image with `--no-build` to avoid a
+second dependency installation. GitHub Actions remains the independent clean-build gate.
+
+### Suggested commit
+
+```text
+test: qualify v1.0 regression baseline
+```
 
 ---
 
@@ -2647,11 +2672,11 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M30.2 — Full Regression Qualification
+M30.3 — Upgrade Qualification
 ```
 
-M30.2 runs the complete v1.0 qualification matrix and records reproducible
-evidence for every required gate.
+M30.3 validates every supported historical and fresh-install upgrade path to
+the v1.0 schema and application state.
 
 ---
 
