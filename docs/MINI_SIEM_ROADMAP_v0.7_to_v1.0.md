@@ -2310,7 +2310,7 @@ fix: improve dashboard accessibility
 
 ## M29.4 — Operator Runbooks
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Documents:
 
@@ -2323,17 +2323,32 @@ docs/SECURITY.md
 
 Cover:
 
-- [ ] start/stop
-- [ ] upgrade
-- [ ] backup/restore
-- [ ] collectors
-- [ ] TLS
-- [ ] secret rotation
-- [ ] rule debugging
-- [ ] AI/TI debugging
-- [ ] integrations
-- [ ] retention
-- [ ] disaster recovery
+- [x] start/stop
+- [x] upgrade
+- [x] backup/restore
+- [x] collectors
+- [x] TLS
+- [x] secret rotation
+- [x] rule debugging
+- [x] AI/TI debugging
+- [x] integrations
+- [x] retention
+- [x] disaster recovery
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Start, stop, status, logs, health, account, and collector procedures | PASS |
+| Backup, retention, restore, upgrade, rollback, and disaster recovery paths | PASS |
+| TLS production boundary and local-CA limitation | PASS |
+| Secret inventory and coordinated rotation without example values | PASS |
+| Native/Sigma rule, shared-worker AI, TI, and integration diagnostics | PASS |
+| Commands aligned with existing Compose files and operator tools | PASS |
+| Cross-links resolve to existing repository documentation | PASS |
+| 75 executable regression modules | PASS |
+| Markdown whitespace and Docker Compose validation | PASS |
+| No dependency, database migration, runtime data write, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2606,11 +2621,11 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M29.4 — Operator Runbooks
+M30.1 — Feature Freeze
 ```
 
-M29.4 adds production-style operations, upgrade, troubleshooting, and security
-runbooks.
+M30.1 enters the v1.0 release-candidate feature freeze and records the allowed
+change boundary.
 
 ---
 

@@ -300,6 +300,9 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 
 ## Operations and testing
 
+- Production-style procedures are split into the [operations](docs/OPERATIONS.md),
+  [upgrade](docs/UPGRADE.md), [troubleshooting](docs/TROUBLESHOOTING.md), and
+  [security operations](docs/SECURITY.md) runbooks.
 - `GET /health` provides an unauthenticated liveness/readiness summary; authenticated admins can use the unified diagnostics panel in `/settings` or `/api/system/status` for health, ingestion, rule-load, provider, collector, and database state without exposing credentials.
 - New integrations should use the versioned [REST API v1](docs/REST_API_V1.md); existing `/api/...` paths remain temporary compatibility aliases.
 - The opt-in [local HTTPS profile](docs/HTTPS_DEPLOYMENT.md) terminates TLS with Caddy, closes the direct dashboard port, validates one forwarded-header hop, and documents the development CA certificate path.
