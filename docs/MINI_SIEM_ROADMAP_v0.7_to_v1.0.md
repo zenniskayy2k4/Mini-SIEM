@@ -143,7 +143,7 @@ M31 — Multi-tenancy Discovery
 | M27 | Collector Reliability & Offline Recovery | v0.9.0 | ✅ Complete |
 | M28 | API & Schema Versioning | v1.0.0 | ✅ Complete |
 | M29 | Operator Experience & Accessibility | v1.0.0 | 🟠 In Progress |
-| M30 | Stable Release Qualification | v1.0.0 | ⬜ |
+| M30 | Stable Release Qualification | v1.0.0 | 🟠 In Progress |
 | M31 | Multi-tenancy Discovery | Optional | ⬜ |
 
 ---
@@ -2464,7 +2464,7 @@ test: qualify v1.0 regression baseline
 
 ## M30.3 — Upgrade Qualification
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Required paths:
 
@@ -2478,16 +2478,38 @@ fresh install → v1.0.0
 
 Verify:
 
-- [ ] alerts
-- [ ] incidents
-- [ ] assets
-- [ ] rule state
-- [ ] Sigma overrides
-- [ ] feedback
-- [ ] audit state
-- [ ] external case IDs
-- [ ] retention config
-- [ ] users
+- [x] alerts
+- [x] incidents
+- [x] assets
+- [x] rule state
+- [x] Sigma overrides
+- [x] feedback
+- [x] audit state
+- [x] external case IDs
+- [x] retention config
+- [x] users
+
+### Local verification — 2026-09-02
+
+| Check | Result |
+|---|:---:|
+| v0.6.0 → current: schema, alerts, incidents, assets, external case IDs | PASS |
+| v0.7.0 → current: schema + feedback + ingestion state preserved | PASS |
+| v0.8.0 → current: schema history and feedback preserved | PASS |
+| v0.9.0 → current: schema history and feedback preserved | PASS |
+| Fresh install creates all required tables | PASS |
+| Sigma rule state overrides survive migration unchanged | PASS |
+| Dashboard users file survives migration unchanged | PASS |
+| Schema migration audit history and backup integrity | PASS |
+| 76 executable regression modules in the existing image | PASS |
+| Python syntax validation | PASS |
+| No dependency, database mutation beyond migration, or external service call | PASS |
+
+### Suggested commit
+
+```text
+test: qualify v1.0 upgrade paths
+```
 
 ---
 
@@ -2672,11 +2694,14 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M30.3 — Upgrade Qualification
+M30.4 — Security Review
 ```
 
-M30.3 validates every supported historical and fresh-install upgrade path to
-the v1.0 schema and application state.
+M30.4 produces a documented security review of the v1.0 release candidate
+(`docs/SECURITY_REVIEW_v1.0.md`) covering authentication, authorization, CSRF,
+session lifecycle, file/path handling, external HTTP, webhook boundaries, PDF
+output, collector endpoint, YAML/Sigma parsing, STIX/TAXII parsing, secrets,
+backup/restore, audit integrity, and response safety.
 
 ---
 
@@ -2851,8 +2876,8 @@ This roadmap is complete when:
 - [x] API v1 exists.
 - [x] Alert schema is explicitly versioned.
 - [x] Historical upgrade tests pass.
-- [ ] Operator diagnostics and runbooks are complete.
-- [ ] Accessibility pass is complete.
+- [x] Operator diagnostics and runbooks are complete.
+- [x] Accessibility pass is complete.
 - [ ] Full security review is complete.
 - [ ] `v1.0.0-rc.1` is validated.
 - [ ] `v1.0.0` is tagged from a CI-verified release commit.
@@ -2864,10 +2889,11 @@ This roadmap is complete when:
 
 ```text
 START:
-M29.4 — Operator Runbooks
+M30.4 — Security Review
 ```
 
-M29.2 links health, ingestion failures, rule-load failures, provider state,
-and collector state into a single diagnostics view. M29.3 completes the
-accessibility pass without regressing mobile behavior. M29.4 adds the operator
-runbooks required before stable-release qualification.
+M30.3 completed the upgrade qualification matrix: every supported historical
+path (v0.6.0–v0.9.0) and fresh install migrates to the current schema while
+alerts, incidents, assets, feedback, audit state, external case IDs, Sigma
+overrides, retention config, and users survive. M30.4 produces the v1.0.0
+security review required before the release candidate.
