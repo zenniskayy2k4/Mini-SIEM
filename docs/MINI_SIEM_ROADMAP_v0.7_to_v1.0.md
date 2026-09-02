@@ -142,7 +142,7 @@ M31 — Multi-tenancy Discovery
 | M26 | Storage & Query Performance | v0.9.0 | ✅ Complete |
 | M27 | Collector Reliability & Offline Recovery | v0.9.0 | ✅ Complete |
 | M28 | API & Schema Versioning | v1.0.0 | ✅ Complete |
-| M29 | Operator Experience & Accessibility | v1.0.0 | 🟠 In Progress |
+| M29 | Operator Experience & Accessibility | v1.0.0 | ✅ Complete |
 | M30 | Stable Release Qualification | v1.0.0 | 🟠 In Progress |
 | M31 | Multi-tenancy Discovery | Optional | ⬜ |
 
@@ -2515,31 +2515,42 @@ test: qualify v1.0 upgrade paths
 
 ## M30.4 — Security Review
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Review:
 
-- [ ] authentication
-- [ ] authorization
-- [ ] CSRF
-- [ ] session lifecycle
-- [ ] file/path handling
-- [ ] external HTTP
-- [ ] webhook boundaries
-- [ ] PDF output
-- [ ] collector endpoint
-- [ ] YAML/Sigma parsing
-- [ ] STIX/TAXII parsing
-- [ ] secrets
-- [ ] backup/restore
-- [ ] audit integrity
-- [ ] response safety
+- [x] authentication
+- [x] authorization
+- [x] CSRF
+- [x] session lifecycle
+- [x] file/path handling
+- [x] external HTTP
+- [x] webhook boundaries
+- [x] PDF output
+- [x] collector endpoint
+- [x] YAML/Sigma parsing
+- [x] STIX/TAXII parsing
+- [x] secrets
+- [x] backup/restore
+- [x] audit integrity
+- [x] response safety
 
 Output:
 
 ```text
 docs/SECURITY_REVIEW_v1.0.md
 ```
+
+### Local verification — 2026-09-02
+
+| Check | Result |
+|---|:---:|
+| 15 review areas documented with code-grounded controls and findings | PASS |
+| No critical or high-severity findings; verdict table per area | PASS |
+| Finding claims spot-checked against source (auth, audit chain, response safety, STIX/TAXII, Sigma escaping) | PASS |
+| No secrets, credentials, or live data exposed or accessed | PASS |
+| No python, JavaScript, PowerShell, workflow, test, or configuration files modified | PASS |
+| `git diff --check` clean | PASS |
 
 ### Suggested commit
 
@@ -2590,7 +2601,7 @@ v1.0.0 — Stable Single-node Blue Team SIEM
 - [ ] Runbooks complete.
 - [ ] Full regression qualification passes.
 - [ ] Upgrade qualification passes.
-- [ ] Security review complete.
+- [x] Security review complete.
 - [ ] RC validated.
 - [ ] README/CHANGELOG sync.
 - [ ] No tracked secrets.
@@ -2694,14 +2705,16 @@ Do not start M31 unless a multi-tenant requirement exists.
 
 ```text
 NEXT BATCH:
-M30.4 — Security Review
+M30.5 — Release Candidate
 ```
 
-M30.4 produces a documented security review of the v1.0 release candidate
-(`docs/SECURITY_REVIEW_v1.0.md`) covering authentication, authorization, CSRF,
-session lifecycle, file/path handling, external HTTP, webhook boundaries, PDF
-output, collector endpoint, YAML/Sigma parsing, STIX/TAXII parsing, secrets,
-backup/restore, audit integrity, and response safety.
+M30.4 completed the v1.0 security review (`docs/SECURITY_REVIEW_v1.0.md`)
+covering authentication, authorization, CSRF, session lifecycle, file/path
+handling, external HTTP, webhook boundaries, PDF output, collector endpoint,
+YAML/Sigma parsing, STIX/TAXII parsing, secrets, backup/restore, audit
+integrity, and response safety. No critical or high-severity findings; the
+notable recommendation is shipping the audit log to append-only external
+storage. M30.5 publishes the release candidate.
 
 ---
 
@@ -2878,7 +2891,7 @@ This roadmap is complete when:
 - [x] Historical upgrade tests pass.
 - [x] Operator diagnostics and runbooks are complete.
 - [x] Accessibility pass is complete.
-- [ ] Full security review is complete.
+- [x] Full security review is complete.
 - [ ] `v1.0.0-rc.1` is validated.
 - [ ] `v1.0.0` is tagged from a CI-verified release commit.
 - [ ] Multi-tenancy remains separate unless a real requirement appears.
@@ -2889,11 +2902,11 @@ This roadmap is complete when:
 
 ```text
 START:
-M30.4 — Security Review
+M30.5 — Release Candidate
 ```
 
-M30.3 completed the upgrade qualification matrix: every supported historical
-path (v0.6.0–v0.9.0) and fresh install migrates to the current schema while
-alerts, incidents, assets, feedback, audit state, external case IDs, Sigma
-overrides, retention config, and users survive. M30.4 produces the v1.0.0
-security review required before the release candidate.
+M30.4 completed the v1.0.0 security review: all 15 areas passed with no
+critical or high-severity findings, the audit-log-to-WORM recommendation is
+the notable follow-up, and no product code changed during the review (feature
+freeze held). M30.5 publishes `v1.0.0-rc.1` and runs the fresh-install,
+upgrade, demo, and runbook validation before tagging.
