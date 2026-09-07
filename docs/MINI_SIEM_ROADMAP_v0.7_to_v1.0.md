@@ -2562,18 +2562,43 @@ docs: add v1.0 security review
 
 ## M30.5 — Release Candidate
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local qualification complete 2026-09-07; owner tag and stabilization window pending
+**Started:** 2026-09-07
 
 ```text
 v1.0.0-rc.1
 ```
 
-- [ ] publish RC
-- [ ] fresh install smoke
-- [ ] upgrade smoke
-- [ ] demo scenario
-- [ ] operator runbook walkthrough
-- [ ] stabilization period without blocker
+- [ ] publish RC — release-candidate artifacts and the gated tag command are prepared; the annotated tag remains the repository owner's action after the release commit's GitHub Actions run is green
+- [x] fresh install smoke
+- [x] upgrade smoke
+- [x] demo scenario
+- [x] operator runbook walkthrough
+- [ ] stabilization period without blocker — the window starts at the candidate tag push and closes before v1.0.0
+
+Freeze compliance: the only product change in this batch is the CI `release-gate` version regex, which previously could not match a pre-release heading at all and therefore blocked publishing any `v1.0.0-rc.N` candidate. It is recorded as a release blocker under the allowed M30.1 categories.
+
+### Local verification — 2026-09-07
+
+| Check | Result |
+|---|:---:|
+| Release-gate simulation: pre-release regex, `1.0.0-rc.1` changelog heading, README sync, exactly one standalone `RELEASE_v*.md`, v0.9.0 archived in history | PASS |
+| 76/76 executable regression modules with source bind-mounted into the existing image | PASS |
+| Replay corpus, Sigma corpus, AI corpus, security pack, and API compatibility suite inside the run | PASS |
+| Migration/upgrade qualification modules (db migrations, historical upgrades, upgrade qualification, restore drill) | PASS |
+| Compose `--profile train config --quiet` on the repository and the clean tracked checkout | PASS |
+| Environment doctor, configuration validator, read-only migration dry-run (source 4, target 4, no pending), backup command | PASS |
+| Demo scenario: SSH campaign → `DET-SSH-001` HIGH alert (event_count 20), linked incident, valid audit chain | PASS |
+| Fresh-install smoke: clean tracked checkout, healthy stack, admin creation, CSRF login, SQLite quick check | PASS |
+| Fresh-install upgrade: baseline v1 → v4 backup-first migration, integrity ok, healthy reboot at v4 | PASS |
+| Main stack restarted: agent, dashboard, and database healthy; `/health` HTTP 200 | PASS |
+| Temporary checks deleted; `git diff --check` clean; `.env`/`data/`/`logs/` untracked | PASS |
+
+### Suggested commit
+
+```text
+docs: qualify v1.0.0-rc.1 release candidate
+```
 
 ---
 
@@ -2704,17 +2729,17 @@ Do not start M31 unless a multi-tenant requirement exists.
 # 6. Start Here
 
 ```text
-NEXT BATCH:
-M30.5 — Release Candidate
+NEXT STEPS:
+Finish M30.5 — tag v1.0.0-rc.1 (owner action, gated by CI),
+run the stabilization window, then M30.6 — Release v1.0.0
 ```
 
-M30.4 completed the v1.0 security review (`docs/SECURITY_REVIEW_v1.0.md`)
-covering authentication, authorization, CSRF, session lifecycle, file/path
-handling, external HTTP, webhook boundaries, PDF output, collector endpoint,
-YAML/Sigma parsing, STIX/TAXII parsing, secrets, backup/restore, audit
-integrity, and response safety. No critical or high-severity findings; the
-notable recommendation is shipping the audit log to append-only external
-storage. M30.5 publishes the release candidate.
+M30.5 local qualification completed on 2026-09-07: release-candidate
+artifacts are synchronized (`docs/RELEASE_v1.0.0-rc.1.md`, changelog, README,
+and the release-gate regex fix that lets CI match pre-release versions), and
+the fresh-install, upgrade, demo, and runbook validations passed locally. The
+annotated tag `v1.0.0-rc.1` is the repository owner's action after the release
+commit's GitHub Actions run is green, followed by the stabilization window.
 
 ---
 
@@ -2901,12 +2926,16 @@ This roadmap is complete when:
 # 13. Current Next Action
 
 ```text
-START:
-M30.5 — Release Candidate
+FINISH:
+M30.5 — tag v1.0.0-rc.1 after CI green, then stabilization window
+NEXT:
+M30.6 — Release v1.0.0
 ```
 
-M30.4 completed the v1.0.0 security review: all 15 areas passed with no
-critical or high-severity findings, the audit-log-to-WORM recommendation is
-the notable follow-up, and no product code changed during the review (feature
-freeze held). M30.5 publishes `v1.0.0-rc.1` and runs the fresh-install,
-upgrade, demo, and runbook validation before tagging.
+M30.5 local qualification completed on 2026-09-07: the release-candidate
+artifacts are synchronized and the fresh-install, upgrade, demo, and runbook
+validations passed. Remaining owner actions: commit the batch, wait for the
+GitHub Actions release gate, tag `v1.0.0-rc.1`, run the stabilization window
+without a blocker, then start M30.6 (SBOM/checksum verification on the release,
+README/CHANGELOG sync, and the annotated `v1.0.0` tag from a CI-verified
+release commit).

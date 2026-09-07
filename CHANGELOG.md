@@ -1,8 +1,35 @@
 # Changelog
 
-All notable changes to Mini-SIEM are documented here. The project follows semantic versioning while remaining pre-1.0.
+All notable changes to Mini-SIEM are documented here. The project follows semantic versioning.
 
 ## [Unreleased]
+
+## [1.0.0-rc.1] - 2026-09-07
+
+Stable release candidate. The feature freeze recorded in the roadmap remains active; contracts are versioned and qualification gates must stay green.
+
+### Added
+
+- Versioned REST API v1 with a machine-readable OpenAPI 3.1 contract, temporary compatibility aliases that advertise deprecation headers, and an API compatibility regression suite.
+- `python -m tools.doctor` environment doctor and a unified admin diagnostics view linking database, ingestion, rule-load, provider, and collector state.
+- Production-style operator runbooks covering start/stop, upgrade, backup/restore, collectors, TLS, secret rotation, rule debugging, AI/TI debugging, integrations, retention, and disaster recovery.
+
+### Changed
+
+- Persisted alerts carry `alert_schema_version: 1`; pre-versioned JSONL and SQLite payloads normalize in memory through a shared adapter with deterministic UUID5 identifiers.
+- The dashboard adds a keyboard, focus, semantics, and contrast accessibility pass while retaining the 1100 px, 700 px, and 480 px layouts.
+
+### Security
+
+- The v1.0 security review covers authentication, authorization, CSRF, session lifecycle, file/path handling, external HTTP, webhook boundaries, PDF output, the collector endpoint, YAML/Sigma and STIX/TAXII parsing, secrets, backup/restore, audit integrity, and response safety with no critical or high-severity findings.
+- The v1.0 feature freeze admits only bug fixes, security fixes, documentation, performance regression fixes, and release blockers into the candidate.
+
+### Verification
+
+- All 76 executable regression modules pass locally on source and in the existing image without Ollama, paid-provider, or network-dependent test calls.
+- Upgrade qualification covers v0.6.0/v0.7.0/v0.8.0/v0.9.0 → current plus fresh installs; regression qualification includes the replay, Sigma, AI, security, API compatibility, migration, restore, outage, and load gates plus a clean-clone Docker smoke.
+
+See the [v1.0.0-rc.1 release checklist](docs/RELEASE_v1.0.0-rc.1.md) for setup, upgrade notes, qualification details, and known limitations.
 
 ## [0.9.0] - 2026-08-31
 
@@ -36,7 +63,7 @@ Performance and Operational Resilience release.
 - Python, PowerShell, Compose, runtime health, and migration regressions pass; the deterministic outage recovery, throughput, large-history, and query-plan modules are covered.
 - GitHub Actions must pass baseline, Docker smoke, security, container scan, and release gate on this release commit before `v0.9.0` is tagged.
 
-See the [v0.9.0 release checklist](docs/RELEASE_v0.9.0.md) for setup, upgrade notes, verification details, and known limitations.
+See the [v0.9.0 release history](docs/RELEASE_HISTORY.md#mini-siem-v090-release-checklist) for setup, upgrade notes, verification details, and known limitations.
 
 ## [0.8.0] - 2026-08-29
 

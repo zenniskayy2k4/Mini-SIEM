@@ -5,14 +5,14 @@
 ![Ollama](https://img.shields.io/badge/Ollama-Cloud_AI-white?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=flat-square)
-![Release](https://img.shields.io/badge/release-v0.9.0-2ea44f?style=flat-square)
+![Release](https://img.shields.io/badge/release-v1.0.0--rc.1-2ea44f?style=flat-square)
 [![CI](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml/badge.svg)](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml)
 
 A compact, explainable SIEM lab for learning blue-team workflows. It combines YAML signatures, local anomaly models, event correlation, an optional Ollama Cloud analyst, an authenticated incident dashboard, and safe response simulation.
 
 > **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
 
-Current release: **v0.9.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.9.0.md).
+Current release: **v1.0.0-rc.1** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v1.0.0-rc.1.md).
 
 ## What is implemented
 
@@ -114,7 +114,7 @@ Ollama adds separate decision-support fields:
 Requirements: Docker Desktop with Compose, Git, and enough resources to run the local models. Ollama Cloud is optional.
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/zenniskayy2k4/Mini-SIEM
 cd Mini-SIEM
 cp .env.example .env
 docker compose --profile train run --rm train
@@ -310,7 +310,7 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
 - Runtime hit coverage and manual checks are tracked in the [Detection checklist](docs/DETECTION_CHECKLIST.md); deterministic scenario coverage is published in the [validation coverage matrix](docs/DETECTION_VALIDATION_COVERAGE.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
-- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.9.0 checklist](docs/RELEASE_v0.9.0.md).
+- Release changes and verification are in the [changelog](CHANGELOG.md) and [v1.0.0-rc.1 checklist](docs/RELEASE_v1.0.0-rc.1.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
 - The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.7–v1.0 roadmap](docs/MINI_SIEM_ROADMAP_v0.7_to_v1.0.md).
 
@@ -372,7 +372,7 @@ The responsive dashboard includes a skip link, visible keyboard focus, labelled 
 
 ## Near-term roadmap
 
-- Add production-style operator runbooks and complete stable-release qualification.
+- Finish the v1.0.0 release candidate: tag `v1.0.0-rc.1`, close the stabilization window, and publish v1.0.0.
 - Keep multi-tenant architecture and production response integrations deferred until a concrete isolation or execution requirement exists.
 
 ## Dependency policy
