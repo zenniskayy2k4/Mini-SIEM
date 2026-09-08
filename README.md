@@ -114,7 +114,7 @@ Ollama adds separate decision-support fields:
 Requirements: Docker Desktop with Compose, Git, and enough resources to run the local models. Ollama Cloud is optional.
 
 ```bash
-git clone https://github.com/zenniskayy2k4/Mini-SIEM
+git clone https://github.com/zenniskayy2k4/Mini-SIEM.git
 cd Mini-SIEM
 cp .env.example .env
 docker compose --profile train run --rm train

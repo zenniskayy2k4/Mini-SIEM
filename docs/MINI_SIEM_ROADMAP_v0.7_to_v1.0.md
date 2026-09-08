@@ -2569,7 +2569,7 @@ docs: add v1.0 security review
 v1.0.0-rc.1
 ```
 
-- [ ] publish RC — release-candidate artifacts and the gated tag command are prepared; the annotated tag remains the repository owner's action after the release commit's GitHub Actions run is green
+- [x] publish RC — release-gate green on release commit `61b5473` (Actions run 108), annotated tag `v1.0.0-rc.1` pushed to origin on 2026-09-08; the GitHub Release and its SBOM/checksum attachment are created by the repository owner from the tag
 - [x] fresh install smoke
 - [x] upgrade smoke
 - [x] demo scenario
@@ -2729,17 +2729,17 @@ Do not start M31 unless a multi-tenant requirement exists.
 # 6. Start Here
 
 ```text
-NEXT STEPS:
-Finish M30.5 — tag v1.0.0-rc.1 (owner action, gated by CI),
-run the stabilization window, then M30.6 — Release v1.0.0
+CURRENT:
+M30.5 stabilization window — v1.0.0-rc.1 tagged and CI-green
+NEXT:
+M30.6 — Release v1.0.0
 ```
 
-M30.5 local qualification completed on 2026-09-07: release-candidate
-artifacts are synchronized (`docs/RELEASE_v1.0.0-rc.1.md`, changelog, README,
-and the release-gate regex fix that lets CI match pre-release versions), and
-the fresh-install, upgrade, demo, and runbook validations passed locally. The
-annotated tag `v1.0.0-rc.1` is the repository owner's action after the release
-commit's GitHub Actions run is green, followed by the stabilization window.
+The release candidate is published: release commit `61b5473` passed the
+GitHub Actions release gate (run 108), and the annotated tag `v1.0.0-rc.1`
+was pushed with its own CI run finishing green. The stabilization window is
+active: only release blockers may land until it closes, after which M30.6
+publishes v1.0.0.
 
 ---
 
@@ -2926,16 +2926,16 @@ This roadmap is complete when:
 # 13. Current Next Action
 
 ```text
-FINISH:
-M30.5 — tag v1.0.0-rc.1 after CI green, then stabilization window
+RUNNING:
+M30.5 stabilization window — v1.0.0-rc.1 tagged on 2026-09-08 and CI-green
 NEXT:
 M30.6 — Release v1.0.0
 ```
 
-M30.5 local qualification completed on 2026-09-07: the release-candidate
-artifacts are synchronized and the fresh-install, upgrade, demo, and runbook
-validations passed. Remaining owner actions: commit the batch, wait for the
-GitHub Actions release gate, tag `v1.0.0-rc.1`, run the stabilization window
-without a blocker, then start M30.6 (SBOM/checksum verification on the release,
-README/CHANGELOG sync, and the annotated `v1.0.0` tag from a CI-verified
-release commit).
+The release candidate is published: the release commit passed the release
+gate, the annotated tag `v1.0.0-rc.1` points at `61b5473`, and the tag's own
+CI run finished green. Remaining owner actions: create the GitHub Release
+from the tag so `release-sbom` attaches the verified SBOM and checksum, run
+the stabilization window without a blocker, then start M30.6 (RC validation
+sign-off, README/CHANGELOG sync, and the annotated `v1.0.0` tag from a
+CI-verified release commit).
