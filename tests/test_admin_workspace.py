@@ -46,14 +46,19 @@ def test_admin_workspace():
             admin = dashboard.app.test_client()
             login_as(admin, directory, role="admin", username="soc-admin")
             assert dashboard.app.config["MAX_CONTENT_LENGTH"] == 2 * 1024 * 1024
-            with patch.object(dashboard, "build_system_status", return_value=health):
+            with patch.object(dashboard, "build_system_status", return_value=health), patch.object(
+                dashboard, "RULE_LOAD_ERRORS", [{
+                    "source_filename": "invalid.yml",
+                    "reason": "token=diagnostic-secret invalid rule",
+                }],
+            ):
                 page = admin.get("/settings")
                 assert page.status_code == 200
                 html = page.get_data(as_text=True)
                 for marker in (
                     "Admin workspace", "User Management", "Integrations", "Audit Integrity",
                     "Retention & Backup", "Ingestion Failures", 'id="set-nids-enabled"',
-                    'id="admin-health-ingestion"',
+                    'id="admin-health-ingestion"', "Unified Diagnostics",
                 ):
                     assert marker in html
                 tuning = admin.get("/detections")
@@ -71,7 +76,15 @@ def test_admin_workspace():
                 assert payload["maintenance"]["archives"]["count"] == 1
                 assert payload["ingestion_failures"]["counts"]["schema"] == 1
                 assert payload["ingestion_failures"]["recent"][0]["collector_id"] == "win-lab"
+                assert payload["diagnostics"]["events"]["status"] == "degraded"
+                assert payload["diagnostics"]["ai"]["status"] == "ready"
+                assert payload["diagnostics"]["database"]["status"] == "ready"
+                assert payload["diagnostics"]["rules"]["status"] == "degraded"
+                assert payload["diagnostics"]["rules"]["failures"] == [{
+                    "source": "invalid.yml", "reason": "token=[REDACTED] invalid rule",
+                }]
                 assert "admin-secret" not in json.dumps(payload)
+                assert "diagnostic-secret" not in json.dumps(payload)
                 assert payload["users"] == [{"role": "admin", "username": "soc-admin"}]
                 assert {item["name"] for item in payload["integrations"]} == {
                     "External case", "AI analyst", "Threat intelligence",

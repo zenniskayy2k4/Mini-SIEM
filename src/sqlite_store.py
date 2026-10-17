@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 from config import config
-from src.alert_schema import utc_iso
+from src.alert_schema import normalize_alert, utc_iso
 from src.assets import normalize_ip_address, validate_asset
 from src.audit import append_audit_event
 
@@ -322,6 +322,7 @@ class SQLiteAlertRepository(_SQLiteRepository):
 
     @staticmethod
     def _write_alert(connection, alert):
+        alert = normalize_alert(alert)
         payload = json.dumps(alert, ensure_ascii=False)
         connection.execute(
             """
@@ -446,7 +447,7 @@ class SQLiteAlertRepository(_SQLiteRepository):
             row = connection.execute(
                 "SELECT payload_json FROM alerts WHERE alert_id = ?", (alert_id,),
             ).fetchone()
-        return json.loads(row[0]) if row else None
+        return normalize_alert(json.loads(row[0])) if row else None
 
     def list_alerts(
         self, filters: dict | None = None, limit: int | None = None, offset: int = 0,
@@ -538,7 +539,7 @@ class SQLiteAlertRepository(_SQLiteRepository):
             total = connection.execute(
                 "SELECT COUNT(*)" + source + where, values,
             ).fetchone()[0]
-            items = [json.loads(row[0]) for row in rows]
+            items = [normalize_alert(json.loads(row[0])) for row in rows]
             if items:
                 placeholders = ", ".join("?" for _ in items)
                 feedback_rows = connection.execute(

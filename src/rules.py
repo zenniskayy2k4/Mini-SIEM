@@ -188,7 +188,7 @@ def build_detection_coverage(rules: list, hit_counts: dict) -> dict:
     }
 
 
-def load_rules(directory: str, fallback: list) -> list:
+def load_rules(directory: str, fallback: list, errors: list | None = None) -> list:
     loaded = []
     valid_yaml_found = False
     seen_ids = set()
@@ -198,6 +198,8 @@ def load_rules(directory: str, fallback: list) -> list:
             document = yaml.safe_load(path.read_text(encoding="utf-8"))
             candidates = document if isinstance(document, list) else [document]
         except (OSError, yaml.YAMLError) as exc:
+            if errors is not None:
+                errors.append({"source_filename": path.name, "reason": str(exc)})
             logging.warning("[-] Rule file skipped: %s (%s)", path.name, exc)
             continue
 
@@ -214,6 +216,8 @@ def load_rules(directory: str, fallback: list) -> list:
                 loaded.append(rule)
                 logging.info("[+] Rule loaded: %s", rule["id"])
             except (KeyError, ValueError) as exc:
+                if errors is not None:
+                    errors.append({"source_filename": path.name, "reason": str(exc)})
                 logging.warning("[-] Rule skipped from %s: %s", path.name, exc)
 
     if valid_yaml_found:
@@ -222,7 +226,11 @@ def load_rules(directory: str, fallback: list) -> list:
     return validate_rules(fallback)
 
 
-def load_detection_rules(directory: str, fallback: list, sigma_directory: str) -> list:
-    native = load_rules(directory, fallback)
-    sigma, _ = load_sigma_rules(sigma_directory)
+def load_detection_rules(
+    directory: str, fallback: list, sigma_directory: str, errors: list | None = None,
+) -> list:
+    native = load_rules(directory, fallback, errors)
+    sigma, sigma_errors = load_sigma_rules(sigma_directory)
+    if errors is not None:
+        errors.extend(sigma_errors)
     return validate_rules(native + [rule for rule in sigma if rule["enabled"]])

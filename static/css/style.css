@@ -6,17 +6,17 @@
   --text-muted: #94a3b8;
   --border: #334155;
 
-  --color-crit: #ef4444; /* Red */
-  --color-high: #f97316; /* Orange */
-  --color-ai: #a855f7; /* Purple */
-  --color-blue: #3b82f6;
+  --color-crit: #f87171; /* Red */
+  --color-high: #fb923c; /* Orange */
+  --color-ai: #c084fc; /* Purple */
+  --color-blue: #60a5fa;
 
   /* ---- Compatibility aliases (to match ui_siem.css variable names) ---- */
   --bg-dark: var(--bg-body);
   --text-primary: var(--text-main);
   --text-secondary: var(--text-muted);
   --accent-blue: #38bdf8;
-  --accent-red: #f43f5e;
+  --accent-red: #be123c;
   --accent-orange: #fb923c;
   --accent-purple: #c084fc;
   --glass: rgba(30, 41, 59, 0.7);
@@ -24,6 +24,10 @@
 
 * {
   box-sizing: border-box;
+}
+
+a {
+  color: var(--accent-blue);
 }
 
 body {
@@ -406,6 +410,8 @@ nav a.active {
   border-radius: 4px;
   font-size: 10px;
   font-weight: bold;
+  border: 1px solid transparent;
+  cursor: pointer;
   animation: badgePulse 2s infinite;
 }
 
@@ -438,7 +444,8 @@ td {
   font-size: 14px;
 }
 
-tr:hover {
+tr:hover,
+tr:focus-within {
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -570,7 +577,7 @@ tr:hover {
   border: 0;
   border-radius: 8px;
   background: var(--color-blue);
-  color: white;
+  color: var(--bg-sidebar);
   font-weight: 700;
   cursor: pointer;
 }
@@ -1176,7 +1183,8 @@ tr:hover {
   margin-bottom: 0;
 }
 
-.setting-info label {
+.setting-info label,
+.setting-info strong {
   display: block;
   font-weight: 600;
   color: var(--text-primary);
@@ -1199,6 +1207,11 @@ tr:hover {
   opacity: 0;
   width: 0;
   height: 0;
+}
+
+.switch input:focus-visible + .slider {
+  outline: 3px solid #fbbf24;
+  outline-offset: 3px;
 }
 
 .slider {
@@ -1314,6 +1327,10 @@ input:checked + .slider:before {
 }
 .btn:hover {
   border-color: rgba(56, 189, 248, 0.6);
+}
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 .btn.btn-primary {
   background: rgba(59, 130, 246, 0.18);
@@ -1539,6 +1556,32 @@ select.styled-input {
 .asset-table-card {
   padding: 0;
   overflow: hidden;
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 1000;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--text-main);
+  color: var(--bg-sidebar);
+  transform: translateY(-150%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 3px solid #fbbf24 !important;
+  outline-offset: 3px;
 }
 
 .table-responsive .asset-table {

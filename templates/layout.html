@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -29,28 +30,28 @@
             </div>
             
             <nav>
-                <a href="/" class="{{ 'active' if page == 'dashboard' else '' }}">
+                <a href="/" class="{{ 'active' if page == 'dashboard' else '' }}"{% if page == 'dashboard' %} aria-current="page"{% endif %}>
                     <i class="fa-solid fa-chart-pie"></i><span class="nav-label">Dashboard</span>
                 </a>
-                <a href="/logs" class="{{ 'active' if page == 'logs' else '' }}">
+                <a href="/logs" class="{{ 'active' if page == 'logs' else '' }}"{% if page == 'logs' %} aria-current="page"{% endif %}>
                     <i class="fa-solid fa-list-ul"></i><span class="nav-label">Live Logs</span>
                 </a>
-                <a href="/analytics" class="{{ 'active' if page == 'analytics' else '' }}">
+                <a href="/analytics" class="{{ 'active' if page == 'analytics' else '' }}"{% if page == 'analytics' %} aria-current="page"{% endif %}>
                     <i class="fa-solid fa-chart-line"></i><span class="nav-label">Analytics</span>
                 </a>
-                <a href="/graph" class="{{ 'active' if page == 'graph' else '' }}">
+                <a href="/graph" class="{{ 'active' if page == 'graph' else '' }}"{% if page == 'graph' %} aria-current="page"{% endif %}>
                     <i class="fa-solid fa-diagram-project"></i><span class="nav-label">Graph</span>
                 </a>
                 {% if current_role in ['analyst', 'admin'] %}
-                    <a href="/detections" class="{{ 'active' if page == 'detections' else '' }}">
+                    <a href="/detections" class="{{ 'active' if page == 'detections' else '' }}"{% if page == 'detections' %} aria-current="page"{% endif %}>
                         <i class="fa-solid fa-sliders"></i><span class="nav-label">Detections</span>
                     </a>
                 {% endif %}
                 {% if current_role == 'admin' %}
-                    <a href="/assets" class="{{ 'active' if page == 'assets' else '' }}">
+                    <a href="/assets" class="{{ 'active' if page == 'assets' else '' }}"{% if page == 'assets' %} aria-current="page"{% endif %}>
                         <i class="fa-solid fa-server"></i><span class="nav-label">Assets</span>
                     </a>
-                    <a href="/settings" class="{{ 'active' if page == 'settings' else '' }}">
+                    <a href="/settings" class="{{ 'active' if page == 'settings' else '' }}"{% if page == 'settings' %} aria-current="page"{% endif %}>
                         <i class="fa-solid fa-gear"></i><span class="nav-label">Settings</span>
                     </a>
                 {% endif %}
@@ -72,7 +73,7 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content" tabindex="-1">
             {% block content %}{% endblock %}
         </main>
     </div>

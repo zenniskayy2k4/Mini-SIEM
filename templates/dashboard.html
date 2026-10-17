@@ -64,7 +64,7 @@
     <div class="card chart-container">
         <h3><i class="fa-solid fa-chart-pie"></i> Threat Severity Distribution</h3>
         <div class="canvas-wrapper">
-            <canvas id="severityChart"></canvas>
+            <canvas id="severityChart" role="img" aria-label="Threat severity distribution chart"></canvas>
         </div>
     </div>
     
@@ -72,7 +72,7 @@
     <div class="card chart-container">
         <h3><i class="fa-solid fa-network-wired"></i> Top Attacking Sources</h3>
         <div class="canvas-wrapper">
-            <canvas id="sourceChart"></canvas>
+            <canvas id="sourceChart" role="img" aria-label="Top attacking sources chart"></canvas>
         </div>
     </div>
 </div>
@@ -80,17 +80,17 @@
 <!-- 3. Recent Alerts (Bảng nhỏ gọn) -->
 <div class="card recent-alerts">
     <h3><i class="fa-solid fa-bell"></i> Recent Critical Alerts</h3>
-    <div class="table-responsive">
+    <div class="table-responsive" role="region" aria-label="Recent critical alerts" tabindex="0">
       <table class="mini-table">
         <thead>
             <tr>
-                <th>Time</th>
-                <th>Alert Name</th>
-                <th>Rule ID</th>
-                <th>Severity</th>
-                <th>Incident Status</th>
-                <th>Source IP</th>
-                <th>Asset</th>
+                <th scope="col">Time</th>
+                <th scope="col">Alert Name</th>
+                <th scope="col">Rule ID</th>
+                <th scope="col">Severity</th>
+                <th scope="col">Incident Status</th>
+                <th scope="col">Source IP</th>
+                <th scope="col">Asset</th>
             </tr>
         </thead>
         <tbody id="mini-table-body">
@@ -104,16 +104,16 @@
 <div class="card recent-alerts" style="margin-top:20px;">
     <h3><i class="fa-solid fa-bullseye"></i> Detection Coverage</h3>
     <div class="muted" id="coverage-summary">Loading coverage...</div>
-    <div class="table-responsive" style="margin-top:10px;">
+    <div class="table-responsive" role="region" aria-label="Detection coverage" tabindex="0" style="margin-top:10px;">
       <table class="mini-table">
         <thead>
             <tr>
-                <th>Rule ID</th>
-                <th>Title</th>
-                <th>Source</th>
-                <th>MITRE</th>
-                <th>Hits</th>
-                <th>Status</th>
+                <th scope="col">Rule ID</th>
+                <th scope="col">Title</th>
+                <th scope="col">Source</th>
+                <th scope="col">MITRE</th>
+                <th scope="col">Hits</th>
+                <th scope="col">Status</th>
             </tr>
         </thead>
         <tbody id="coverage-table-body"></tbody>

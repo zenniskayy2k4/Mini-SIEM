@@ -1,4 +1,4 @@
-# Mini-SIEM Blue Team — Roadmap from v0.6.0 to v1.0.0
+﻿# Mini-SIEM Blue Team — Roadmap from v0.6.0 to v1.0.0
 
 > **Repository:** `zenniskayy2k4/Mini-SIEM`
 > **Starting point:** `v0.6.0`
@@ -141,9 +141,9 @@ M31 — Multi-tenancy Discovery
 | M25 | Load Testing & Backpressure | v0.9.0 | ✅ Complete |
 | M26 | Storage & Query Performance | v0.9.0 | ✅ Complete |
 | M27 | Collector Reliability & Offline Recovery | v0.9.0 | ✅ Complete |
-| M28 | API & Schema Versioning | v1.0.0 | ⬜ |
-| M29 | Operator Experience & Accessibility | v1.0.0 | ⬜ |
-| M30 | Stable Release Qualification | v1.0.0 | ⬜ |
+| M28 | API & Schema Versioning | v1.0.0 | ✅ Complete |
+| M29 | Operator Experience & Accessibility | v1.0.0 | ✅ Complete |
+| M30 | Stable Release Qualification | v1.0.0 | 🟠 In Progress |
 | M31 | Multi-tenancy Discovery | Optional | ⬜ |
 
 ---
@@ -2000,7 +2000,7 @@ docs: release v0.9.0
 
 ## M28.1 — REST API v1
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Example:
 
@@ -2013,12 +2013,35 @@ Example:
 
 ### Tasks
 
-- [ ] Inventory current endpoints.
-- [ ] Classify public/internal.
-- [ ] Define v1 contracts.
-- [ ] Add versioned routes.
-- [ ] Temporary compatibility aliases.
-- [ ] Deprecation documentation.
+- [x] Inventory current endpoints.
+- [x] Classify public/internal.
+- [x] Define v1 contracts.
+- [x] Add versioned routes.
+- [x] Temporary compatibility aliases.
+- [x] Deprecation documentation.
+
+The supported REST surface now has `/api/v1/...` routes backed by the same
+handlers, authorization checks, CSRF protection, limits, and response bodies
+as the existing endpoints. Unversioned routes remain temporary aliases and
+advertise their successor through deprecation headers. Dashboard-internal,
+collector, health, and metrics endpoints remain outside the v1 contract.
+The complete inventory and compatibility policy are documented in
+[REST API v1](REST_API_V1.md).
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Explicit supported endpoint inventory and public/internal classification | PASS |
+| v1 route patterns and HTTP methods match their compatibility aliases | PASS |
+| v1 and alias routes share the same handlers and authorization boundaries | PASS |
+| Authenticated v1 and alias alert responses are identical | PASS |
+| Anonymous v1 and alias alert requests both return HTTP 401 | PASS |
+| Legacy aliases advertise v1 successors; v1 responses are not deprecated | PASS |
+| Collector and dashboard-internal endpoints are excluded from v1 | PASS |
+| 71 executable regression modules | PASS |
+| Python syntax and Docker Compose validation | PASS |
+| No schema migration, dependency, Ollama, or external provider call | PASS |
 
 ### Suggested commit
 
@@ -2030,14 +2053,37 @@ refactor: introduce versioned REST API v1
 
 ## M28.2 — Alert Schema Version
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] Add `alert_schema_version`.
-- [ ] Document field semantics.
-- [ ] Document nullable fields.
-- [ ] Document enums.
-- [ ] Define compatibility policy.
-- [ ] Normalize legacy alerts through adapter.
+- [x] Add `alert_schema_version`.
+- [x] Document field semantics.
+- [x] Document nullable fields.
+- [x] Document enums.
+- [x] Define compatibility policy.
+- [x] Normalize legacy alerts through adapter.
+
+New and updated alerts persist `alert_schema_version: 1`. The shared adapter
+normalizes pre-versioned JSONL and SQLite payloads in memory, generates stable
+UUID5 identifiers when needed, maps legacy `INFO` severity to `LOW`, and
+rejects invalid or unsupported future versions. Field, nullability, enum,
+extension, and compatibility rules are documented in
+[Alert Schema v1](ALERT_SCHEMA.md).
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| New alerts and repository writes carry `alert_schema_version: 1` | PASS |
+| Missing/zero legacy versions normalize to v1 on JSONL and SQLite reads | PASS |
+| Missing legacy IDs receive deterministic UUID5 identifiers | PASS |
+| Legacy `INFO` severity normalizes to `LOW` | PASS |
+| Boolean, string, null, negative, and future versions rejected clearly | PASS |
+| Lifecycle arrays and nullable/enum semantics documented | PASS |
+| v1 and compatibility API routes expose the same normalized payload | PASS |
+| JSON-to-SQLite migration remains idempotent | PASS |
+| 72 executable regression modules | PASS |
+| Python syntax validation | PASS |
+| No database migration, dependency, Ollama, or external provider call | PASS |
 
 ### Suggested commit
 
@@ -2049,16 +2095,37 @@ refactor: version persisted alert schema
 
 ## M28.3 — Machine-readable API Contract
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Use OpenAPI or JSON Schema.
 
-- [ ] Core endpoints.
-- [ ] Auth requirements.
-- [ ] Error model.
-- [ ] Pagination.
-- [ ] Request limits.
-- [ ] CI schema validation.
+- [x] Core endpoints.
+- [x] Auth requirements.
+- [x] Error model.
+- [x] Pagination.
+- [x] Request limits.
+- [x] CI schema validation.
+
+The supported REST v1 surface is now described by an OpenAPI 3.1 document.
+It records every registered v1 path and method, dashboard session and CSRF
+requirements, minimum roles, reusable JSON errors, alert pagination, field
+bounds, and enforced request-body limits. The existing CI regression loop
+loads the contract, resolves every local reference, and rejects route,
+security, pagination, or limit drift without adding another dependency.
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| OpenAPI paths and methods exactly match all registered Flask v1 routes | PASS |
+| Session, CSRF, and minimum-role requirements present on every operation | PASS |
+| Reusable JSON error schema and internal reference resolution | PASS |
+| Alert pagination defaults, bounds, and response schema | PASS |
+| Runtime request-body, field, list, and KPI range limits represented | PASS |
+| Existing CI `tests/test_*.py` loop discovers the contract regression | PASS |
+| M28.1–M28.3 focused regression modules | PASS |
+| 73 executable regression modules | PASS |
+| No dependency, database migration, Ollama, or external provider call | PASS |
 
 ### Suggested commit
 
@@ -2070,13 +2137,36 @@ docs: add machine-readable API contract
 
 ## M28.4 — API Compatibility Regression
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] Required response fields.
-- [ ] Error status behavior.
-- [ ] Permission boundaries.
-- [ ] Pagination.
-- [ ] Legacy alert normalization.
+- [x] Required response fields.
+- [x] Error status behavior.
+- [x] Permission boundaries.
+- [x] Pagination.
+- [x] Legacy alert normalization.
+
+The compatibility suite exercises the published v1 API through Flask with a
+temporary SQLite repository. It derives required alert fields from OpenAPI,
+checks 400/401/403/404/413 behavior, verifies viewer/analyst/admin boundaries,
+tests multi-page search metadata, and confirms pre-versioned SQLite alerts are
+normalized before being returned. The shared adapter now supplies legacy
+event-window defaults, and the OpenAPI `external_cases` type matches the
+provider-keyed object returned by the API.
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Current and legacy API responses contain every OpenAPI-required alert field | PASS |
+| JSON error model and HTTP 400/401/403/404/413 behavior | PASS |
+| Viewer, analyst, and admin permission boundaries | PASS |
+| Page size, total, page number, total pages, and non-overlapping pages | PASS |
+| Legacy severity, schema version, event count, and event-window normalization | PASS |
+| OpenAPI `external_cases` object agrees with runtime payloads | PASS |
+| M28.2–M28.4 focused regression modules | PASS |
+| 74 executable regression modules | PASS |
+| Python syntax validation | PASS |
+| No dependency, database migration, Ollama, or external provider call | PASS |
 
 ### Suggested commit
 
@@ -2090,7 +2180,7 @@ test: add API compatibility regression suite
 
 ## M29.1 — Environment Doctor
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 ```text
 python -m tools.doctor
@@ -2098,14 +2188,30 @@ python -m tools.doctor
 
 ### Check
 
-- [ ] required directories
-- [ ] writable data path
-- [ ] DB integrity
-- [ ] admin user existence
-- [ ] config validity
-- [ ] optional integrations
-- [ ] collector config
-- [ ] AI readiness without consuming an analysis request
+- [x] required directories
+- [x] writable data path
+- [x] DB integrity
+- [x] admin user existence
+- [x] config validity
+- [x] optional integrations
+- [x] collector config
+- [x] AI readiness without consuming an analysis request
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Required directories (BASE, RULES, SIGMA) checked for existence and readability | PASS |
+| Writable data, backup, and archive paths | PASS |
+| SQLite database read-only integrity check | PASS |
+| Dashboard users file with admin role enumeration and no-admin warning | PASS |
+| Configuration validation reusing `tools.validate_config` | PASS |
+| Case export, TheHive/Jira, and threat intelligence providers | PASS |
+| Windows collector secret and stale threshold | PASS |
+| Ollama Cloud/local primary and fallback without making an analysis call | PASS |
+| Aggregated PASS/FAIL output with exit code | PASS |
+| Python syntax validation | PASS |
+| No database migration, dependency, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2117,7 +2223,7 @@ feat: add Mini-SIEM environment doctor
 
 ## M29.2 — Unified Diagnostics View
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Answer:
 
@@ -2131,12 +2237,28 @@ Is the database healthy?
 
 ### Tasks
 
-- [ ] Link health status.
-- [ ] Link ingestion failures.
-- [ ] Link rule-load failures.
-- [ ] Link provider state.
-- [ ] Link collector state.
-- [ ] Never expose secrets.
+- [x] Link health status.
+- [x] Link ingestion failures.
+- [x] Link rule-load failures.
+- [x] Link provider state.
+- [x] Link collector state.
+- [x] Never expose secrets.
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Unified operator answers rendered in the admin workspace | PASS |
+| Database, ingestion, AI, integration, and collector state linked | PASS |
+| Native and Sigma rule-load failures retained with a 50-item bound | PASS |
+| Rule diagnostics redact secret-like values before API output | PASS |
+| Collector diagnostics expose only allowlisted operational fields | PASS |
+| Admin-only API authorization retained | PASS |
+| Focused rule-loader and admin-workspace regressions | PASS |
+| Responsive dashboard contract | PASS |
+| 74 executable regression modules | PASS |
+| Python and JavaScript syntax validation | PASS |
+| No database migration, dependency, Ollama, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2148,17 +2270,35 @@ feat: add unified operator diagnostics view
 
 ## M29.3 — Accessibility Pass
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
-- [ ] keyboard navigation
-- [ ] visible focus
-- [ ] semantic labels
-- [ ] form error association
-- [ ] table headers
-- [ ] dialog focus
-- [ ] color not sole status signal
-- [ ] basic contrast
-- [ ] mobile behavior retained
+- [x] keyboard navigation
+- [x] visible focus
+- [x] semantic labels
+- [x] form error association
+- [x] table headers
+- [x] dialog focus
+- [x] color not sole status signal
+- [x] basic contrast
+- [x] mobile behavior retained
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Skip link, current-page semantics, and keyboard-operable controls | PASS |
+| High-visibility focus ring including custom switches and scroll regions | PASS |
+| Labels for filters, settings, charts, graph, and data regions | PASS |
+| Form status/error association and invalid-login state | PASS |
+| Column scope applied to every dashboard table header | PASS |
+| Native modal focus entry, containment, Escape close, and trigger restoration | PASS |
+| Text accompanies live, severity, coverage, and health status colors | PASS |
+| Higher-contrast semantic palette and login action | PASS |
+| Existing 1100 px, 700 px, and 480 px mobile behavior | PASS |
+| Focused accessibility, responsive, asset, admin, and viewer regressions | PASS |
+| 75 executable regression modules | PASS |
+| JavaScript and Python syntax validation | PASS |
+| No dependency, database migration, Ollama, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2170,7 +2310,7 @@ fix: improve dashboard accessibility
 
 ## M29.4 — Operator Runbooks
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Documents:
 
@@ -2183,17 +2323,32 @@ docs/SECURITY.md
 
 Cover:
 
-- [ ] start/stop
-- [ ] upgrade
-- [ ] backup/restore
-- [ ] collectors
-- [ ] TLS
-- [ ] secret rotation
-- [ ] rule debugging
-- [ ] AI/TI debugging
-- [ ] integrations
-- [ ] retention
-- [ ] disaster recovery
+- [x] start/stop
+- [x] upgrade
+- [x] backup/restore
+- [x] collectors
+- [x] TLS
+- [x] secret rotation
+- [x] rule debugging
+- [x] AI/TI debugging
+- [x] integrations
+- [x] retention
+- [x] disaster recovery
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Start, stop, status, logs, health, account, and collector procedures | PASS |
+| Backup, retention, restore, upgrade, rollback, and disaster recovery paths | PASS |
+| TLS production boundary and local-CA limitation | PASS |
+| Secret inventory and coordinated rotation without example values | PASS |
+| Native/Sigma rule, shared-worker AI, TI, and integration diagnostics | PASS |
+| Commands aligned with existing Compose files and operator tools | PASS |
+| Cross-links resolve to existing repository documentation | PASS |
+| 75 executable regression modules | PASS |
+| Markdown whitespace and Docker Compose validation | PASS |
+| No dependency, database migration, runtime data write, or external service call | PASS |
 
 ### Suggested commit
 
@@ -2205,9 +2360,16 @@ docs: add production-style operator runbooks
 
 # M30 — v1.0 Stable Release Qualification
 
+> **Feature freeze active:** 2026-09-01
+>
+> **Qualification baseline:** M29.4 completion commit `2de82ae`
+
+Until v1.0.0 is released, every change must map to an allowed M30.1 category and
+must preserve the stable API, schema, provider, and single-node architecture boundaries.
+
 ## M30.1 — Feature Freeze
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Allowed:
 
@@ -2228,6 +2390,25 @@ new external providers
 new architectural layer
 ```
 
+### Freeze rules
+
+- [x] Every change maps to an allowed category and an incomplete M30 qualification item or documented release blocker.
+- [x] Public API and alert schema changes remain backward compatible.
+- [x] Released database migrations remain immutable; only forward fixes are allowed.
+- [x] No dependency, provider, architecture, or major feature expansion enters the release candidate.
+- [x] Required regression and security gates must pass before a change is accepted.
+- [x] Any freeze exception must be documented in this roadmap before implementation.
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Freeze baseline points to completed M29.4 | PASS |
+| Allowed fixes and release-blocker scope recorded | PASS |
+| Major features, schema redesign, providers, and architecture expansion excluded | PASS |
+| Stable API, migration, regression, and security boundaries retained | PASS |
+| No product code, dependency, runtime data, or deployment change | PASS |
+
 ### Suggested commit
 
 ```text
@@ -2238,27 +2419,52 @@ docs: enter v1.0 release candidate freeze
 
 ## M30.2 — Full Regression Qualification
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Required:
 
-- [ ] existing regression modules
-- [ ] detection replay corpus
-- [ ] Sigma corpus
-- [ ] AI evaluation corpus
-- [ ] security regression pack
-- [ ] API compatibility suite
-- [ ] DB migration tests
-- [ ] backup/restore drill
-- [ ] collector outage recovery
-- [ ] load smoke
-- [ ] clean-clone Docker smoke
+- [x] existing regression modules
+- [x] detection replay corpus
+- [x] Sigma corpus
+- [x] AI evaluation corpus
+- [x] security regression pack
+- [x] API compatibility suite
+- [x] DB migration tests
+- [x] backup/restore drill
+- [x] collector outage recovery
+- [x] load smoke
+- [x] clean-clone Docker smoke
+
+### Local verification — 2026-09-01
+
+| Check | Result |
+|---|:---:|
+| Python compilation and 75 executable regression modules | PASS |
+| 18/18 offline detection scenarios and 14/14-rule coverage artifact | PASS |
+| Sigma and AI evaluation corpora with providers disabled | PASS |
+| Security regression pack and API compatibility suite | PASS |
+| Migration tracking, runner, historical upgrade matrix, and restore drill | PASS |
+| Collector outage recovery and buffered redelivery | PASS |
+| 1,000-event local telemetry generation and five-profile throughput smoke | PASS |
+| Clean tracked checkout Compose, health/login, and backup-first schema v1 → v4 migration | PASS |
+| Final cached image build, rollout, JavaScript syntax, and Compose validation | PASS |
+| Dashboard, agent, alert store, and SQLite health returned HTTP 200 | PASS |
+| No Ollama, external TI, case export, notification, or response execution | PASS |
+
+The local clean-checkout smoke reused the single qualification image with `--no-build` to avoid a
+second dependency installation. GitHub Actions remains the independent clean-build gate.
+
+### Suggested commit
+
+```text
+test: qualify v1.0 regression baseline
+```
 
 ---
 
 ## M30.3 — Upgrade Qualification
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Required paths:
 
@@ -2272,46 +2478,79 @@ fresh install → v1.0.0
 
 Verify:
 
-- [ ] alerts
-- [ ] incidents
-- [ ] assets
-- [ ] rule state
-- [ ] Sigma overrides
-- [ ] feedback
-- [ ] audit state
-- [ ] external case IDs
-- [ ] retention config
-- [ ] users
+- [x] alerts
+- [x] incidents
+- [x] assets
+- [x] rule state
+- [x] Sigma overrides
+- [x] feedback
+- [x] audit state
+- [x] external case IDs
+- [x] retention config
+- [x] users
+
+### Local verification — 2026-09-02
+
+| Check | Result |
+|---|:---:|
+| v0.6.0 → current: schema, alerts, incidents, assets, external case IDs | PASS |
+| v0.7.0 → current: schema + feedback + ingestion state preserved | PASS |
+| v0.8.0 → current: schema history and feedback preserved | PASS |
+| v0.9.0 → current: schema history and feedback preserved | PASS |
+| Fresh install creates all required tables | PASS |
+| Sigma rule state overrides survive migration unchanged | PASS |
+| Dashboard users file survives migration unchanged | PASS |
+| Schema migration audit history and backup integrity | PASS |
+| 76 executable regression modules in the existing image | PASS |
+| Python syntax validation | PASS |
+| No dependency, database mutation beyond migration, or external service call | PASS |
+
+### Suggested commit
+
+```text
+test: qualify v1.0 upgrade paths
+```
 
 ---
 
 ## M30.4 — Security Review
 
-**Status:** ⬜
+**Status:** ✅ Complete
 
 Review:
 
-- [ ] authentication
-- [ ] authorization
-- [ ] CSRF
-- [ ] session lifecycle
-- [ ] file/path handling
-- [ ] external HTTP
-- [ ] webhook boundaries
-- [ ] PDF output
-- [ ] collector endpoint
-- [ ] YAML/Sigma parsing
-- [ ] STIX/TAXII parsing
-- [ ] secrets
-- [ ] backup/restore
-- [ ] audit integrity
-- [ ] response safety
+- [x] authentication
+- [x] authorization
+- [x] CSRF
+- [x] session lifecycle
+- [x] file/path handling
+- [x] external HTTP
+- [x] webhook boundaries
+- [x] PDF output
+- [x] collector endpoint
+- [x] YAML/Sigma parsing
+- [x] STIX/TAXII parsing
+- [x] secrets
+- [x] backup/restore
+- [x] audit integrity
+- [x] response safety
 
 Output:
 
 ```text
 docs/SECURITY_REVIEW_v1.0.md
 ```
+
+### Local verification — 2026-09-02
+
+| Check | Result |
+|---|:---:|
+| 15 review areas documented with code-grounded controls and findings | PASS |
+| No critical or high-severity findings; verdict table per area | PASS |
+| Finding claims spot-checked against source (auth, audit chain, response safety, STIX/TAXII, Sigma escaping) | PASS |
+| No secrets, credentials, or live data exposed or accessed | PASS |
+| No python, JavaScript, PowerShell, workflow, test, or configuration files modified | PASS |
+| `git diff --check` clean | PASS |
 
 ### Suggested commit
 
@@ -2323,18 +2562,43 @@ docs: add v1.0 security review
 
 ## M30.5 — Release Candidate
 
-**Status:** ⬜
+**Status:** 🟠 In Progress — local qualification complete 2026-09-07; owner tag and stabilization window pending
+**Started:** 2026-09-07
 
 ```text
 v1.0.0-rc.1
 ```
 
-- [ ] publish RC
-- [ ] fresh install smoke
-- [ ] upgrade smoke
-- [ ] demo scenario
-- [ ] operator runbook walkthrough
-- [ ] stabilization period without blocker
+- [x] publish RC — release-gate green on release commit `61b5473` (Actions run 108), annotated tag `v1.0.0-rc.1` pushed to origin on 2026-09-08; the GitHub Release and its SBOM/checksum attachment are created by the repository owner from the tag
+- [x] fresh install smoke
+- [x] upgrade smoke
+- [x] demo scenario
+- [x] operator runbook walkthrough
+- [ ] stabilization period without blocker — the window starts at the candidate tag push and closes before v1.0.0
+
+Freeze compliance: the only product change in this batch is the CI `release-gate` version regex, which previously could not match a pre-release heading at all and therefore blocked publishing any `v1.0.0-rc.N` candidate. It is recorded as a release blocker under the allowed M30.1 categories.
+
+### Local verification — 2026-09-07
+
+| Check | Result |
+|---|:---:|
+| Release-gate simulation: pre-release regex, `1.0.0-rc.1` changelog heading, README sync, exactly one standalone `RELEASE_v*.md`, v0.9.0 archived in history | PASS |
+| 76/76 executable regression modules with source bind-mounted into the existing image | PASS |
+| Replay corpus, Sigma corpus, AI corpus, security pack, and API compatibility suite inside the run | PASS |
+| Migration/upgrade qualification modules (db migrations, historical upgrades, upgrade qualification, restore drill) | PASS |
+| Compose `--profile train config --quiet` on the repository and the clean tracked checkout | PASS |
+| Environment doctor, configuration validator, read-only migration dry-run (source 4, target 4, no pending), backup command | PASS |
+| Demo scenario: SSH campaign → `DET-SSH-001` HIGH alert (event_count 20), linked incident, valid audit chain | PASS |
+| Fresh-install smoke: clean tracked checkout, healthy stack, admin creation, CSRF login, SQLite quick check | PASS |
+| Fresh-install upgrade: baseline v1 → v4 backup-first migration, integrity ok, healthy reboot at v4 | PASS |
+| Main stack restarted: agent, dashboard, and database healthy; `/health` HTTP 200 | PASS |
+| Temporary checks deleted; `git diff --check` clean; `.env`/`data/`/`logs/` untracked | PASS |
+
+### Suggested commit
+
+```text
+docs: qualify v1.0.0-rc.1 release candidate
+```
 
 ---
 
@@ -2362,7 +2626,7 @@ v1.0.0 — Stable Single-node Blue Team SIEM
 - [ ] Runbooks complete.
 - [ ] Full regression qualification passes.
 - [ ] Upgrade qualification passes.
-- [ ] Security review complete.
+- [x] Security review complete.
 - [ ] RC validated.
 - [ ] README/CHANGELOG sync.
 - [ ] No tracked secrets.
@@ -2465,21 +2729,17 @@ Do not start M31 unless a multi-tenant requirement exists.
 # 6. Start Here
 
 ```text
-NEXT BATCH:
-M28.1 — REST API v1
+CURRENT:
+M30.5 stabilization window — v1.0.0-rc.1 tagged and CI-green
+NEXT:
+M30.6 — Release v1.0.0
 ```
 
-M27.5 completes the v0.9.0 release:
-
-```text
-load/backpressure + storage performance + collector resilience
-→ measured single-node capacity + bounded overload + recovery path
-→ CI-gated Performance & Operational Resilience release
-```
-
-M28 starts the v1.0 Stable Product Contract phase. The first step is
-inventorying and versioning the REST API surface before adding a
-machine-readable contract.
+The release candidate is published: release commit `61b5473` passed the
+GitHub Actions release gate (run 108), and the annotated tag `v1.0.0-rc.1`
+was pushed with its own CI run finishing green. The stabilization window is
+active: only release blockers may land until it closes, after which M30.6
+publishes v1.0.0.
 
 ---
 
@@ -2651,12 +2911,12 @@ This roadmap is complete when:
 - [x] `v0.7.0` ships with detection replay, tuning, and ingestion quality.
 - [x] `v0.8.0` ships with secure deployment, supply-chain checks, and tested migration/recovery.
 - [x] `v0.9.0` ships with measured performance and collector recovery.
-- [ ] API v1 exists.
-- [ ] Alert schema is explicitly versioned.
+- [x] API v1 exists.
+- [x] Alert schema is explicitly versioned.
 - [x] Historical upgrade tests pass.
-- [ ] Operator diagnostics and runbooks are complete.
-- [ ] Accessibility pass is complete.
-- [ ] Full security review is complete.
+- [x] Operator diagnostics and runbooks are complete.
+- [x] Accessibility pass is complete.
+- [x] Full security review is complete.
 - [ ] `v1.0.0-rc.1` is validated.
 - [ ] `v1.0.0` is tagged from a CI-verified release commit.
 - [ ] Multi-tenancy remains separate unless a real requirement appears.
@@ -2666,11 +2926,16 @@ This roadmap is complete when:
 # 13. Current Next Action
 
 ```text
-START:
-M28.1 — REST API v1
+RUNNING:
+M30.5 stabilization window — v1.0.0-rc.1 tagged on 2026-09-08 and CI-green
+NEXT:
+M30.6 — Release v1.0.0
 ```
 
-M27.5 prepares the v0.9.0 release. All release-gate items except the
-CI-gated tag are complete locally. After CI verifies the release commit,
-create the annotated `v0.9.0` tag. The next development batch inventories
-and versioned the REST API surface as the first v1.0 contract step.
+The release candidate is published: the release commit passed the release
+gate, the annotated tag `v1.0.0-rc.1` points at `61b5473`, and the tag's own
+CI run finished green. Remaining owner actions: create the GitHub Release
+from the tag so `release-sbom` attaches the verified SBOM and checksum, run
+the stabilization window without a blocker, then start M30.6 (RC validation
+sign-off, README/CHANGELOG sync, and the annotated `v1.0.0` tag from a
+CI-verified release commit).

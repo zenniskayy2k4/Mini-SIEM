@@ -47,17 +47,17 @@
 
 <div id="asset-status" class="muted asset-status" role="status">Loading assets...</div>
 <div class="card asset-table-card">
-  <div class="table-responsive">
+  <div class="table-responsive" role="region" aria-label="Asset inventory" tabindex="0">
     <table class="mini-table asset-table">
       <thead>
         <tr>
-          <th>Asset</th>
-          <th>IP addresses</th>
-          <th>Context</th>
-          <th>Owner / Team</th>
-          <th>Tags</th>
-          <th>State</th>
-          <th>Actions</th>
+          <th scope="col">Asset</th>
+          <th scope="col">IP addresses</th>
+          <th scope="col">Context</th>
+          <th scope="col">Owner / Team</th>
+          <th scope="col">Tags</th>
+          <th scope="col">State</th>
+          <th scope="col">Actions</th>
         </tr>
       </thead>
       <tbody id="asset-table-body"></tbody>
@@ -65,8 +65,8 @@
   </div>
 </div>
 
-<dialog id="asset-dialog" class="asset-dialog">
-  <form id="asset-form">
+<dialog id="asset-dialog" class="asset-dialog" aria-labelledby="asset-dialog-title">
+  <form id="asset-form" aria-describedby="asset-form-error">
     <div class="asset-dialog-header">
       <h3 id="asset-dialog-title">Add asset</h3>
       <button id="asset-dialog-close" class="btn btn-ghost" type="button" aria-label="Close">×</button>

@@ -168,6 +168,37 @@ function initSettings() {
       if (element) element.textContent = value;
     });
 
+    const diagnostics = data.diagnostics || {};
+    const diagnosticLinks = {
+      events: ["Why am I not receiving events?", "#admin-ingestion-failures-card"],
+      ai: ["Why is AI unavailable?", "#admin-integrations-card"],
+      rules: ["Why did a rule not load?", "#admin-rule-failures"],
+      providers: ["Why did an integration fail?", "#admin-integrations-card"],
+      database: ["Is the database healthy?", "#admin-maintenance-card"],
+      collectors: ["What is the collector state?", "#admin-collector-diagnostics"],
+    };
+    const diagnosticElement = document.getElementById("admin-diagnostics");
+    if (diagnosticElement) diagnosticElement.innerHTML = Object.entries(diagnosticLinks).map(([key, [question, href]]) => {
+      const item = diagnostics[key] || {};
+      return `<div class="admin-status-row"><strong>${question}</strong><span>` +
+        `<b class="${adminState(item.status)}">${escapeHTML(item.status || "unknown")}</b><br>` +
+        `${escapeHTML(item.detail || "No diagnostic available.")} <a href="${href}">Details</a></span></div>`;
+    }).join("");
+
+    const ruleFailures = diagnostics.rules?.failures || [];
+    const ruleFailureBody = document.getElementById("admin-rule-failures-body");
+    if (ruleFailureBody) ruleFailureBody.innerHTML = ruleFailures.map((failure) => `
+      <tr><td>${escapeHTML(failure.source)}</td><td>${escapeHTML(failure.reason)}</td></tr>`).join("") ||
+      '<tr><td colspan="2" class="muted">No rejected or unsupported rules.</td></tr>';
+
+    const collectorItems = diagnostics.collectors?.items || [];
+    const collectorBody = document.getElementById("admin-collector-diagnostics-body");
+    if (collectorBody) collectorBody.innerHTML = collectorItems.map((collector) => `
+      <tr><td>${escapeHTML(collector.collector_id)}</td><td>${escapeHTML(collector.status)}</td>` +
+      `<td>${escapeHTML(collector.last_event_at || "never")}</td><td>${escapeHTML(collector.buffered_events || 0)}</td>` +
+      `<td>${escapeHTML(collector.delivery_failures || 0)}</td></tr>`).join("") ||
+      '<tr><td colspan="5" class="muted">No collector state reported.</td></tr>';
+
     const integrations = document.getElementById("admin-integrations");
     if (integrations) integrations.innerHTML = (data.integrations || []).map((item) => `
       <div class="admin-status-row">
@@ -594,6 +625,7 @@ function initAssets() {
     enabled: document.getElementById("asset-enabled"),
   };
   let assets = new Map();
+  let dialogTrigger = null;
   filterQ.value = new URLSearchParams(window.location.search).get("q")?.slice(0, 200) || "";
 
   const splitList = (value) => value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
@@ -641,7 +673,8 @@ function initAssets() {
     }
   }
 
-  function openForm(asset) {
+  function openForm(asset, trigger) {
+    dialogTrigger = trigger || document.activeElement;
     form.reset();
     formError.textContent = "";
     fields.id.value = asset?.asset_id || "";
@@ -659,9 +692,13 @@ function initAssets() {
     fields.hostname.focus();
   }
 
-  document.getElementById("asset-add").addEventListener("click", () => openForm(null));
+  document.getElementById("asset-add").addEventListener("click", (event) => openForm(null, event.currentTarget));
   document.getElementById("asset-dialog-close").addEventListener("click", () => dialog.close());
   document.getElementById("asset-cancel").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => {
+    dialogTrigger?.focus();
+    dialogTrigger = null;
+  });
 
   filters.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -711,7 +748,7 @@ function initAssets() {
     const asset = assets.get(button.dataset.assetId);
     if (!asset) return;
     if (button.classList.contains("asset-edit")) {
-      openForm(asset);
+      openForm(asset, button);
       return;
     }
     if (!window.confirm(`Delete asset ${asset.hostname}?`)) return;
@@ -1219,6 +1256,7 @@ function initLogs() {
     state.live = on;
     btnLiveToggle.textContent = on ? "LIVE STREAM" : "PAUSED";
     btnLiveToggle.style.opacity = on ? "1" : "0.7";
+    btnLiveToggle.setAttribute("aria-pressed", String(on));
 
     if (state.timer) {
       clearInterval(state.timer);
@@ -1308,16 +1346,19 @@ function initLogs() {
       });
   }
 
-  btnFilterToggle?.addEventListener("click", () => {
-    const visible = filterPanel.style.display !== "none";
-    filterPanel.style.display = visible ? "none" : "block";
-  });
+  function setFilterVisible(visible) {
+    filterPanel.hidden = !visible;
+    btnFilterToggle.setAttribute("aria-expanded", String(visible));
+    (visible ? inpFrom : btnFilterToggle)?.focus();
+  }
+
+  btnFilterToggle?.addEventListener("click", () => setFilterVisible(filterPanel.hidden));
 
   btnApply?.addEventListener("click", () => {
     readFiltersFromUI();
     setLive(false);
     fetchPage(1);
-    filterPanel.style.display = "none";
+    setFilterVisible(false);
   });
 
   btnClear?.addEventListener("click", () => {
@@ -1332,7 +1373,7 @@ function initLogs() {
     selPageSize.value = "50";
     readFiltersFromUI();
     setLive(true);
-    filterPanel.style.display = "none";
+    setFilterVisible(false);
   });
 
   selPageSize?.addEventListener("change", () => {
@@ -1382,7 +1423,7 @@ function createRow(alert) {
 
   const responseActions = alert.response_actions || [];
   const responseAction = responseActions[responseActions.length - 1];
-  let responseHTML = '<span style="color:#64748b; font-size:11px;">No Action</span>';
+  let responseHTML = '<span style="color:#94a3b8; font-size:11px;">No Action</span>';
   if (responseAction) {
     responseHTML = `<div class="mitigation-box"><i class="fa-solid fa-shield-halved"></i> ` +
       `${escapeHTML(responseAction.action_type)} ${escapeHTML(responseAction.target)} ` +

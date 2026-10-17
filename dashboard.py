@@ -23,6 +23,7 @@ from src.ingestion_failures import (
 )
 from src.jira import JiraConnector
 from src.metrics import metrics_unavailable, render_prometheus_metrics
+from src.redaction import redact_text
 from src.dashboard_auth import (
     authenticate,
     clear_login_failures,
@@ -60,8 +61,9 @@ init_auth(app)
 
 RUNTIME_SETTINGS_FILE = os.path.join(config.BASE_DIR, "data", "runtime_settings.json")
 VALIDATION_COVERAGE_FILE = Path(config.BASE_DIR, "docs", "DETECTION_VALIDATION_COVERAGE.json")
+RULE_LOAD_ERRORS = []
 DETECTION_RULES = load_detection_rules(
-    config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
+    config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR, RULE_LOAD_ERRORS,
 )
 SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
 RULES_LOADED_AT = utc_iso()
@@ -92,6 +94,31 @@ ALLOWED_SETTINGS = {
     "GRAPH_MAX_ALERTS",
     "GRAPH_INCLUDE_SOURCES",
     "GRAPH_INCLUDE_CAMPAIGNS",
+}
+
+V1_API_ENDPOINTS = {
+    "api_alert_note",
+    "api_alert_response_action",
+    "api_alert_response_action_approve",
+    "api_alert_response_action_rollback",
+    "api_alert_assignee",
+    "api_alert_feedback",
+    "api_alert_status",
+    "api_alert_suppression_policies",
+    "api_alert_suppression_policy_delete",
+    "api_alerts",
+    "api_alerts_search",
+    "api_soc_kpis",
+    "api_asset",
+    "api_assets",
+    "api_detection_coverage",
+    "api_detection_exception_delete",
+    "api_detection_exceptions",
+    "api_detection_rule_update",
+    "api_detection_rules",
+    "api_external_case",
+    "api_incident_report",
+    "api_system_status",
 }
 
 def _ensure_runtime_settings_file():
@@ -142,11 +169,13 @@ def load_alerts(limit=100):
 
 
 def _reload_detection_rules():
-    global DETECTION_RULES, SIGMA_RULES, RULES_LOADED_AT
+    global DETECTION_RULES, SIGMA_RULES, RULES_LOADED_AT, RULE_LOAD_ERRORS
+    errors = []
     DETECTION_RULES = load_detection_rules(
-        config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR,
+        config.RULES_DIR, config.SIGNATURES, config.SIGMA_RULES_DIR, errors,
     )
     SIGMA_RULES, _ = load_sigma_rules(config.SIGMA_RULES_DIR)
+    RULE_LOAD_ERRORS = errors
     RULES_LOADED_AT = utc_iso()
 
 
@@ -264,6 +293,67 @@ def _directory_status(path, pattern):
         return {"count": 0, "latest": None, "latest_at": None, "error": type(exc).__name__}
 
 
+def _operator_diagnostics(health, integrations, ingestion_failures):
+    ingestion = health.get("ingestion") or {}
+    collectors = ingestion.get("collectors") or []
+    collector_items = [{
+        "collector_id": redact_text(item.get("collector_id") or "unknown", 120),
+        "status": item.get("status", "unknown"),
+        "last_event_at": item.get("last_event_at"),
+        "buffered_events": int(item.get("buffered_events") or 0),
+        "delivery_failures": int(item.get("delivery_failures") or 0),
+    } for item in collectors]
+    failures = [
+        {
+            "source": redact_text(item.get("source_filename") or "unknown", 120),
+            "reason": redact_text(item.get("reason") or "Rule validation failed", 300),
+        }
+        for item in RULE_LOAD_ERRORS
+    ]
+    failures.extend({
+        "source": redact_text(rule.get("source_filename") or "unknown", 120),
+        "reason": redact_text(rule.get("skip_reason") or "Unsupported Sigma rule", 300),
+    } for rule in SIGMA_RULES if not rule.get("supported", True))
+    failures = failures[:50]
+    ai = next((item for item in integrations if item["name"] == "AI analyst"), {})
+    provider_issues = [
+        item["name"] for item in integrations
+        if item["status"] in {"unavailable", "needs_configuration"}
+    ]
+    ingestion_status = ingestion.get("status", "unknown")
+    retained = int(ingestion_failures.get("total", 0))
+    database = health.get("database") or {}
+    return {
+        "events": {
+            "status": "degraded" if retained else "disabled" if ingestion_status == "disabled" else "unavailable" if ingestion_status in {"offline", "endpoint_unavailable"} else "ready",
+            "detail": f"{retained} retained ingestion failure(s); collector state: {ingestion_status}.",
+        },
+        "ai": {
+            "status": ai.get("status", "unavailable"),
+            "detail": f"Provider: {ai.get('detail') or 'unknown'}; agent state: {(health.get('agent') or {}).get('status', 'unknown')}.",
+        },
+        "rules": {
+            "status": "degraded" if failures else "ready",
+            "detail": f"{sum(rule.get('rule_source', 'native') == 'native' for rule in DETECTION_RULES) + len(SIGMA_RULES)} loaded; {len(failures)} rejected or unsupported.",
+            "loaded_at": RULES_LOADED_AT,
+            "failures": failures,
+        },
+        "providers": {
+            "status": "degraded" if provider_issues else "ready",
+            "detail": ", ".join(provider_issues) + " need attention." if provider_issues else "No configured provider reports a setup failure.",
+        },
+        "database": {
+            "status": "ready" if database.get("status") == "healthy" else "unavailable",
+            "detail": f"Integrity check: {database.get('check') or 'not available'}.",
+        },
+        "collectors": {
+            "status": "disabled" if ingestion_status == "disabled" else "unavailable" if ingestion_status in {"offline", "endpoint_unavailable"} else "ready",
+            "detail": f"{len(collectors)} collector(s); stale threshold {ingestion.get('stale_after_seconds', 0)} seconds.",
+            "items": collector_items,
+        },
+    }
+
+
 def _admin_workspace_payload():
     health = build_system_status(_effective_settings())
     audit_valid, audit_message = verify_audit_log()
@@ -304,7 +394,7 @@ def _admin_workspace_payload():
         },
         {
             "name": "AI analyst",
-            "status": "ready" if ai.get("enabled") and ai.get("available") is not False else "disabled" if not ai.get("enabled") else "unavailable",
+            "status": "ready" if ai.get("enabled") and ai.get("available") is True else "disabled" if not ai.get("enabled") else "unavailable",
             "detail": str(ai.get("provider") or config.AI_PROVIDER),
         },
         {
@@ -331,6 +421,7 @@ def _admin_workspace_payload():
         "integrations": integrations,
         "audit": {"valid": audit_valid, "message": audit_message, "events": audit_events},
         "ingestion_failures": ingestion_failures,
+        "diagnostics": _operator_diagnostics(health, integrations, ingestion_failures),
         "maintenance": {
             "retention_days": config.ALERT_RETENTION_DAYS,
             "log_rotate_max_bytes": config.LOG_ROTATE_MAX_BYTES,
@@ -405,6 +496,10 @@ def dashboard_security_headers(response):
     response.headers.setdefault("Referrer-Policy", "same-origin")
     if request.endpoint != "static":
         response.headers.setdefault("Cache-Control", "no-store")
+    if request.endpoint in V1_API_ENDPOINTS:
+        successor = url_for(f"v1_{request.endpoint}", **(request.view_args or {}))
+        response.headers.setdefault("Deprecation", "true")
+        response.headers.setdefault("Link", f'<{successor}>; rel="successor-version"')
     return response
 
 
@@ -1486,6 +1581,21 @@ def api_graph():
 @app.route("/graph")
 def graph_page():
     return render_template("graph.html", page="graph")
+
+
+def _register_v1_routes():
+    routes = {rule.endpoint: rule for rule in app.url_map.iter_rules()}
+    for endpoint in V1_API_ENDPOINTS:
+        legacy = routes[endpoint]
+        app.add_url_rule(
+            legacy.rule.replace("/api/", "/api/v1/", 1),
+            endpoint=f"v1_{endpoint}",
+            view_func=app.view_functions[endpoint],
+            methods=sorted(legacy.methods - {"HEAD", "OPTIONS"}),
+        )
+
+
+_register_v1_routes()
 
 if __name__ == "__main__":
     app.run(host=config.DASHBOARD_HOST, port=config.DASHBOARD_PORT, debug=False)

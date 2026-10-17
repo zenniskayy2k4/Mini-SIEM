@@ -5,10 +5,9 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
-from uuid import NAMESPACE_URL, uuid5
 
 from config import config
-from src.alert_schema import SEVERITIES, SOURCE_TYPES, ensure_lifecycle
+from src.alert_schema import SEVERITIES, SOURCE_TYPES, ensure_lifecycle, legacy_alert_id
 from src.maintenance import backup_database
 from src.sqlite_store import SQLiteAlertRepository
 
@@ -17,8 +16,7 @@ def _normalize(alert):
     if not isinstance(alert, dict):
         raise ValueError("alert must be a JSON object")
     if not alert.get("alert_id"):
-        canonical = json.dumps(alert, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        alert["alert_id"] = f"ALT-{uuid5(NAMESPACE_URL, canonical)}"
+        alert["alert_id"] = legacy_alert_id(alert)
 
     alert["severity"] = str(alert.get("severity") or "LOW").upper()
     alert["source_type"] = str(alert.get("source_type") or "HIDS_LOG").upper()

@@ -87,7 +87,7 @@ def test_asset_enrichment():
 
     dashboard_template = Path("templates/dashboard.html").read_text(encoding="utf-8")
     dashboard_script = Path("static/js/app.js").read_text(encoding="utf-8")
-    assert "<th>Asset</th>" in dashboard_template
+    assert '<th scope="col">Asset</th>' in dashboard_template
     assert 'href="/assets?q=${encodeURIComponent(assetId)}"' in dashboard_script
 
 

@@ -5,7 +5,7 @@
         <h2>SOC Analytics</h2>
         <span class="muted" id="analytics-period">Loading selected period...</span>
     </div>
-    <form class="analytics-range" id="analytics-range-form">
+    <form class="analytics-range" id="analytics-range-form" aria-describedby="analytics-error">
         <label>Range
             <select id="analytics-range">
                 <option value="24">Last 24 hours</option>
@@ -43,25 +43,25 @@
     ] %}
     <section class="card analytics-chart-card">
         <h3><i class="fa-solid {{ icon }}"></i> {{ title }}</h3>
-        <div class="analytics-canvas"><canvas id="{{ id }}"></canvas></div>
+        <div class="analytics-canvas"><canvas id="{{ id }}" role="img" aria-label="{{ title }} chart"></canvas></div>
     </section>
     {% endfor %}
 </div>
 <section class="card analytics-rule-quality">
     <h3><i class="fa-solid fa-list-check"></i> Rule quality</h3>
     <p class="muted">Feedback coverage is partial. False-positive rate uses classified alerts only; unclassified alerts remain separate. These counts are not precision or recall.</p>
-    <div class="table-responsive">
+    <div class="table-responsive" role="region" aria-label="Rule quality" tabindex="0">
         <table class="mini-table">
             <thead>
                 <tr>
-                    <th>Rule</th>
-                    <th>Alerts</th>
-                    <th>True positive</th>
-                    <th>False positive</th>
-                    <th>Benign expected</th>
-                    <th>Unclassified</th>
-                    <th>FP rate</th>
-                    <th>Validation</th>
+                    <th scope="col">Rule</th>
+                    <th scope="col">Alerts</th>
+                    <th scope="col">True positive</th>
+                    <th scope="col">False positive</th>
+                    <th scope="col">Benign expected</th>
+                    <th scope="col">Unclassified</th>
+                    <th scope="col">FP rate</th>
+                    <th scope="col">Validation</th>
                 </tr>
             </thead>
             <tbody id="rule-quality-body"><tr><td colspan="8">Loading...</td></tr></tbody>

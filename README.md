@@ -5,14 +5,14 @@
 ![Ollama](https://img.shields.io/badge/Ollama-Cloud_AI-white?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=flat-square)
-![Release](https://img.shields.io/badge/release-v0.9.0-2ea44f?style=flat-square)
+![Release](https://img.shields.io/badge/release-v1.0.0--rc.1-2ea44f?style=flat-square)
 [![CI](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml/badge.svg)](https://github.com/zenniskayy2k4/Mini-SIEM/actions/workflows/ci.yml)
 
 A compact, explainable SIEM lab for learning blue-team workflows. It combines YAML signatures, local anomaly models, event correlation, an optional Ollama Cloud analyst, an authenticated incident dashboard, and safe response simulation.
 
 > **Educational use only.** Run it only on systems and networks you own or are authorized to monitor. It is not a production EDR, firewall, or replacement for a staffed SOC.
 
-Current release: **v0.9.0** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v0.9.0.md).
+Current release: **v1.0.0-rc.1** — see the [changelog](CHANGELOG.md) and [release checklist](docs/RELEASE_v1.0.0-rc.1.md).
 
 ## What is implemented
 
@@ -37,31 +37,56 @@ Current release: **v0.9.0** — see the [changelog](CHANGELOG.md) and [release c
 ## Architecture
 
 ```mermaid
-flowchart LR
-    Linux[Linux logs] --> Agent[Mini-SIEM agent]
-    Windows[Windows/Sysmon collector] -->|shared-secret ingest| Ingest[Windows ingest API]
-    Ingest --> WinFile[(windows_events.jsonl)]
+flowchart TB
+    subgraph Collection[Telemetry collection]
+        direction LR
+        Linux[Linux logs]
+        Windows[Windows/Sysmon collector] -->|shared secret| Ingest[Windows ingest API]
+        Ingest --> WinFile[(Windows event buffer)]
+        NIDS[NIDS packet capture]
+        Honey[Honeypot events]
+    end
+
+    subgraph Detection[Detection pipeline]
+        direction TB
+        Agent[Mini-SIEM agent]
+        Agent --> Rules[YAML rules]
+        Agent --> NLP[TF-IDF + Isolation Forest]
+        Agent --> AE[Autoencoder]
+        Rules --> Pipeline[Alert pipeline]
+        NLP --> Pipeline
+        AE --> Pipeline
+        Pipeline --> Correlation[Correlation + incident lifecycle]
+    end
+
+    Linux --> Agent
     WinFile --> Agent
-    NIDS[NIDS packet capture] --> Agent
-    Honey[Honeypot events] --> Agent
+    NIDS --> Agent
+    Honey --> Agent
 
-    Agent --> Rules[YAML rules]
-    Agent --> NLP[TF-IDF + Isolation Forest]
-    Agent --> AE[Autoencoder]
-    Rules --> Pipeline[Alert pipeline]
-    NLP --> Pipeline
-    AE --> Pipeline
+    subgraph Enrichment[Enrichment, storage, and response]
+        direction TB
+        TI["Threat intelligence<br/>GeoIP + reputation + STIX/TAXII"]
+        AI["Ollama providers<br/>bounded fallback / shared 1-worker analyst"]
+        Response[Safe response workflow]
+        Webhook[Optional webhook]
+        TI --> SQLite[(SQLite)]
+        TI --> JSON[(JSON fallback)]
+    end
 
-    Pipeline --> Correlation[Correlation + incident lifecycle]
-    Correlation --> TI["Threat intelligence<br/>GeoIP + reputation + STIX/TAXII"]
-    TI --> SQLite[(SQLite)]
-    TI --> JSON[(JSON fallback)]
-    Correlation --> AI["Ollama providers<br/>bounded fallback / shared 1-worker analyst"]
-    Correlation --> Response[Safe response workflow]
-    Correlation --> Webhook[Optional webhook]
+    Correlation --> TI
+    Correlation --> AI
+    Correlation --> Response
+    Correlation --> Webhook
 
-    SQLite --> UI[Authenticated Flask dashboard]
-    Agent -->|heartbeat| Health[Health diagnostics]
+    subgraph Operations[Analyst and operations]
+        direction LR
+        UI[Authenticated Flask dashboard]
+        Health[Health diagnostics]
+    end
+
+    SQLite --> UI
+    Agent -->|heartbeat| Health
     UI --> Health
 ```
 
@@ -89,7 +114,7 @@ Ollama adds separate decision-support fields:
 Requirements: Docker Desktop with Compose, Git, and enough resources to run the local models. Ollama Cloud is optional.
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/zenniskayy2k4/Mini-SIEM.git
 cd Mini-SIEM
 cp .env.example .env
 docker compose --profile train run --rm train
@@ -275,13 +300,17 @@ For meaningful NIDS testing, prefer a Linux host/VM with an explicitly selected 
 
 ## Operations and testing
 
-- `GET /health` provides an unauthenticated liveness/readiness summary; authenticated admins can use `/api/system/status` for richer diagnostics.
+- Production-style procedures are split into the [operations](docs/OPERATIONS.md),
+  [upgrade](docs/UPGRADE.md), [troubleshooting](docs/TROUBLESHOOTING.md), and
+  [security operations](docs/SECURITY.md) runbooks.
+- `GET /health` provides an unauthenticated liveness/readiness summary; authenticated admins can use the unified diagnostics panel in `/settings` or `/api/system/status` for health, ingestion, rule-load, provider, collector, and database state without exposing credentials.
+- New integrations should use the versioned [REST API v1](docs/REST_API_V1.md); existing `/api/...` paths remain temporary compatibility aliases.
 - The opt-in [local HTTPS profile](docs/HTTPS_DEPLOYMENT.md) terminates TLS with Caddy, closes the direct dashboard port, validates one forwarded-header hop, and documents the development CA certificate path.
 - Retention, backup, restore verification, and log rotation are documented in [Retention and backup](docs/RETENTION_BACKUP.md).
 - The supported Sigma subset, import flow, provenance, and debugging steps are in [Sigma rule support](docs/SIGMA_RULES.md).
 - Runtime hit coverage and manual checks are tracked in the [Detection checklist](docs/DETECTION_CHECKLIST.md); deterministic scenario coverage is published in the [validation coverage matrix](docs/DETECTION_VALIDATION_COVERAGE.md).
 - The portfolio-ready workflow is in [End-to-end Blue Team demo](docs/DEMO_SCENARIO.md).
-- Release changes and verification are in the [changelog](CHANGELOG.md) and [v0.9.0 checklist](docs/RELEASE_v0.9.0.md).
+- Release changes and verification are in the [changelog](CHANGELOG.md) and [v1.0.0-rc.1 checklist](docs/RELEASE_v1.0.0-rc.1.md).
 - Every future tag must pass the [CI-backed release checklist](docs/RELEASE_CHECKLIST.md).
 - The completed v0.3 history is in the [Blue-team development plan](docs/MINI_SIEM_BLUE_TEAM_DEVELOPMENT_PLAN.md); active work continues in the [v0.7–v1.0 roadmap](docs/MINI_SIEM_ROADMAP_v0.7_to_v1.0.md).
 
@@ -339,10 +368,11 @@ Mini-SIEM/
 
 ![Authenticated dashboard overview](assets/Dashboard.jpeg)
 
+The responsive dashboard includes a skip link, visible keyboard focus, labelled controls and charts, keyboard-scrollable data tables, associated form errors, and modal focus restoration.
+
 ## Near-term roadmap
 
-- Version the REST API surface and alert schema before v1.0.
-- Add operator diagnostics, an accessibility pass, and production-style runbooks.
+- Finish the v1.0.0 release candidate: tag `v1.0.0-rc.1`, close the stabilization window, and publish v1.0.0.
 - Keep multi-tenant architecture and production response integrations deferred until a concrete isolation or execution requirement exists.
 
 ## Dependency policy
